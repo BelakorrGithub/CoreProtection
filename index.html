@@ -9,48 +9,84 @@
 <body>
   <canvas id="game"></canvas>
   <div id="hud">
-    <div id="level">Nivel 1</div>
-    <div id="wave">Oleada 1 de 5</div>
+    <div id="level">Level 1</div>
+    <div id="wave">Wave 1 of 3</div>
+    <div id="money"><span class="icon icon-coin" aria-hidden="true"></span>Credits: 0</div>
   </div>
+  <div id="admin-toast" class="hidden">You are not an admin</div>
+  <div id="money-toast" class="hidden">Not enough credits</div>
+  <button id="debug-skip">Debug: Skip Level</button>
   <div id="countdown" class="hidden">3</div>
+  <div id="wave-message" class="hidden">Wave 1</div>
   <div id="gameover" class="hidden">Game Over</div>
+  <button id="gameover-menu" class="hidden">Return to Menu</button>
+  <div id="victory" class="hidden">
+    <div class="title">Congratulations</div>
+    <div class="subtitle">You completed all levels</div>
+    <button id="victory-close">Continue</button>
+  </div>
   <div id="start-screen">
     <div class="title">Core Protection</div>
-    <button id="start-button">Comenzar</button>
+    <div id="menu-credits"><span class="icon icon-coin" aria-hidden="true"></span><span class="label">Credits: 0</span></div>
+    <div id="level-select">
+      <button class="level-button" data-level="1">Level 1</button>
+      <button class="level-button" data-level="2" disabled>Level 2</button>
+      <button class="level-button" data-level="3" disabled>Level 3</button>
+    </div>
+    <button class="level-button final" data-level="4" disabled>Final Level</button>
+    <button id="start-button">Start</button>
+    <div id="menu-upgrades" class="action-row hidden">
+      <div class="row-title">Upgrades</div>
+      <button class="skill upgrade" data-upgrade="shield">
+        <span class="icon icon-shield" aria-hidden="true"></span>
+        <span class="label">Shield level 1</span>
+        <span class="status"></span>
+      </button>
+      <button class="skill upgrade" data-upgrade="nova">
+        <span class="icon icon-explosion" aria-hidden="true"></span>
+        <span class="label">Unlock Nova</span>
+        <span class="status"></span>
+      </button>
+      <button class="skill upgrade" data-upgrade="regen">
+        <span class="icon icon-plus" aria-hidden="true"></span>
+        <span class="label">Unlock Regen</span>
+        <span class="status"></span>
+      </button>
+    </div>
+    <button id="reset-progress" class="level-button">Reset Progress</button>
   </div>
-  <div id="skills">
-    <button class="skill unlocked" data-skill="nova">
-      <span class="icon icon-nova" aria-hidden="true"></span>
-      <span class="label">Nova</span>
-    </button>
-    <button class="skill unlocked" data-skill="regen">
-      <span class="icon icon-shield" aria-hidden="true"></span>
-      <span class="label">Regen</span>
-    </button>
-    <button class="skill locked" disabled>
-      <span class="icon icon-lock" aria-hidden="true"></span>
-      <span class="label">Bloqueada</span>
-    </button>
-    <button class="skill locked" disabled>
-      <span class="icon icon-lock" aria-hidden="true"></span>
-      <span class="label">Bloqueada</span>
-    </button>
-    <button class="skill locked" disabled>
-      <span class="icon icon-lock" aria-hidden="true"></span>
-      <span class="label">Bloqueada</span>
-    </button>
-    <button class="skill locked" disabled>
-      <span class="icon icon-lock" aria-hidden="true"></span>
-      <span class="label">Bloqueada</span>
-    </button>
-    <button class="skill locked" disabled>
-      <span class="icon icon-lock" aria-hidden="true"></span>
-      <span class="label">Bloqueada</span>
-    </button>
-    <button class="skill locked" disabled>
-      <span class="icon icon-lock" aria-hidden="true"></span>
-      <span class="label">Bloqueada</span>
-    </button>
+  <div id="confirm-reset" class="hidden">
+    <div class="confirm-card">
+      <div class="confirm-title">Reset Progress?</div>
+      <div class="confirm-text">This will clear levels, credits, and upgrades.</div>
+      <div class="confirm-actions">
+        <button id="confirm-reset-yes">Yes</button>
+        <button id="confirm-reset-no">Cancel</button>
+      </div>
+    </div>
+  </div>
+  <div id="actions">
+    <div class="action-row" id="skills">
+      <div class="row-title">Abilities</div>
+      <button class="skill locked" data-skill="nova" disabled>
+        <span class="icon icon-explosion" aria-hidden="true"></span>
+        <span class="label">Nova</span>
+        <span class="status">Locked</span>
+      </button>
+      <button class="skill locked" data-skill="regen" disabled>
+        <span class="icon icon-plus" aria-hidden="true"></span>
+        <span class="label">Regen</span>
+        <span class="status">Locked</span>
+      </button>
+      <button class="skill locked" disabled>
+        <span class="icon icon-lock" aria-hidden="true"></span>
+        <span class="label">Locked</span>
+      </button>
+      <button class="skill locked" disabled>
+        <span class="icon icon-lock" aria-hidden="true"></span>
+        <span class="label">Locked</span>
+      </button>
+    </div>
   </div>
   <script src="main.js"></script>
 </body>
