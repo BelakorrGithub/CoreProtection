@@ -442,6 +442,22 @@ function playSfx(type) {
     return;
   }
 
+  if (type === 'regen') {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(420, now);
+    osc.frequency.exponentialRampToValueAtTime(620, now + 0.25);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.4, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.3);
+    osc.connect(gain);
+    gain.connect(masterGain);
+    osc.start(now);
+    osc.stop(now + 0.35);
+    return;
+  }
+
   if (type === 'victory') {
     const notes = [330, 392, 440, 523, 659];
     notes.forEach((freq, index) => {
@@ -1369,7 +1385,7 @@ skillButtons.forEach(button => {
       shieldLayers.forEach(layer => {
         layer.hp = layer.max;
       });
-      playSfx('shield');
+      playSfx('regen');
       setCooldown(skill);
     }
   });

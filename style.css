@@ -6,6 +6,11 @@ html, body {
   font-family: "Orbitron", "Russo One", "Trebuchet MS", sans-serif;
   overflow: hidden;
   height: 100%;
+  user-select: none;
+}
+
+button, .skill, #hud, #start-screen, #victory, #confirm-reset, #admin-toast, #money-toast {
+  user-select: none;
 }
 
 canvas {
@@ -185,13 +190,14 @@ canvas {
 
 #start-button {
   border: 1px solid rgba(120, 200, 255, 0.8);
-  background: rgba(12, 20, 40, 0.8);
+  background: rgba(10, 40, 30, 0.85);
   color: #e6f2ff;
   padding: 12px 28px;
   font-size: 18px;
   letter-spacing: 0.08em;
   cursor: pointer;
-  box-shadow: 0 0 16px rgba(80, 160, 255, 0.35);
+  box-shadow: 0 0 16px rgba(80, 200, 140, 0.45);
+  border-color: rgba(120, 240, 180, 0.8);
 }
 
 #confirm-reset {
@@ -299,7 +305,7 @@ canvas {
   display: grid;
   gap: 8px;
   padding: 10px 12px 12px;
-  background: linear-gradient(180deg, rgba(5, 10, 20, 0), rgba(5, 10, 20, 0.85) 55%);
+  background: #0b111f;
   z-index: 2;
 }
 
