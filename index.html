@@ -15,7 +15,21 @@
   </div>
   <div id="admin-toast" class="hidden">You are not an admin</div>
   <div id="money-toast" class="hidden">Not enough credits</div>
-  <button id="debug-skip">Debug: Skip Level</button>
+  <div id="pause-overlay" class="hidden">
+    <div class="pause-title">Paused</div>
+    <div class="pause-subtitle" id="pause-resume">Tap to resume</div>
+    <button id="pause-menu">Return to Menu</button>
+  </div>
+  <div id="pause-confirm" class="hidden">
+    <div class="confirm-card">
+      <div class="confirm-title">Return to Menu?</div>
+      <div class="confirm-text">You will lose all credits earned this run.</div>
+      <div class="confirm-actions">
+        <button id="pause-confirm-yes">Yes</button>
+        <button id="pause-confirm-no">Cancel</button>
+      </div>
+    </div>
+  </div>
   <div id="countdown" class="hidden">3</div>
   <div id="wave-message" class="hidden">Wave 1</div>
   <div id="gameover" class="hidden">Game Over</div>
@@ -23,6 +37,7 @@
   <div id="victory" class="hidden">
     <div class="title">Congratulations</div>
     <div class="subtitle">You completed all levels</div>
+    <div class="subtitle">HARDCORE MODE UNLOCKED</div>
     <button id="victory-close">Continue</button>
   </div>
   <div id="start-screen">
@@ -34,6 +49,7 @@
       <button class="level-button" data-level="3" disabled>Level 3</button>
     </div>
     <button class="level-button final" data-level="4" disabled>Final Level</button>
+    <button class="level-button hardcore" data-level="5" disabled>Hardcore Level</button>
     <button id="start-button">Start</button>
     <div id="menu-upgrades" class="action-row hidden">
       <div class="row-title">Upgrades</div>
@@ -86,9 +102,13 @@
         <span class="icon icon-lock" aria-hidden="true"></span>
         <span class="label">Locked</span>
       </button>
-      <button class="skill locked" disabled>
-        <span class="icon icon-lock" aria-hidden="true"></span>
-        <span class="label">Locked</span>
+      <button class="skill utility" id="pause-button">
+        <span class="icon icon-pause" aria-hidden="true"></span>
+        <span class="label">Pause</span>
+      </button>
+      <button class="skill utility" id="debug-skip">
+        <span class="icon icon-debug" aria-hidden="true"></span>
+        <span class="label">Debug</span>
       </button>
     </div>
   </div>

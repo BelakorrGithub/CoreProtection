@@ -14,6 +14,13 @@ const resetProgressButton = document.getElementById('reset-progress');
 const debugSkip = document.getElementById('debug-skip');
 const adminToast = document.getElementById('admin-toast');
 const moneyToast = document.getElementById('money-toast');
+const pauseOverlay = document.getElementById('pause-overlay');
+const pauseButton = document.getElementById('pause-button');
+const pauseMenu = document.getElementById('pause-menu');
+const pauseResume = document.getElementById('pause-resume');
+const pauseConfirm = document.getElementById('pause-confirm');
+const pauseConfirmYes = document.getElementById('pause-confirm-yes');
+const pauseConfirmNo = document.getElementById('pause-confirm-no');
 const menuCredits = document.getElementById('menu-credits');
 const confirmReset = document.getElementById('confirm-reset');
 const confirmResetYes = document.getElementById('confirm-reset-yes');
@@ -38,11 +45,15 @@ const state = {
   spawnInterval: 1.1,
   waveSpawned: 0,
   waveTarget: 0,
+  bossSpawnTimer: 0,
   money: 0,
   unlockedLevel: 1,
   selectedLevel: 1,
   betweenLevels: false,
   finalLevel: false,
+  hardcoreLevel: false,
+  paused: false,
+  runStartMoney: 0,
   musicGain: 0.24,
   musicTempo: 140,
   lastTime: 0
@@ -52,7 +63,8 @@ const levels = [
   { level: 1, spawnInterval: 1.35, music: { gain: 0.2, tempo: 220 } },
   { level: 2, spawnInterval: 1.05, music: { gain: 0.26, tempo: 170 } },
   { level: 3, spawnInterval: 0.75, music: { gain: 0.32, tempo: 130 } },
-  { level: 4, spawnInterval: 1.2, music: { gain: 0.36, tempo: 110 } }
+  { level: 4, spawnInterval: 1.2, music: { gain: 0.36, tempo: 110 } },
+  { level: 5, spawnInterval: 0.4, music: { gain: 0.4, tempo: 90 } }
 ];
 
 const baseCoreRadius = 28;
@@ -393,6 +405,51 @@ function playSfx(type) {
     return;
   }
 
+  if (type === 'nova') {
+    const osc1 = audioCtx.createOscillator();
+    const osc2 = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc1.type = 'sawtooth';
+    osc2.type = 'square';
+    osc1.frequency.setValueAtTime(260, now);
+    osc2.frequency.setValueAtTime(160, now);
+    osc1.frequency.exponentialRampToValueAtTime(40, now + 0.7);
+    osc2.frequency.exponentialRampToValueAtTime(30, now + 0.7);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.9, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.75);
+    osc1.connect(gain);
+    osc2.connect(gain);
+    gain.connect(masterGain);
+
+    const noiseBuffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.7, audioCtx.sampleRate);
+    const data = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < data.length; i += 1) {
+      data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
+    }
+    const noise = audioCtx.createBufferSource();
+    noise.buffer = noiseBuffer;
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(1200, now);
+    filter.frequency.exponentialRampToValueAtTime(180, now + 0.7);
+    const noiseGain = audioCtx.createGain();
+    noiseGain.gain.setValueAtTime(0.0001, now);
+    noiseGain.gain.exponentialRampToValueAtTime(0.5, now + 0.03);
+    noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.75);
+    noise.connect(filter);
+    filter.connect(noiseGain);
+    noiseGain.connect(masterGain);
+
+    osc1.start(now);
+    osc2.start(now);
+    noise.start(now);
+    osc1.stop(now + 0.75);
+    osc2.stop(now + 0.75);
+    noise.stop(now + 0.75);
+    return;
+  }
+
   if (type === 'tick') {
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
@@ -446,15 +503,28 @@ function playSfx(type) {
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
     osc.type = 'sine';
-    osc.frequency.setValueAtTime(420, now);
-    osc.frequency.exponentialRampToValueAtTime(620, now + 0.25);
+    osc.frequency.setValueAtTime(360, now);
+    osc.frequency.exponentialRampToValueAtTime(680, now + 0.4);
     gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(0.4, now + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.3);
+    gain.gain.exponentialRampToValueAtTime(0.5, now + 0.03);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.45);
     osc.connect(gain);
     gain.connect(masterGain);
     osc.start(now);
-    osc.stop(now + 0.35);
+    osc.stop(now + 0.5);
+
+    const shimmer = audioCtx.createOscillator();
+    const shimmerGain = audioCtx.createGain();
+    shimmer.type = 'triangle';
+    shimmer.frequency.setValueAtTime(900, now);
+    shimmer.frequency.exponentialRampToValueAtTime(1200, now + 0.25);
+    shimmerGain.gain.setValueAtTime(0.0001, now);
+    shimmerGain.gain.exponentialRampToValueAtTime(0.2, now + 0.05);
+    shimmerGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+    shimmer.connect(shimmerGain);
+    shimmerGain.connect(masterGain);
+    shimmer.start(now);
+    shimmer.stop(now + 0.4);
     return;
   }
 
@@ -489,10 +559,6 @@ function playSfx(type) {
   if (type === 'shield') {
     osc.type = 'sine';
     osc.frequency.setValueAtTime(360, now);
-  } else if (type === 'nova') {
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(520, now);
-    osc.frequency.exponentialRampToValueAtTime(180, now + 0.3);
   } else if (type === 'core') {
     osc.type = 'sawtooth';
     osc.frequency.setValueAtTime(120, now);
@@ -513,10 +579,13 @@ function resetGame() {
   state.spawnTimer = 0;
   state.waveSpawned = 0;
   state.waveTarget = 0;
+  state.bossSpawnTimer = 0;
   state.lastTime = 0;
   state.wave = 1;
   state.betweenLevels = false;
   state.finalLevel = false;
+  state.hardcoreLevel = false;
+  state.paused = false;
   core.alive = true;
   if (victoryTimer) {
     clearTimeout(victoryTimer);
@@ -548,6 +617,7 @@ function resetGame() {
   gameoverEl.classList.add('hidden');
   gameoverMenu.classList.add('hidden');
   waveMessageEl.classList.add('hidden');
+  pauseOverlay.classList.add('hidden');
 }
 
 function showWaveMessage(text, duration = 1.4) {
@@ -562,6 +632,10 @@ function showWaveMessage(text, duration = 1.4) {
 }
 
 function getWaveTarget(level, wave) {
+  if (level >= 5) {
+    const base = 20 + (wave - 1) * 6;
+    return base;
+  }
   const base = 7 + (level - 1) * 4;
   return base + (wave - 1) * 2;
 }
@@ -574,7 +648,8 @@ function applyLevelConfig(level) {
   const config = levels.find(item => item.level === level) || levels[0];
   state.level = config.level;
   state.finalLevel = state.level === 4;
-  state.wavesTotal = state.finalLevel ? 1 : 3;
+  state.hardcoreLevel = state.level === 5;
+  state.wavesTotal = state.finalLevel ? 1 : state.hardcoreLevel ? 5 : 3;
   state.wave = 1;
   state.spawnInterval = config.spawnInterval;
   setMusicIntensity(state.level);
@@ -596,6 +671,7 @@ function startWave(showMessage = true) {
 function startFinalLevel() {
   state.running = true;
   state.betweenLevels = false;
+  state.bossSpawnTimer = 0;
   initBoss();
   updateHud();
   updateUpgradeVisibility();
@@ -617,6 +693,7 @@ function completeLevel() {
   if (state.level >= state.unlockedLevel && state.level < levels.length) {
     state.unlockedLevel = state.level + 1;
     localStorage.setItem('unlockedLevel', String(state.unlockedLevel));
+    state.selectedLevel = state.unlockedLevel;
     updateLevelButtons();
   }
   stopMusic();
@@ -725,9 +802,14 @@ function update(dt) {
   updateCooldowns(dt);
   updateExplosions(dt);
   updateScreenEffects(dt);
-  if (!state.running || !core.alive) return;
+  if (!state.running || !core.alive || state.paused) return;
 
   if (state.finalLevel) {
+    state.bossSpawnTimer += dt;
+    if (state.bossSpawnTimer >= 2.6) {
+      state.bossSpawnTimer = 0;
+      spawnMissile();
+    }
     updateBoss(dt);
   } else {
     state.spawnTimer += dt;
@@ -1125,6 +1207,7 @@ function drawExplosions() {
 function triggerNovaEffect() {
   screenFlash = 1;
   shockwave = 1;
+  triggerExplosion(center().x, center().y, '#9cd3ff', Math.max(width, height) * 0.6, 0.5, 18);
 }
 
 function triggerConfetti() {
@@ -1247,7 +1330,7 @@ function startCountdown() {
   stopMusic();
   countdownEl.textContent = state.countdown;
   countdownEl.classList.remove('hidden');
-  showWaveMessage(state.finalLevel ? 'Final Level' : getWaveLabel(), 2.2);
+  showWaveMessage(state.finalLevel ? 'Final Level' : state.hardcoreLevel ? 'Hardcore Level' : getWaveLabel(), 2.2);
   playSfx('tick');
   const timer = setInterval(() => {
     state.countdown -= 1;
@@ -1323,6 +1406,11 @@ function getSkillCooldown(skill) {
 
 canvas.addEventListener('pointerdown', e => {
   if (!state.running) return;
+  if (state.paused) {
+    state.paused = false;
+    pauseOverlay.classList.add('hidden');
+    return;
+  }
   const x = e.clientX;
   const y = e.clientY;
   for (let i = missiles.length - 1; i >= 0; i -= 1) {
@@ -1397,6 +1485,7 @@ startButton.addEventListener('click', () => {
   resetGame();
   applyLevelConfig(state.selectedLevel);
   rebuildShields();
+  state.runStartMoney = state.money;
   updateHud();
   startScreen.classList.add('hidden');
   state.betweenLevels = false;
@@ -1436,6 +1525,54 @@ gameoverMenu.addEventListener('click', () => {
   gameoverMenu.classList.add('hidden');
   gameoverEl.classList.add('hidden');
   updateUpgradeVisibility();
+});
+
+pauseButton.addEventListener('click', () => {
+  if (!state.running || startScreen.classList.contains('hidden') === false) return;
+  state.paused = !state.paused;
+  pauseOverlay.classList.toggle('hidden', !state.paused);
+});
+
+pauseMenu.addEventListener('pointerdown', e => {
+  e.stopPropagation();
+});
+
+pauseMenu.addEventListener('click', e => {
+  e.stopPropagation();
+  if (!state.paused) return;
+  pauseConfirm.classList.remove('hidden');
+});
+
+pauseOverlay.addEventListener('pointerdown', e => {
+  if (e.target !== pauseOverlay) return;
+  if (!state.paused) return;
+  state.paused = false;
+  pauseOverlay.classList.add('hidden');
+});
+
+pauseResume.addEventListener('click', e => {
+  e.stopPropagation();
+  if (!state.paused) return;
+  state.paused = false;
+  pauseOverlay.classList.add('hidden');
+});
+
+pauseConfirmYes.addEventListener('click', () => {
+  pauseConfirm.classList.add('hidden');
+  if (!state.paused) return;
+  stopMusic();
+  state.paused = false;
+  state.money = state.runStartMoney;
+  sessionStorage.setItem('money', String(state.money));
+  resetGame();
+  updateHud();
+  startScreen.classList.remove('hidden');
+  state.betweenLevels = false;
+  updateUpgradeVisibility();
+});
+
+pauseConfirmNo.addEventListener('click', () => {
+  pauseConfirm.classList.add('hidden');
 });
 
 function clearDebugHold() {
@@ -1718,6 +1855,7 @@ function loadProgress() {
   updateLevelButtons();
   updateUpgrades();
   updateSkillLocks();
+  updateResetVisibility();
 }
 
 function resetProgress() {
@@ -1739,4 +1877,17 @@ function resetProgress() {
   updateSkillLocks();
   updateHud();
   updateUpgradeVisibility();
+  updateResetVisibility();
+}
+
+function updateResetVisibility() {
+  if (!resetProgressButton) return;
+  const hasProgress = (
+    Number(localStorage.getItem('unlockedLevel')) > 1 ||
+    Number(sessionStorage.getItem('money')) > 0 ||
+    Number(sessionStorage.getItem('shieldUpgrades')) > 0 ||
+    Number(sessionStorage.getItem('novaLevel')) > 0 ||
+    Number(sessionStorage.getItem('regenLevel')) > 0
+  );
+  resetProgressButton.classList.toggle('hidden', !hasProgress);
 }
