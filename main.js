@@ -7,6 +7,7 @@ const waveMessageEl = document.getElementById('wave-message');
 const gameoverEl = document.getElementById('gameover');
 const gameoverMenu = document.getElementById('gameover-menu');
 const victoryEl = document.getElementById('victory');
+const hardcoreUnlocked = document.getElementById('hardcore-unlocked');
 const victoryClose = document.getElementById('victory-close');
 const startScreen = document.getElementById('start-screen');
 const startButton = document.getElementById('start-button');
@@ -684,6 +685,9 @@ function completeLevel() {
     stopMusic();
     playSfx('victory');
     triggerConfetti();
+    if (hardcoreUnlocked) {
+      hardcoreUnlocked.classList.toggle('hidden', state.level >= 5);
+    }
     victoryEl.classList.remove('hidden');
     return;
   }
