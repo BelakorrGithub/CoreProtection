@@ -868,11 +868,63 @@ function updateBoss(dt) {
 function drawBoss() {
   if (!boss.active) return;
   ctx.save();
-  ctx.fillStyle = 'rgba(30, 60, 90, 0.9)';
-  ctx.strokeStyle = 'rgba(120, 200, 255, 0.5)';
+  const x = boss.x;
+  const y = boss.y;
+  const w = boss.width;
+  const h = boss.height;
+  const bevel = Math.min(w, h) * 0.08;
+  const hullGradient = ctx.createLinearGradient(x, y, x, y + h);
+  hullGradient.addColorStop(0, 'rgba(10, 20, 35, 0.95)');
+  hullGradient.addColorStop(1, 'rgba(25, 45, 70, 0.95)');
+  ctx.fillStyle = hullGradient;
+  ctx.strokeStyle = 'rgba(90, 140, 190, 0.5)';
   ctx.lineWidth = 2;
-  ctx.fillRect(boss.x, boss.y, boss.width, boss.height);
-  ctx.strokeRect(boss.x, boss.y, boss.width, boss.height);
+  ctx.beginPath();
+  ctx.moveTo(x + bevel, y);
+  ctx.lineTo(x + w - bevel, y);
+  ctx.lineTo(x + w, y + bevel);
+  ctx.lineTo(x + w, y + h - bevel);
+  ctx.lineTo(x + w - bevel, y + h);
+  ctx.lineTo(x + bevel, y + h);
+  ctx.lineTo(x, y + h - bevel);
+  ctx.lineTo(x, y + bevel);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = 'rgba(15, 30, 50, 0.9)';
+  ctx.beginPath();
+  ctx.moveTo(x + w * 0.1, y + h * 0.3);
+  ctx.lineTo(x + w * 0.3, y + h * 0.15);
+  ctx.lineTo(x + w * 0.7, y + h * 0.15);
+  ctx.lineTo(x + w * 0.9, y + h * 0.3);
+  ctx.lineTo(x + w * 0.75, y + h * 0.4);
+  ctx.lineTo(x + w * 0.25, y + h * 0.4);
+  ctx.closePath();
+  ctx.fill();
+
+  const panelW = w * 0.5;
+  const panelH = h * 0.08;
+  const panelX = x + w * 0.25;
+  const panelY = y + h * 0.16;
+  const panelGradient = ctx.createLinearGradient(panelX, panelY, panelX + panelW, panelY);
+  panelGradient.addColorStop(0, 'rgba(20, 40, 60, 0.8)');
+  panelGradient.addColorStop(1, 'rgba(40, 80, 120, 0.9)');
+  ctx.fillStyle = panelGradient;
+  ctx.beginPath();
+  ctx.roundRect(panelX, panelY, panelW, panelH, 4);
+  ctx.fill();
+
+  ctx.strokeStyle = 'rgba(80, 140, 200, 0.4)';
+  ctx.beginPath();
+  ctx.moveTo(x + w * 0.2, y + h * 0.55);
+  ctx.lineTo(x + w * 0.8, y + h * 0.55);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(x + w * 0.2, y + h * 0.65);
+  ctx.lineTo(x + w * 0.8, y + h * 0.65);
+  ctx.stroke();
 
   boss.parts.forEach(part => {
     if (part.hp <= 0) return;
@@ -905,6 +957,11 @@ function hitBossAt(x, y) {
       part.flash = 0.6;
       playSfx('hitsoft');
       triggerExplosion(x, y, '#9cd3ff', 32, 0.2, 6);
+      if (part.hp <= 0) {
+        const bounty = part.type === 'main' ? 50 : 10;
+        awardMoney(bounty);
+        spawnCashFloater(x, y, bounty);
+      }
       return true;
     }
   }
