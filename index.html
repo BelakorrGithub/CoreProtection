@@ -8,6 +8,50 @@
 </head>
 <body>
   <canvas id="game"></canvas>
+  <div id="hud">
+    <div id="level">Nivel 1</div>
+    <div id="wave">Oleada 1 de 5</div>
+  </div>
+  <div id="countdown" class="hidden">3</div>
+  <div id="gameover" class="hidden">Game Over</div>
+  <div id="start-screen">
+    <div class="title">Core Protection</div>
+    <button id="start-button">Comenzar</button>
+  </div>
+  <div id="skills">
+    <button class="skill unlocked" data-skill="nova">
+      <span class="icon icon-nova" aria-hidden="true"></span>
+      <span class="label">Nova</span>
+    </button>
+    <button class="skill unlocked" data-skill="regen">
+      <span class="icon icon-shield" aria-hidden="true"></span>
+      <span class="label">Regen</span>
+    </button>
+    <button class="skill locked" disabled>
+      <span class="icon icon-lock" aria-hidden="true"></span>
+      <span class="label">Bloqueada</span>
+    </button>
+    <button class="skill locked" disabled>
+      <span class="icon icon-lock" aria-hidden="true"></span>
+      <span class="label">Bloqueada</span>
+    </button>
+    <button class="skill locked" disabled>
+      <span class="icon icon-lock" aria-hidden="true"></span>
+      <span class="label">Bloqueada</span>
+    </button>
+    <button class="skill locked" disabled>
+      <span class="icon icon-lock" aria-hidden="true"></span>
+      <span class="label">Bloqueada</span>
+    </button>
+    <button class="skill locked" disabled>
+      <span class="icon icon-lock" aria-hidden="true"></span>
+      <span class="label">Bloqueada</span>
+    </button>
+    <button class="skill locked" disabled>
+      <span class="icon icon-lock" aria-hidden="true"></span>
+      <span class="label">Bloqueada</span>
+    </button>
+  </div>
   <script src="main.js"></script>
 </body>
 </html>
