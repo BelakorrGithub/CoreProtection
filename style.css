@@ -28,6 +28,44 @@ canvas {
   z-index: 2;
 }
 
+#boss-bar {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(70vw, 420px);
+  display: grid;
+  gap: 6px;
+  text-align: center;
+  z-index: 2;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 12px;
+  color: #ffd6d6;
+  text-shadow: 0 0 10px rgba(255, 120, 120, 0.5);
+}
+
+#boss-bar.hidden {
+  display: none;
+}
+
+.boss-track {
+  width: 100%;
+  height: 10px;
+  border: 1px solid rgba(255, 120, 120, 0.6);
+  background: rgba(20, 10, 10, 0.8);
+  box-shadow: 0 0 12px rgba(255, 80, 80, 0.3);
+  overflow: hidden;
+}
+
+.boss-fill {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #ff6b6b, #ffb06b);
+  box-shadow: 0 0 12px rgba(255, 120, 120, 0.8);
+  transition: width 0.15s ease-out;
+}
+
 #admin-toast {
   position: absolute;
   top: 56px;
@@ -379,7 +417,7 @@ canvas {
 
 .action-row {
   display: grid;
-  grid-template-columns: repeat(4, minmax(70px, 1fr));
+  grid-template-columns: repeat(5, minmax(70px, 1fr));
   gap: 8px;
   width: min(92vw, 760px);
   margin: 0 auto;
@@ -511,6 +549,14 @@ canvas {
 
 .icon-plus {
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' fill='none'><rect x='28' y='10' width='8' height='44' rx='3' fill='%2350c8ff'/><rect x='10' y='28' width='44' height='8' rx='3' fill='%2350c8ff'/></svg>");
+}
+
+.icon-hourglass {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' fill='none'><path d='M18 10H46' stroke='%239cd3ff' stroke-width='4' stroke-linecap='round'/><path d='M18 54H46' stroke='%239cd3ff' stroke-width='4' stroke-linecap='round'/><path d='M22 14C22 26 42 26 42 14' stroke='%239cd3ff' stroke-width='4' stroke-linecap='round'/><path d='M22 50C22 38 42 38 42 50' stroke='%239cd3ff' stroke-width='4' stroke-linecap='round'/><circle cx='32' cy='32' r='3' fill='%239cd3ff'/></svg>");
+}
+
+.icon-aegis {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' fill='none'><path d='M32 6L52 14V30C52 42 43 52 32 58C21 52 12 42 12 30V14L32 6Z' stroke='%23c9d2dc' stroke-width='4'/><path d='M18 24L46 24' stroke='%23838e99' stroke-width='4' stroke-linecap='round'/><path d='M18 34L46 34' stroke='%23838e99' stroke-width='4' stroke-linecap='round'/><path d='M22 44L42 44' stroke='%23838e99' stroke-width='4' stroke-linecap='round'/></svg>");
 }
 
 .icon-lock {

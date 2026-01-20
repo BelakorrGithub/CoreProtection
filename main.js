@@ -23,6 +23,8 @@ const pauseConfirm = document.getElementById('pause-confirm');
 const pauseConfirmYes = document.getElementById('pause-confirm-yes');
 const pauseConfirmNo = document.getElementById('pause-confirm-no');
 const menuCredits = document.getElementById('menu-credits');
+const bossBar = document.getElementById('boss-bar');
+const bossBarFill = bossBar ? bossBar.querySelector('.boss-fill') : null;
 const confirmReset = document.getElementById('confirm-reset');
 const confirmResetYes = document.getElementById('confirm-reset-yes');
 const confirmResetNo = document.getElementById('confirm-reset-no');
@@ -55,6 +57,8 @@ const state = {
   hardcoreLevel: false,
   paused: false,
   runStartMoney: 0,
+  slowTimer: 0,
+  aegisTimer: 0,
   musicGain: 0.24,
   musicTempo: 140,
   lastTime: 0
@@ -87,6 +91,8 @@ const layout = {
 };
 
 const missiles = [];
+const twinGroups = new Map();
+let twinCounter = 0;
 const explosions = [];
 const confetti = [];
 const cashFloaters = [];
@@ -99,6 +105,7 @@ const boss = {
   targetY: 0,
   speed: 90,
   mainHp: 20,
+  maxHp: 20,
   parts: []
 };
 let stars = [];
@@ -124,18 +131,24 @@ let moneyToastTimer = null;
 const skillCooldownLevels = [30, 20, 10];
 const skillState = {
   nova: 0,
-  regen: 0
+  regen: 0,
+  slow: 0,
+  aegis: 0
 };
 
 const upgradeCosts = {
   shield: [0, 18, 36, 60],
   nova: [0, 30, 60, 90],
-  regen: [0, 24, 48, 72]
+  regen: [0, 24, 48, 72],
+  slow: [0, 20, 40, 70],
+  aegis: [0, 28, 56, 84]
 };
 
 let shieldUpgrades = 0;
 let novaLevel = 0;
 let regenLevel = 0;
+let slowLevel = 0;
+let aegisLevel = 0;
 
 function resize() {
   width = window.innerWidth;
@@ -203,6 +216,74 @@ function rebuildShields() {
   updateSkillLocks();
 }
 
+function removeTwinGroup(id) {
+  for (let i = missiles.length - 1; i >= 0; i -= 1) {
+    if (missiles[i].twinId === id) {
+      missiles.splice(i, 1);
+    }
+  }
+  twinGroups.delete(id);
+}
+
+function handleTwinTap(m) {
+  const group = twinGroups.get(m.twinId);
+  if (!group) return false;
+  const now = performance.now();
+  const windowMs = 40;
+  if (m.twinPart === 0) {
+    if (group.primeB && now - group.primeB <= windowMs) {
+      removeTwinGroup(m.twinId);
+      playSfx('boom');
+      triggerExplosion(m.x, m.y, '#7fdc7a', 36, 0.22, 8);
+      const bounty = getBounty(m.type);
+      awardMoney(bounty);
+      spawnCashFloater(m.x, m.y, bounty);
+    } else {
+      group.primeA = now;
+      playSfx('hitsoft');
+      triggerExplosion(m.x, m.y, '#7fdc7a', 18, 0.14, 4);
+    }
+    return true;
+  }
+  if (group.primeA && now - group.primeA <= windowMs) {
+    removeTwinGroup(m.twinId);
+    playSfx('boom');
+    triggerExplosion(m.x, m.y, '#7fdc7a', 36, 0.22, 8);
+    const bounty = getBounty(m.type);
+    awardMoney(bounty);
+    spawnCashFloater(m.x, m.y, bounty);
+  } else {
+    group.primeB = now;
+    playSfx('hitsoft');
+    triggerExplosion(m.x, m.y, '#7fdc7a', 18, 0.14, 4);
+  }
+  return true;
+}
+
+function spawnTwinPair(x, y) {
+  const target = center();
+  const angle = Math.atan2(target.y - y, target.x - x);
+  const distance = Math.hypot(target.x - x, target.y - y);
+  const travelTime = 3.6 + Math.random() * 1.2;
+  const speed = distance / travelTime;
+  const offset = (22 + Math.random() * 22) * layout.scale;
+  const perpX = -Math.sin(angle);
+  const perpY = Math.cos(angle);
+  const r = 10 + Math.random() * 2;
+  const id = twinCounter++;
+  const base = {
+    vx: Math.cos(angle) * speed,
+    vy: Math.sin(angle) * speed,
+    r,
+    type: 'twin',
+    twinId: id
+  };
+  const m1 = { x: x + perpX * offset, y: y + perpY * offset, twinPart: 0, ...base };
+  const m2 = { x: x - perpX * offset, y: y - perpY * offset, twinPart: 1, ...base };
+  missiles.push(m1, m2);
+  twinGroups.set(id, { a: m1, b: m2, primeA: 0, primeB: 0 });
+}
+
 function initBoss() {
   const { x, y } = center();
   const scale = layout.scale;
@@ -221,6 +302,8 @@ function initBoss() {
     { id: 'rear-left', x: 0.12, y: 0.7, w: 0.2, h: 0.18, hp: 6, type: 'fast', flash: 0, cooldown: 0, rate: 3.2 },
     { id: 'rear-right', x: 0.68, y: 0.7, w: 0.2, h: 0.18, hp: 8, type: 'tank', flash: 0, cooldown: 0, rate: 4.2 }
   ];
+  boss.maxHp = boss.parts.reduce((sum, part) => sum + part.hp, 0);
+  updateBossBar();
 }
 
 function initAudio() {
@@ -529,6 +612,51 @@ function playSfx(type) {
     return;
   }
 
+  if (type === 'metal') {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(220, now);
+    osc.frequency.exponentialRampToValueAtTime(120, now + 0.2);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.6, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.25);
+    osc.connect(gain);
+    gain.connect(masterGain);
+    osc.start(now);
+    osc.stop(now + 0.26);
+
+    const clang = audioCtx.createOscillator();
+    const clangGain = audioCtx.createGain();
+    clang.type = 'triangle';
+    clang.frequency.setValueAtTime(540, now);
+    clang.frequency.exponentialRampToValueAtTime(260, now + 0.18);
+    clangGain.gain.setValueAtTime(0.0001, now);
+    clangGain.gain.exponentialRampToValueAtTime(0.4, now + 0.02);
+    clangGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
+    clang.connect(clangGain);
+    clangGain.connect(masterGain);
+    clang.start(now);
+    clang.stop(now + 0.24);
+    return;
+  }
+
+  if (type === 'slow') {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(260, now);
+    osc.frequency.exponentialRampToValueAtTime(140, now + 0.35);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.35, now + 0.03);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.4);
+    osc.connect(gain);
+    gain.connect(masterGain);
+    osc.start(now);
+    osc.stop(now + 0.45);
+    return;
+  }
+
   if (type === 'victory') {
     const notes = [330, 392, 440, 523, 659];
     notes.forEach((freq, index) => {
@@ -587,7 +715,13 @@ function resetGame() {
   state.finalLevel = false;
   state.hardcoreLevel = false;
   state.paused = false;
+  state.slowTimer = 0;
+  state.aegisTimer = 0;
   core.alive = true;
+  Object.keys(skillState).forEach(skill => {
+    skillState[skill] = 0;
+  });
+  updateCooldowns(0);
   if (victoryTimer) {
     clearTimeout(victoryTimer);
     victoryTimer = null;
@@ -609,10 +743,12 @@ function resetGame() {
     layer.hp = layer.max;
   });
   missiles.length = 0;
+  twinGroups.clear();
   confetti.length = 0;
   cashFloaters.length = 0;
   boss.active = false;
   boss.parts = [];
+  updateBossBar();
   adminToast.classList.add('hidden');
   moneyToast.classList.add('hidden');
   gameoverEl.classList.add('hidden');
@@ -795,6 +931,10 @@ function spawnMissile() {
     x = -offset;
     y = Math.random() * height;
   }
+  if (!state.finalLevel && state.level > 1 && Math.random() > 0.92) {
+    spawnTwinPair(x, y);
+    return;
+  }
   missiles.push(buildMissile(x, y));
 }
 
@@ -807,6 +947,12 @@ function update(dt) {
   updateExplosions(dt);
   updateScreenEffects(dt);
   if (!state.running || !core.alive || state.paused) return;
+  if (state.slowTimer > 0) {
+    state.slowTimer = Math.max(0, state.slowTimer - dt);
+  }
+  if (state.aegisTimer > 0) {
+    state.aegisTimer = Math.max(0, state.aegisTimer - dt);
+  }
 
   if (state.finalLevel) {
     state.bossSpawnTimer += dt;
@@ -825,14 +971,26 @@ function update(dt) {
   }
 
   const target = center();
+  const speedFactor = state.slowTimer > 0 ? 0.5 : 1;
+  const aegisRadius = (baseShieldRadius + layerGap * (maxLayers - 1)) * layout.scale;
   for (let i = missiles.length - 1; i >= 0; i -= 1) {
     const m = missiles[i];
-    m.x += m.vx * dt;
-    m.y += m.vy * dt;
+    m.x += m.vx * dt * speedFactor;
+    m.y += m.vy * dt * speedFactor;
 
     const dx = m.x - target.x;
     const dy = m.y - target.y;
     const dist = Math.hypot(dx, dy);
+
+    if (state.aegisTimer > 0 && dist <= aegisRadius) {
+      if (m.type === 'twin') {
+        removeTwinGroup(m.twinId);
+      } else {
+        missiles.splice(i, 1);
+      }
+      triggerExplosion(m.x, m.y, '#c9d2dc', 26, 0.2, 6);
+      continue;
+    }
 
     let activeLayer = null;
     for (let j = shieldLayers.length - 1; j >= 0; j -= 1) {
@@ -845,7 +1003,11 @@ function update(dt) {
 
     if (shieldRadius > 0 && dist <= shieldRadius) {
       activeLayer.hp = Math.max(0, activeLayer.hp - 35);
-      missiles.splice(i, 1);
+      if (m.type === 'twin') {
+        removeTwinGroup(m.twinId);
+      } else {
+        missiles.splice(i, 1);
+      }
       playSfx('shield');
       triggerExplosion(m.x, m.y, '#6ecbff', 28, 0.18);
       continue;
@@ -854,7 +1016,11 @@ function update(dt) {
     if (dist <= core.radius) {
       core.alive = false;
       state.running = false;
-      missiles.splice(i, 1);
+      if (m.type === 'twin') {
+        removeTwinGroup(m.twinId);
+      } else {
+        missiles.splice(i, 1);
+      }
       playSfx('core');
       triggerExplosion(target.x, target.y, '#ffb347', 140, 0.7, 18);
       gameoverEl.classList.remove('hidden');
@@ -899,6 +1065,34 @@ function drawBackground() {
 
 function drawCore() {
   const { x, y } = center();
+
+  if (state.aegisTimer > 0) {
+    const outer = (baseShieldRadius + layerGap * (maxLayers - 1)) * layout.scale;
+    const inner = 0;
+    const ratio = Math.max(0.2, state.aegisTimer / 3);
+    ctx.save();
+    const ironGradient = ctx.createLinearGradient(x - outer, y - outer, x + outer, y + outer);
+    ironGradient.addColorStop(0, '#c9d2dc');
+    ironGradient.addColorStop(0.5, '#7a8692');
+    ironGradient.addColorStop(1, '#4a535e');
+    ctx.globalAlpha = 0.55 + ratio * 0.35;
+    ctx.fillStyle = ironGradient;
+    ctx.beginPath();
+    ctx.arc(x, y, outer, 0, Math.PI * 2);
+    ctx.arc(x, y, inner, 0, Math.PI * 2, true);
+    ctx.fill('evenodd');
+    ctx.globalAlpha = 0.2 + ratio * 0.2;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+    ctx.lineWidth = 1.5;
+    const stripeGap = 10 * layout.scale;
+    for (let i = -outer; i <= outer; i += stripeGap) {
+      ctx.beginPath();
+      ctx.moveTo(x - outer, y + i);
+      ctx.lineTo(x + outer, y + i + outer * 0.2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
 
   for (let i = 0; i < maxLayers; i += 1) {
     const radius = (baseShieldRadius + layerGap * i) * layout.scale;
@@ -963,8 +1157,13 @@ function updateBoss(dt) {
   const main = boss.parts.find(part => part.id === 'main');
   if (main && main.hp <= 0) {
     boss.active = false;
+    missiles.length = 0;
+    twinGroups.clear();
+    updateBossBar();
     completeLevel();
+    return;
   }
+  updateBossBar();
 }
 
 function drawBoss() {
@@ -1064,6 +1263,7 @@ function hitBossAt(x, y) {
         awardMoney(bounty);
         spawnCashFloater(x, y, bounty);
       }
+      updateBossBar();
       return true;
     }
   }
@@ -1072,9 +1272,45 @@ function hitBossAt(x, y) {
 
 function drawMissiles() {
   for (const m of missiles) {
+    if (m.type === 'twin' && m.twinPart === 0) {
+      const group = twinGroups.get(m.twinId);
+      if (group && group.b) {
+        const ax = group.a.x;
+        const ay = group.a.y;
+        const bx = group.b.x;
+        const by = group.b.y;
+        const steps = 10;
+        const waveAmp = 4 * layout.scale;
+        const waveFreq = 6;
+        const dx = bx - ax;
+        const dy = by - ay;
+        const len = Math.hypot(dx, dy) || 1;
+        const nx = -dy / len;
+        const ny = dx / len;
+        ctx.strokeStyle = 'rgba(120, 220, 140, 0.8)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for (let i = 0; i <= steps; i += 1) {
+          const t = i / steps;
+          const x = ax + (bx - ax) * t;
+          const y = ay + (by - ay) * t;
+          const wobble = Math.sin(t * waveFreq * Math.PI + state.lastTime * 0.008) * waveAmp;
+          const wx = x + nx * wobble;
+          const wy = y + ny * wobble;
+          if (i === 0) {
+            ctx.moveTo(wx, wy);
+          } else {
+            ctx.lineTo(wx, wy);
+          }
+        }
+        ctx.stroke();
+      }
+    }
+
     const angle = Math.atan2(m.vy, m.vx);
     const isFast = m.type === 'fast';
     const isTank = m.type === 'tank';
+    const isTwin = m.type === 'twin';
     const length = m.r * (isFast ? 3.2 : 2.4);
     const width = m.r * (isFast ? 0.7 : 1.1);
     const tipX = m.x + Math.cos(angle) * length * 0.6;
@@ -1086,7 +1322,7 @@ function drawMissiles() {
     const tailX = m.x - Math.cos(angle) * length * 0.6;
     const tailY = m.y - Math.sin(angle) * length * 0.6;
 
-    if (isTank) {
+    if (isTank || isTwin) {
       ctx.fillStyle = '#7fdc7a';
     } else if (isFast) {
       ctx.fillStyle = '#6ce3ff';
@@ -1332,6 +1568,7 @@ function render(timestamp) {
 
 function startCountdown() {
   stopMusic();
+  resetSkillCooldowns();
   countdownEl.textContent = state.countdown;
   countdownEl.classList.remove('hidden');
   showWaveMessage(state.finalLevel ? 'Final Level' : state.hardcoreLevel ? 'Hardcore Level' : getWaveLabel(), 2.2);
@@ -1365,6 +1602,22 @@ function updateHud() {
       label.textContent = `Credits: ${state.money}`;
     }
   }
+}
+
+function updateBossBar() {
+  if (!bossBar || !bossBarFill) return;
+  if (!boss.active) {
+    bossBar.classList.add('hidden');
+    return;
+  }
+  const total = boss.maxHp || 1;
+  let current = 0;
+  boss.parts.forEach(part => {
+    current += Math.max(0, part.hp);
+  });
+  const ratio = Math.max(0, Math.min(1, current / total));
+  bossBarFill.style.width = `${ratio * 100}%`;
+  bossBar.classList.remove('hidden');
 }
 
 function showAdminToast() {
@@ -1402,7 +1655,16 @@ function awardMoney(amount) {
 }
 
 function getSkillCooldown(skill) {
-  const level = skill === 'nova' ? novaLevel : regenLevel;
+  let level = 0;
+  if (skill === 'nova') {
+    level = novaLevel;
+  } else if (skill === 'regen') {
+    level = regenLevel;
+  } else if (skill === 'slow') {
+    level = slowLevel;
+  } else if (skill === 'aegis') {
+    level = aegisLevel;
+  }
   if (level <= 0) return 0;
   const index = Math.min(skillCooldownLevels.length - 1, level - 1);
   return skillCooldownLevels[index];
@@ -1421,7 +1683,9 @@ canvas.addEventListener('pointerdown', e => {
     const m = missiles[i];
     const dist = Math.hypot(m.x - x, m.y - y);
     if (dist <= m.r + 18) {
-      if (m.type === 'tank') {
+      if (m.type === 'twin') {
+        handleTwinTap(m);
+      } else if (m.type === 'tank') {
         m.hp -= 1;
         if (m.hp <= 0) {
           missiles.splice(i, 1);
@@ -1457,6 +1721,8 @@ skillButtons.forEach(button => {
     if (!skill) return;
     if (skill === 'nova' && novaLevel === 0) return;
     if (skill === 'regen' && regenLevel === 0) return;
+    if (skill === 'slow' && slowLevel === 0) return;
+    if (skill === 'aegis' && aegisLevel === 0) return;
     if (skillState[skill] > 0) return;
     if (skill === 'nova') {
       if (missiles.length > 0) {
@@ -1478,6 +1744,18 @@ skillButtons.forEach(button => {
         layer.hp = layer.max;
       });
       playSfx('regen');
+      setCooldown(skill);
+      return;
+    }
+    if (skill === 'slow') {
+      state.slowTimer = 3;
+      playSfx('slow');
+      setCooldown(skill);
+      return;
+    }
+    if (skill === 'aegis') {
+      state.aegisTimer = 3;
+      playSfx('metal');
       setCooldown(skill);
     }
   });
@@ -1674,6 +1952,37 @@ upgradeButtons.forEach(button => {
       awardMoney(-cost);
       updateUpgrades();
       updateSkillLocks();
+      return;
+    }
+    if (upgrade === 'slow') {
+      if (slowLevel >= 3) return;
+      const nextLevel = slowLevel + 1;
+      const cost = upgradeCosts.slow[nextLevel];
+      if (state.money < cost) {
+        showMoneyToast();
+        return;
+      }
+      slowLevel = nextLevel;
+      sessionStorage.setItem('slowLevel', String(slowLevel));
+      awardMoney(-cost);
+      updateUpgrades();
+      updateSkillLocks();
+      return;
+    }
+    if (upgrade === 'aegis') {
+      if (aegisLevel >= 3) return;
+      const nextLevel = aegisLevel + 1;
+      const cost = upgradeCosts.aegis[nextLevel];
+      if (state.money < cost) {
+        showMoneyToast();
+        return;
+      }
+      aegisLevel = nextLevel;
+      sessionStorage.setItem('aegisLevel', String(aegisLevel));
+      awardMoney(-cost);
+      updateUpgrades();
+      updateSkillLocks();
+      return;
     }
   });
 });
@@ -1722,6 +2031,13 @@ function updateCooldowns(dt) {
 
 function setCooldown(skill) {
   skillState[skill] = getSkillCooldown(skill);
+  updateCooldowns(0);
+}
+
+function resetSkillCooldowns() {
+  Object.keys(skillState).forEach(skill => {
+    skillState[skill] = 0;
+  });
   updateCooldowns(0);
 }
 
@@ -1783,6 +2099,28 @@ function updateUpgrades() {
         const cooldown = skillCooldownLevels[nextLevel - 1];
         status.textContent = regenLevel >= 3 ? 'Max' : `Cooldown ${cooldown}s`;
       }
+    } else if (upgrade === 'slow') {
+      owned = slowLevel >= 3;
+      const nextLevel = Math.min(3, slowLevel + 1);
+      cost = upgradeCosts.slow[nextLevel];
+      if (label) {
+        label.textContent = slowLevel === 0 ? 'Unlock Slow' : `Slow Level ${nextLevel}`;
+      }
+      if (status) {
+        const cooldown = skillCooldownLevels[nextLevel - 1];
+        status.textContent = slowLevel >= 3 ? 'Max' : `Cooldown ${cooldown}s`;
+      }
+    } else if (upgrade === 'aegis') {
+      owned = aegisLevel >= 3;
+      const nextLevel = Math.min(3, aegisLevel + 1);
+      cost = upgradeCosts.aegis[nextLevel];
+      if (label) {
+        label.textContent = aegisLevel === 0 ? 'Unlock Aegis' : `Aegis Level ${nextLevel}`;
+      }
+      if (status) {
+        const cooldown = skillCooldownLevels[nextLevel - 1];
+        status.textContent = aegisLevel >= 3 ? 'Max' : `Cooldown ${cooldown}s`;
+      }
     }
 
     if (owned) {
@@ -1827,6 +2165,10 @@ function updateSkillLocks() {
       unlocked = novaLevel > 0;
     } else if (skill === 'regen') {
       unlocked = regenLevel > 0;
+    } else if (skill === 'slow') {
+      unlocked = slowLevel > 0;
+    } else if (skill === 'aegis') {
+      unlocked = aegisLevel > 0;
     }
     button.disabled = !unlocked;
     button.classList.toggle('unlocked', unlocked);
@@ -1841,7 +2183,7 @@ function updateSkillLocks() {
 function updateUpgradeVisibility() {
   const upgradesRow = document.getElementById('menu-upgrades');
   if (!upgradesRow) return;
-  const showUpgrades = !startScreen.classList.contains('hidden') && state.money > 0;
+  const showUpgrades = !startScreen.classList.contains('hidden');
   upgradesRow.classList.toggle('hidden', !showUpgrades);
 }
 
@@ -1855,6 +2197,8 @@ function loadProgress() {
   shieldUpgrades = Math.min(Math.max(0, storedUpgrades), maxLayers);
   novaLevel = Math.min(Math.max(0, Number(sessionStorage.getItem('novaLevel')) || 0), 3);
   regenLevel = Math.min(Math.max(0, Number(sessionStorage.getItem('regenLevel')) || 0), 3);
+  slowLevel = Math.min(Math.max(0, Number(sessionStorage.getItem('slowLevel')) || 0), 3);
+  aegisLevel = Math.min(Math.max(0, Number(sessionStorage.getItem('aegisLevel')) || 0), 3);
   rebuildShields();
   updateLevelButtons();
   updateUpgrades();
@@ -1868,12 +2212,16 @@ function resetProgress() {
   sessionStorage.removeItem('shieldUpgrades');
   sessionStorage.removeItem('novaLevel');
   sessionStorage.removeItem('regenLevel');
+  sessionStorage.removeItem('slowLevel');
+  sessionStorage.removeItem('aegisLevel');
   state.unlockedLevel = 1;
   state.selectedLevel = 1;
   state.money = 0;
   shieldUpgrades = 0;
   novaLevel = 0;
   regenLevel = 0;
+  slowLevel = 0;
+  aegisLevel = 0;
   state.betweenLevels = false;
   rebuildShields();
   updateLevelButtons();
@@ -1891,7 +2239,9 @@ function updateResetVisibility() {
     Number(sessionStorage.getItem('money')) > 0 ||
     Number(sessionStorage.getItem('shieldUpgrades')) > 0 ||
     Number(sessionStorage.getItem('novaLevel')) > 0 ||
-    Number(sessionStorage.getItem('regenLevel')) > 0
+    Number(sessionStorage.getItem('regenLevel')) > 0 ||
+    Number(sessionStorage.getItem('slowLevel')) > 0 ||
+    Number(sessionStorage.getItem('aegisLevel')) > 0
   );
   resetProgressButton.classList.toggle('hidden', !hasProgress);
 }

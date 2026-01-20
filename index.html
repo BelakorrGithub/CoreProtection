@@ -13,6 +13,12 @@
     <div id="wave">Wave 1 of 3</div>
     <div id="money"><span class="icon icon-coin" aria-hidden="true"></span>Credits: 0</div>
   </div>
+  <div id="boss-bar" class="hidden">
+    <div class="boss-label">Boss</div>
+    <div class="boss-track">
+      <div class="boss-fill"></div>
+    </div>
+  </div>
   <div id="admin-toast" class="hidden">You are not an admin</div>
   <div id="money-toast" class="hidden">Not enough credits</div>
   <div id="pause-overlay" class="hidden">
@@ -68,9 +74,15 @@
         <span class="label">Unlock Regen</span>
         <span class="status"></span>
       </button>
-      <button class="skill locked" disabled>
-        <span class="icon icon-lock" aria-hidden="true"></span>
-        <span class="label">Locked</span>
+      <button class="skill upgrade" data-upgrade="slow">
+        <span class="icon icon-hourglass" aria-hidden="true"></span>
+        <span class="label">Unlock Slow</span>
+        <span class="status"></span>
+      </button>
+      <button class="skill upgrade" data-upgrade="aegis">
+        <span class="icon icon-aegis" aria-hidden="true"></span>
+        <span class="label">Unlock Aegis</span>
+        <span class="status"></span>
       </button>
     </div>
     <button id="reset-progress" class="level-button">Reset Progress</button>
@@ -98,9 +110,15 @@
         <span class="label">Regen</span>
         <span class="status">Locked</span>
       </button>
-      <button class="skill locked" disabled>
-        <span class="icon icon-lock" aria-hidden="true"></span>
-        <span class="label">Locked</span>
+      <button class="skill locked" data-skill="slow" disabled>
+        <span class="icon icon-hourglass" aria-hidden="true"></span>
+        <span class="label">Slow</span>
+        <span class="status">Locked</span>
+      </button>
+      <button class="skill locked" data-skill="aegis" disabled>
+        <span class="icon icon-aegis" aria-hidden="true"></span>
+        <span class="label">Aegis</span>
+        <span class="status">Locked</span>
       </button>
       <button class="skill utility" id="pause-button">
         <span class="icon icon-pause" aria-hidden="true"></span>
