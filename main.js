@@ -25,6 +25,14 @@ const pauseConfirmNo = document.getElementById('pause-confirm-no');
 const menuCredits = document.getElementById('menu-credits');
 const bossBar = document.getElementById('boss-bar');
 const bossBarFill = bossBar ? bossBar.querySelector('.boss-fill') : null;
+const menuPlay = document.getElementById('menu-play');
+const menuUpgradesButton = document.getElementById('menu-upgrades-button');
+const menuHomePanel = document.getElementById('menu-home-panel');
+const menuPlayPanel = document.getElementById('menu-play-panel');
+const menuUpgradesPanel = document.getElementById('menu-upgrades-panel');
+const upgradesBack = document.getElementById('upgrades-back');
+const playBack = document.getElementById('play-back');
+const adminCreditsButton = document.getElementById('admin-credits');
 const confirmReset = document.getElementById('confirm-reset');
 const confirmResetYes = document.getElementById('confirm-reset-yes');
 const confirmResetNo = document.getElementById('confirm-reset-no');
@@ -131,6 +139,8 @@ let debugHoldTimer = null;
 let debugHoldTriggered = false;
 let adminToastTimer = null;
 let moneyToastTimer = null;
+let adminCreditsTimer = null;
+let adminCreditsTriggered = false;
 const survivalRecordsKey = 'survivalRecords';
 
 const skillCooldownLevels = [30, 20, 10];
@@ -765,6 +775,7 @@ function resetGame() {
   gameoverMenu.classList.add('hidden');
   waveMessageEl.classList.add('hidden');
   pauseOverlay.classList.add('hidden');
+  pauseButton.disabled = false;
 }
 
 function showWaveMessage(text, duration = 1.4) {
@@ -874,6 +885,7 @@ function completeLevel() {
   setTimeout(() => {
     state.betweenLevels = true;
     startScreen.classList.remove('hidden');
+    setMenuView('home');
     updateUpgradeVisibility();
   }, 2200);
 }
@@ -1033,6 +1045,35 @@ function update(dt) {
   const target = center();
   const speedFactor = state.slowTimer > 0 ? 0.5 : 1;
   const aegisRadius = (baseShieldRadius + layerGap * (maxLayers - 1)) * layout.scale;
+  for (const group of twinGroups.values()) {
+    if (!group.a || !group.b) continue;
+    const ax = group.a.x;
+    const ay = group.a.y;
+    const bx = group.b.x;
+    const by = group.b.y;
+    const distToCore = distancePointToSegment(target.x, target.y, ax, ay, bx, by);
+    const midX = (ax + bx) * 0.5;
+    const midY = (ay + by) * 0.5;
+    if (state.aegisTimer > 0 && distToCore <= aegisRadius) {
+      removeTwinGroup(group.a.twinId);
+      triggerExplosion(midX, midY, '#c9d2dc', 26, 0.2, 6);
+      continue;
+    }
+    const activeLayer = getActiveShield();
+    const shieldRadius = activeLayer ? activeLayer.radius : 0;
+    if (shieldRadius > 0 && distToCore <= shieldRadius) {
+      activeLayer.hp = Math.max(0, activeLayer.hp - 35);
+      removeTwinGroup(group.a.twinId);
+      playSfx('shield');
+      triggerExplosion(midX, midY, '#6ecbff', 28, 0.18);
+      continue;
+    }
+    if (distToCore <= core.radius) {
+      removeTwinGroup(group.a.twinId);
+      handleCoreHit();
+      break;
+    }
+  }
   for (let i = missiles.length - 1; i >= 0; i -= 1) {
     const m = missiles[i];
     m.x += m.vx * dt * speedFactor;
@@ -1052,13 +1093,7 @@ function update(dt) {
       continue;
     }
 
-    let activeLayer = null;
-    for (let j = shieldLayers.length - 1; j >= 0; j -= 1) {
-      if (shieldLayers[j].hp > 0) {
-        activeLayer = shieldLayers[j];
-        break;
-      }
-    }
+    const activeLayer = getActiveShield();
     const shieldRadius = activeLayer ? activeLayer.radius : 0;
 
     if (shieldRadius > 0 && dist <= shieldRadius) {
@@ -1074,29 +1109,12 @@ function update(dt) {
     }
 
     if (dist <= core.radius) {
-      core.alive = false;
-      state.running = false;
       if (m.type === 'twin') {
         removeTwinGroup(m.twinId);
       } else {
         missiles.splice(i, 1);
       }
-      playSfx('core');
-      triggerExplosion(target.x, target.y, '#ffb347', 140, 0.7, 18);
-      if (state.survivalLevel) {
-        const isRecord = saveSurvivalRecord(state.survivalTime);
-        const timeText = `${state.survivalTime.toFixed(1)}s`;
-        gameoverEl.textContent = isRecord ? `Survival: ${timeText}\nNew Record!` : `Survival: ${timeText}`;
-      } else {
-        gameoverEl.textContent = 'Game Over';
-      }
-      gameoverEl.classList.remove('hidden');
-      gameoverMenu.classList.remove('hidden');
-      stopMusic();
-      if (waveTimeout) {
-        clearTimeout(waveTimeout);
-        waveTimeout = null;
-      }
+      handleCoreHit();
     }
   }
 
@@ -1738,9 +1756,54 @@ function getBounty(type) {
   return 1;
 }
 
+function getActiveShield() {
+  for (let i = shieldLayers.length - 1; i >= 0; i -= 1) {
+    if (shieldLayers[i].hp > 0) {
+      return shieldLayers[i];
+    }
+  }
+  return null;
+}
+
+function distancePointToSegment(px, py, ax, ay, bx, by) {
+  const abx = bx - ax;
+  const aby = by - ay;
+  const apx = px - ax;
+  const apy = py - ay;
+  const abLenSq = abx * abx + aby * aby;
+  let t = abLenSq === 0 ? 0 : (apx * abx + apy * aby) / abLenSq;
+  t = Math.max(0, Math.min(1, t));
+  const cx = ax + abx * t;
+  const cy = ay + aby * t;
+  return Math.hypot(px - cx, py - cy);
+}
+
+function handleCoreHit() {
+  if (!core.alive) return;
+  const target = center();
+  core.alive = false;
+  state.running = false;
+  playSfx('core');
+  triggerExplosion(target.x, target.y, '#ffb347', 140, 0.7, 18);
+  if (state.survivalLevel) {
+    const isRecord = saveSurvivalRecord(state.survivalTime);
+    const timeText = `${state.survivalTime.toFixed(1)}s`;
+    gameoverEl.textContent = isRecord ? `Survival: ${timeText}\nNew Record!` : `Survival: ${timeText}`;
+  } else {
+    gameoverEl.textContent = 'Game Over';
+  }
+  gameoverEl.classList.remove('hidden');
+  gameoverMenu.classList.remove('hidden');
+  stopMusic();
+  if (waveTimeout) {
+    clearTimeout(waveTimeout);
+    waveTimeout = null;
+  }
+}
+
 function awardMoney(amount) {
   state.money += amount;
-  sessionStorage.setItem('money', String(state.money));
+  localStorage.setItem('money', String(state.money));
   updateHud();
   updateUpgrades();
   updateUpgradeVisibility();
@@ -1912,10 +1975,35 @@ startScreen.addEventListener('pointerdown', () => {
   initAudio();
 });
 
+if (menuPlay) {
+  menuPlay.addEventListener('click', () => {
+    setMenuView('play');
+  });
+}
+
+if (menuUpgradesButton) {
+  menuUpgradesButton.addEventListener('click', () => {
+    setMenuView('upgrades');
+  });
+}
+
+if (upgradesBack) {
+  upgradesBack.addEventListener('click', () => {
+    setMenuView('home');
+  });
+}
+
+if (playBack) {
+  playBack.addEventListener('click', () => {
+    setMenuView('home');
+  });
+}
+
 victoryClose.addEventListener('click', () => {
   victoryEl.classList.add('hidden');
   startScreen.classList.remove('hidden');
   state.betweenLevels = false;
+  setMenuView('home');
   updateUpgradeVisibility();
 });
 
@@ -1937,6 +2025,7 @@ gameoverMenu.addEventListener('click', () => {
   stopMusic();
   startScreen.classList.remove('hidden');
   state.betweenLevels = false;
+  setMenuView('home');
   gameoverMenu.classList.add('hidden');
   gameoverEl.classList.add('hidden');
   updateUpgradeVisibility();
@@ -1944,8 +2033,10 @@ gameoverMenu.addEventListener('click', () => {
 
 pauseButton.addEventListener('click', () => {
   if (!state.running || startScreen.classList.contains('hidden') === false) return;
+  if (state.paused) return;
   state.paused = !state.paused;
   pauseOverlay.classList.toggle('hidden', !state.paused);
+  pauseButton.disabled = state.paused;
 });
 
 pauseMenu.addEventListener('pointerdown', e => {
@@ -1963,6 +2054,7 @@ pauseOverlay.addEventListener('pointerdown', e => {
   if (!state.paused) return;
   state.paused = false;
   pauseOverlay.classList.add('hidden');
+  pauseButton.disabled = false;
 });
 
 pauseResume.addEventListener('click', e => {
@@ -1970,6 +2062,7 @@ pauseResume.addEventListener('click', e => {
   if (!state.paused) return;
   state.paused = false;
   pauseOverlay.classList.add('hidden');
+  pauseButton.disabled = false;
 });
 
 pauseConfirmYes.addEventListener('click', () => {
@@ -1978,11 +2071,12 @@ pauseConfirmYes.addEventListener('click', () => {
   stopMusic();
   state.paused = false;
   state.money = state.runStartMoney;
-  sessionStorage.setItem('money', String(state.money));
+  localStorage.setItem('money', String(state.money));
   resetGame();
   updateHud();
   startScreen.classList.remove('hidden');
   state.betweenLevels = false;
+  setMenuView('home');
   updateUpgradeVisibility();
 });
 
@@ -1994,6 +2088,13 @@ function clearDebugHold() {
   if (debugHoldTimer) {
     clearTimeout(debugHoldTimer);
     debugHoldTimer = null;
+  }
+}
+
+function clearAdminCreditsHold() {
+  if (adminCreditsTimer) {
+    clearTimeout(adminCreditsTimer);
+    adminCreditsTimer = null;
   }
 }
 
@@ -2025,6 +2126,37 @@ debugSkip.addEventListener('pointercancel', () => {
   clearDebugHold();
 });
 
+if (adminCreditsButton) {
+  adminCreditsButton.addEventListener('pointerdown', () => {
+    if (!startScreen || startScreen.classList.contains('hidden')) return;
+    if (menuUpgradesPanel && menuUpgradesPanel.classList.contains('hidden')) return;
+    adminCreditsTriggered = false;
+    clearAdminCreditsHold();
+    adminCreditsTimer = setTimeout(() => {
+      adminCreditsTriggered = true;
+      awardMoney(1000);
+    }, 3000);
+  });
+
+  adminCreditsButton.addEventListener('pointerup', () => {
+    if (!startScreen || startScreen.classList.contains('hidden')) return;
+    clearAdminCreditsHold();
+    if (!adminCreditsTriggered) {
+      showAdminToast();
+    }
+  });
+
+  adminCreditsButton.addEventListener('pointerleave', () => {
+    if (!startScreen || startScreen.classList.contains('hidden')) return;
+    clearAdminCreditsHold();
+  });
+
+  adminCreditsButton.addEventListener('pointercancel', () => {
+    if (!startScreen || startScreen.classList.contains('hidden')) return;
+    clearAdminCreditsHold();
+  });
+}
+
 levelButtons.forEach(button => {
   button.addEventListener('click', () => {
     const level = Number(button.dataset.level);
@@ -2050,7 +2182,7 @@ upgradeButtons.forEach(button => {
         return;
       }
       shieldUpgrades = nextLevel;
-      sessionStorage.setItem('shieldUpgrades', String(shieldUpgrades));
+      localStorage.setItem('shieldUpgrades', String(shieldUpgrades));
       awardMoney(-cost);
       rebuildShields();
       updateUpgrades();
@@ -2066,7 +2198,7 @@ upgradeButtons.forEach(button => {
         return;
       }
       novaLevel = nextLevel;
-      sessionStorage.setItem('novaLevel', String(novaLevel));
+      localStorage.setItem('novaLevel', String(novaLevel));
       awardMoney(-cost);
       updateUpgrades();
       updateSkillLocks();
@@ -2081,7 +2213,7 @@ upgradeButtons.forEach(button => {
         return;
       }
       regenLevel = nextLevel;
-      sessionStorage.setItem('regenLevel', String(regenLevel));
+      localStorage.setItem('regenLevel', String(regenLevel));
       awardMoney(-cost);
       updateUpgrades();
       updateSkillLocks();
@@ -2096,7 +2228,7 @@ upgradeButtons.forEach(button => {
         return;
       }
       slowLevel = nextLevel;
-      sessionStorage.setItem('slowLevel', String(slowLevel));
+      localStorage.setItem('slowLevel', String(slowLevel));
       awardMoney(-cost);
       updateUpgrades();
       updateSkillLocks();
@@ -2111,7 +2243,7 @@ upgradeButtons.forEach(button => {
         return;
       }
       aegisLevel = nextLevel;
-      sessionStorage.setItem('aegisLevel', String(aegisLevel));
+      localStorage.setItem('aegisLevel', String(aegisLevel));
       awardMoney(-cost);
       updateUpgrades();
       updateSkillLocks();
@@ -2133,6 +2265,7 @@ loadProgress();
 updateHud();
 updateUpgradeVisibility();
 renderSurvivalRecords();
+setMenuView('home');
 
 requestAnimationFrame(render);
 
@@ -2330,7 +2463,7 @@ function updateSkillLocks() {
 function updateUpgradeVisibility() {
   const upgradesRow = document.getElementById('menu-upgrades');
   if (!upgradesRow) return;
-  const showUpgrades = !startScreen.classList.contains('hidden');
+  const showUpgrades = !startScreen.classList.contains('hidden') && menuUpgradesPanel && !menuUpgradesPanel.classList.contains('hidden');
   upgradesRow.classList.toggle('hidden', !showUpgrades);
 }
 
@@ -2338,14 +2471,14 @@ function loadProgress() {
   const unlocked = Number(localStorage.getItem('unlockedLevel')) || 1;
   state.unlockedLevel = Math.min(Math.max(1, unlocked), levels.length);
   state.selectedLevel = Math.min(state.selectedLevel, state.unlockedLevel);
-  const money = Number(sessionStorage.getItem('money')) || 0;
+  const money = Number(localStorage.getItem('money')) || 0;
   state.money = Math.max(0, money);
-  const storedUpgrades = Number(sessionStorage.getItem('shieldUpgrades')) || 0;
+  const storedUpgrades = Number(localStorage.getItem('shieldUpgrades')) || 0;
   shieldUpgrades = Math.min(Math.max(0, storedUpgrades), maxLayers);
-  novaLevel = Math.min(Math.max(0, Number(sessionStorage.getItem('novaLevel')) || 0), 3);
-  regenLevel = Math.min(Math.max(0, Number(sessionStorage.getItem('regenLevel')) || 0), 3);
-  slowLevel = Math.min(Math.max(0, Number(sessionStorage.getItem('slowLevel')) || 0), 3);
-  aegisLevel = Math.min(Math.max(0, Number(sessionStorage.getItem('aegisLevel')) || 0), 3);
+  novaLevel = Math.min(Math.max(0, Number(localStorage.getItem('novaLevel')) || 0), 3);
+  regenLevel = Math.min(Math.max(0, Number(localStorage.getItem('regenLevel')) || 0), 3);
+  slowLevel = Math.min(Math.max(0, Number(localStorage.getItem('slowLevel')) || 0), 3);
+  aegisLevel = Math.min(Math.max(0, Number(localStorage.getItem('aegisLevel')) || 0), 3);
   rebuildShields();
   updateLevelButtons();
   updateUpgrades();
@@ -2356,12 +2489,12 @@ function loadProgress() {
 function resetProgress() {
   localStorage.removeItem('unlockedLevel');
   localStorage.removeItem(survivalRecordsKey);
-  sessionStorage.removeItem('money');
-  sessionStorage.removeItem('shieldUpgrades');
-  sessionStorage.removeItem('novaLevel');
-  sessionStorage.removeItem('regenLevel');
-  sessionStorage.removeItem('slowLevel');
-  sessionStorage.removeItem('aegisLevel');
+  localStorage.removeItem('money');
+  localStorage.removeItem('shieldUpgrades');
+  localStorage.removeItem('novaLevel');
+  localStorage.removeItem('regenLevel');
+  localStorage.removeItem('slowLevel');
+  localStorage.removeItem('aegisLevel');
   state.unlockedLevel = 1;
   state.selectedLevel = 1;
   state.money = 0;
@@ -2386,12 +2519,24 @@ function updateResetVisibility() {
   const hasProgress = (
     Number(localStorage.getItem('unlockedLevel')) > 1 ||
     (localStorage.getItem(survivalRecordsKey) || '[]') !== '[]' ||
-    Number(sessionStorage.getItem('money')) > 0 ||
-    Number(sessionStorage.getItem('shieldUpgrades')) > 0 ||
-    Number(sessionStorage.getItem('novaLevel')) > 0 ||
-    Number(sessionStorage.getItem('regenLevel')) > 0 ||
-    Number(sessionStorage.getItem('slowLevel')) > 0 ||
-    Number(sessionStorage.getItem('aegisLevel')) > 0
+    Number(localStorage.getItem('money')) > 0 ||
+    Number(localStorage.getItem('shieldUpgrades')) > 0 ||
+    Number(localStorage.getItem('novaLevel')) > 0 ||
+    Number(localStorage.getItem('regenLevel')) > 0 ||
+    Number(localStorage.getItem('slowLevel')) > 0 ||
+    Number(localStorage.getItem('aegisLevel')) > 0
   );
   resetProgressButton.classList.toggle('hidden', !hasProgress);
+}
+
+function setMenuView(view) {
+  if (!menuPlayPanel || !menuUpgradesPanel) return;
+  const showPlay = view === 'play';
+  const showUpgrades = view === 'upgrades';
+  menuPlayPanel.classList.toggle('hidden', !showPlay);
+  menuUpgradesPanel.classList.toggle('hidden', !showUpgrades);
+  if (menuHomePanel) {
+    menuHomePanel.classList.toggle('hidden', view !== 'home');
+  }
+  updateUpgradeVisibility();
 }

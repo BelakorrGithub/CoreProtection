@@ -26,6 +26,7 @@ canvas {
   letter-spacing: 0.04em;
   text-shadow: 0 0 8px rgba(130, 200, 255, 0.5);
   z-index: 2;
+  pointer-events: none;
 }
 
 #boss-bar {
@@ -78,7 +79,7 @@ canvas {
   color: #ffd6d6;
   font-size: 12px;
   letter-spacing: 0.08em;
-  z-index: 3;
+  z-index: 8;
 }
 
 #money-toast {
@@ -235,6 +236,17 @@ canvas {
   z-index: 4;
 }
 
+#menu-home-panel {
+  display: grid;
+  gap: 18px;
+  place-items: center;
+  min-height: 45vh;
+}
+
+#menu-home-panel.hidden {
+  display: none;
+}
+
 #start-screen .title {
   font-size: 40px;
   letter-spacing: 0.12em;
@@ -242,6 +254,40 @@ canvas {
   text-align: center;
   color: #9cd3ff;
   text-shadow: 0 0 20px rgba(80, 160, 255, 0.6);
+}
+
+#menu-main-actions {
+  display: grid;
+  grid-auto-flow: column;
+  gap: 12px;
+}
+
+#menu-main-actions button,
+#upgrades-back,
+#play-back {
+  border: 1px solid rgba(120, 200, 255, 0.8);
+  background: rgba(12, 20, 40, 0.8);
+  color: #e6f2ff;
+  padding: 10px 20px;
+  font-size: 14px;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+}
+
+#menu-play-panel,
+#menu-upgrades-panel {
+  display: grid;
+  gap: 14px;
+  place-items: center;
+}
+
+#menu-play-panel #play-back {
+  order: 99;
+}
+
+#menu-play-panel.hidden,
+#menu-upgrades-panel.hidden {
+  display: none;
 }
 
 #menu-credits {
@@ -643,8 +689,13 @@ canvas {
 }
 
 @media (max-width: 720px) {
-  #level-select {
+  #menu-main-actions {
     grid-auto-flow: row;
+    width: min(86vw, 300px);
+  }
+
+  #level-select {
+    grid-auto-flow: column;
   }
 
   #countdown,
@@ -666,11 +717,15 @@ canvas {
     width: 18px;
     height: 18px;
   }
+
+  #survival-records .records-list {
+    font-size: 10px;
+  }
 }
 
 @media (max-width: 480px) {
   .action-row {
-    grid-template-columns: repeat(2, minmax(80px, 1fr));
+    grid-template-columns: repeat(3, minmax(70px, 1fr));
   }
 }
 #debug-skip {
