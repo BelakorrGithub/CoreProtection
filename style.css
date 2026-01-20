@@ -43,6 +43,7 @@ canvas {
   font-size: 12px;
   color: #ffd6d6;
   text-shadow: 0 0 10px rgba(255, 120, 120, 0.5);
+  pointer-events: none;
 }
 
 #boss-bar.hidden {
@@ -156,6 +157,7 @@ canvas {
 #gameover {
   font-size: 56px;
   color: #ffd26a;
+  white-space: pre-line;
 }
 
 #gameover-menu {
@@ -338,6 +340,66 @@ canvas {
   display: grid;
   grid-auto-flow: column;
   gap: 10px;
+}
+
+.level-button.survival {
+  padding: 10px 22px;
+  font-size: 15px;
+  letter-spacing: 0.12em;
+  background: rgba(60, 10, 70, 0.9);
+  border-color: rgba(210, 120, 255, 0.85);
+  color: #f2d7ff;
+  box-shadow: 0 0 16px rgba(210, 110, 255, 0.45);
+  margin-top: -2px;
+}
+
+.level-button.survival.active {
+  background: rgba(90, 20, 110, 0.95);
+  border-color: rgba(230, 160, 255, 0.95);
+  box-shadow: 0 0 20px rgba(220, 140, 255, 0.65);
+}
+
+.level-button.survival:disabled {
+  background: rgba(50, 10, 60, 0.65);
+  border-color: rgba(170, 120, 200, 0.5);
+  color: #d4b6e6;
+  box-shadow: none;
+}
+
+.level-button.survival:not(:disabled):hover,
+.level-button.survival:not(:disabled):focus-visible {
+  box-shadow: 0 0 18px rgba(220, 150, 255, 0.7);
+}
+
+#survival-records {
+  width: min(92vw, 520px);
+  display: grid;
+  gap: 8px;
+  text-align: center;
+  color: #cfe6ff;
+  margin-top: 4px;
+}
+
+#survival-records .records-title {
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #9cd3ff;
+  text-shadow: 0 0 10px rgba(80, 160, 255, 0.6);
+}
+
+#survival-records .records-list {
+  list-style: decimal;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+}
+
+#survival-records .records-list li {
+  list-style-position: inside;
 }
 
 .level-button.final {
@@ -588,6 +650,27 @@ canvas {
   #countdown,
   #gameover {
     font-size: 44px;
+  }
+
+  .action-row {
+    width: min(96vw, 640px);
+    grid-template-columns: repeat(3, minmax(80px, 1fr));
+  }
+
+  .skill {
+    font-size: 10px;
+    padding: 6px 4px 7px;
+  }
+
+  .skill .icon {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+@media (max-width: 480px) {
+  .action-row {
+    grid-template-columns: repeat(2, minmax(80px, 1fr));
   }
 }
 #debug-skip {

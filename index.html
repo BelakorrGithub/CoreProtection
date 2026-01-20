@@ -11,6 +11,7 @@
   <div id="hud">
     <div id="level">Level 1</div>
     <div id="wave">Wave 1 of 3</div>
+    <div id="survival-time" class="hidden">Time 0.0s</div>
     <div id="money"><span class="icon icon-coin" aria-hidden="true"></span>Credits: 0</div>
   </div>
   <div id="boss-bar" class="hidden">
@@ -56,6 +57,7 @@
     </div>
     <button class="level-button final" data-level="4" disabled>Final Level</button>
     <button class="level-button hardcore" data-level="5" disabled>Hardcore Level</button>
+    <button class="level-button survival" data-level="6">Survival</button>
     <button id="start-button">Start</button>
     <div id="menu-upgrades" class="action-row hidden">
       <div class="row-title">Upgrades</div>
@@ -86,6 +88,10 @@
       </button>
     </div>
     <button id="reset-progress" class="level-button">Reset Progress</button>
+    <div id="survival-records">
+      <div class="records-title">Survival Records</div>
+      <ol class="records-list"></ol>
+    </div>
   </div>
   <div id="confirm-reset" class="hidden">
     <div class="confirm-card">

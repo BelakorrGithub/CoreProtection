@@ -33,6 +33,7 @@ const skillButtons = document.querySelectorAll('[data-skill]');
 const upgradeButtons = document.querySelectorAll('[data-upgrade]');
 const levelButtons = document.querySelectorAll('.level-button');
 const moneyEl = document.getElementById('money');
+const survivalTimeEl = document.getElementById('survival-time');
 
 let width = window.innerWidth;
 let height = window.innerHeight;
@@ -55,10 +56,12 @@ const state = {
   betweenLevels: false,
   finalLevel: false,
   hardcoreLevel: false,
+  survivalLevel: false,
   paused: false,
   runStartMoney: 0,
   slowTimer: 0,
   aegisTimer: 0,
+  survivalTime: 0,
   musicGain: 0.24,
   musicTempo: 140,
   lastTime: 0
@@ -69,7 +72,8 @@ const levels = [
   { level: 2, spawnInterval: 1.05, music: { gain: 0.26, tempo: 170 } },
   { level: 3, spawnInterval: 0.75, music: { gain: 0.32, tempo: 130 } },
   { level: 4, spawnInterval: 1.2, music: { gain: 0.36, tempo: 110 } },
-  { level: 5, spawnInterval: 0.4, music: { gain: 0.4, tempo: 90 } }
+  { level: 5, spawnInterval: 0.4, music: { gain: 0.4, tempo: 90 } },
+  { level: 6, spawnInterval: 1.2, music: { gain: 0.3, tempo: 140 } }
 ];
 
 const baseCoreRadius = 28;
@@ -127,6 +131,7 @@ let debugHoldTimer = null;
 let debugHoldTriggered = false;
 let adminToastTimer = null;
 let moneyToastTimer = null;
+const survivalRecordsKey = 'survivalRecords';
 
 const skillCooldownLevels = [30, 20, 10];
 const skillState = {
@@ -203,7 +208,7 @@ function center() {
 }
 
 function rebuildShields() {
-  const count = Math.min(maxLayers, shieldUpgrades);
+  const count = state.hardcoreLevel ? 0 : Math.min(maxLayers, shieldUpgrades);
   shieldLayers.length = 0;
   for (let i = 0; i < count; i += 1) {
     shieldLayers.push({
@@ -714,9 +719,11 @@ function resetGame() {
   state.betweenLevels = false;
   state.finalLevel = false;
   state.hardcoreLevel = false;
+  state.survivalLevel = false;
   state.paused = false;
   state.slowTimer = 0;
   state.aegisTimer = 0;
+  state.survivalTime = 0;
   core.alive = true;
   Object.keys(skillState).forEach(skill => {
     skillState[skill] = 0;
@@ -749,6 +756,9 @@ function resetGame() {
   boss.active = false;
   boss.parts = [];
   updateBossBar();
+  if (survivalTimeEl) {
+    survivalTimeEl.classList.add('hidden');
+  }
   adminToast.classList.add('hidden');
   moneyToast.classList.add('hidden');
   gameoverEl.classList.add('hidden');
@@ -781,14 +791,25 @@ function getWaveLabel() {
   return `Wave ${state.wave}`;
 }
 
+function getSurvivalDifficulty(time) {
+  return Math.max(0, Math.min(1, time / 30));
+}
+
+function getSurvivalSpawnInterval(time) {
+  const factor = getSurvivalDifficulty(time);
+  return 1.4 - factor * 0.9;
+}
+
 function applyLevelConfig(level) {
   const config = levels.find(item => item.level === level) || levels[0];
   state.level = config.level;
   state.finalLevel = state.level === 4;
   state.hardcoreLevel = state.level === 5;
+  state.survivalLevel = state.level === 6;
   state.wavesTotal = state.finalLevel ? 1 : state.hardcoreLevel ? 5 : 3;
   state.wave = 1;
   state.spawnInterval = config.spawnInterval;
+  state.survivalTime = 0;
   setMusicIntensity(state.level);
   updateHud();
 }
@@ -813,6 +834,19 @@ function startFinalLevel() {
   updateHud();
   updateUpgradeVisibility();
   showWaveMessage('Final Level', 1.6);
+}
+
+function startSurvival() {
+  state.running = true;
+  state.betweenLevels = false;
+  state.survivalTime = 0;
+  state.spawnTimer = 0;
+  if (survivalTimeEl) {
+    survivalTimeEl.classList.remove('hidden');
+    survivalTimeEl.textContent = 'Time 0.0s';
+  }
+  updateHud();
+  updateUpgradeVisibility();
 }
 
 function completeLevel() {
@@ -865,7 +899,18 @@ function buildMissile(x, y, forcedType = null) {
   let type = forcedType || 'normal';
   if (!forcedType) {
     const roll = Math.random();
-    if (state.level === 1) {
+    if (state.survivalLevel) {
+      const t = state.survivalTime;
+      if (t < 8) {
+        type = 'normal';
+      } else if (t < 20) {
+        type = roll > 0.82 ? 'fast' : 'normal';
+      } else if (t < 30) {
+        type = roll > 0.85 ? 'tank' : roll > 0.6 ? 'fast' : 'normal';
+      } else {
+        type = roll > 0.75 ? 'tank' : roll > 0.45 ? 'fast' : 'normal';
+      }
+    } else if (state.level === 1) {
       type = 'normal';
     } else if (roll > 0.88) {
       type = 'tank';
@@ -900,6 +945,10 @@ function buildMissile(x, y, forcedType = null) {
     } else {
       hp = 9;
     }
+  }
+  if (state.survivalLevel) {
+    const factor = getSurvivalDifficulty(state.survivalTime);
+    travelTime *= 1 - factor * 0.35;
   }
   const speed = distance / travelTime;
   return {
@@ -947,6 +996,10 @@ function update(dt) {
   updateExplosions(dt);
   updateScreenEffects(dt);
   if (!state.running || !core.alive || state.paused) return;
+  if (state.survivalLevel) {
+    state.survivalTime += dt;
+    updateHud();
+  }
   if (state.slowTimer > 0) {
     state.slowTimer = Math.max(0, state.slowTimer - dt);
   }
@@ -961,6 +1014,13 @@ function update(dt) {
       spawnMissile();
     }
     updateBoss(dt);
+  } else if (state.survivalLevel) {
+    state.spawnTimer += dt;
+    const interval = getSurvivalSpawnInterval(state.survivalTime);
+    if (state.spawnTimer >= interval) {
+      state.spawnTimer = 0;
+      spawnMissile();
+    }
   } else {
     state.spawnTimer += dt;
     if (state.spawnTimer >= state.spawnInterval && state.waveSpawned < state.waveTarget) {
@@ -1023,6 +1083,13 @@ function update(dt) {
       }
       playSfx('core');
       triggerExplosion(target.x, target.y, '#ffb347', 140, 0.7, 18);
+      if (state.survivalLevel) {
+        const isRecord = saveSurvivalRecord(state.survivalTime);
+        const timeText = `${state.survivalTime.toFixed(1)}s`;
+        gameoverEl.textContent = isRecord ? `Survival: ${timeText}\nNew Record!` : `Survival: ${timeText}`;
+      } else {
+        gameoverEl.textContent = 'Game Over';
+      }
       gameoverEl.classList.remove('hidden');
       gameoverMenu.classList.remove('hidden');
       stopMusic();
@@ -1033,7 +1100,7 @@ function update(dt) {
     }
   }
 
-  if (!state.finalLevel && state.waveSpawned >= state.waveTarget && missiles.length === 0) {
+  if (!state.finalLevel && !state.survivalLevel && state.waveSpawned >= state.waveTarget && missiles.length === 0) {
     endWave();
   }
 
@@ -1081,6 +1148,10 @@ function drawCore() {
     ctx.arc(x, y, outer, 0, Math.PI * 2);
     ctx.arc(x, y, inner, 0, Math.PI * 2, true);
     ctx.fill('evenodd');
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(x, y, outer, 0, Math.PI * 2);
+    ctx.clip();
     ctx.globalAlpha = 0.2 + ratio * 0.2;
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
     ctx.lineWidth = 1.5;
@@ -1091,6 +1162,7 @@ function drawCore() {
       ctx.lineTo(x + outer, y + i + outer * 0.2);
       ctx.stroke();
     }
+    ctx.restore();
     ctx.restore();
   }
 
@@ -1571,7 +1643,13 @@ function startCountdown() {
   resetSkillCooldowns();
   countdownEl.textContent = state.countdown;
   countdownEl.classList.remove('hidden');
-  showWaveMessage(state.finalLevel ? 'Final Level' : state.hardcoreLevel ? 'Hardcore Level' : getWaveLabel(), 2.2);
+  if (state.hardcoreLevel) {
+    showWaveMessage('Hardcore Mode: No skills or upgrades', 2.2);
+  } else if (state.survivalLevel) {
+    showWaveMessage('Survival Mode', 2.2);
+  } else {
+    showWaveMessage(state.finalLevel ? 'Final Level' : getWaveLabel(), 2.2);
+  }
   playSfx('tick');
   const timer = setInterval(() => {
     state.countdown -= 1;
@@ -1581,6 +1659,8 @@ function startCountdown() {
       setMusicMode('game');
       if (state.finalLevel) {
         startFinalLevel();
+      } else if (state.survivalLevel) {
+        startSurvival();
       } else {
         startWave(false);
       }
@@ -1593,13 +1673,24 @@ function startCountdown() {
 }
 
 function updateHud() {
-  hudLevel.textContent = `Level ${state.level}`;
-  hudWave.textContent = `Wave ${state.wave} of ${state.wavesTotal}`;
+  if (state.survivalLevel) {
+    hudLevel.textContent = 'Survival';
+    hudWave.textContent = 'Endless';
+  } else {
+    hudLevel.textContent = `Level ${state.level}`;
+    hudWave.textContent = `Wave ${state.wave} of ${state.wavesTotal}`;
+  }
   moneyEl.lastChild.textContent = `Credits: ${state.money}`;
   if (menuCredits) {
     const label = menuCredits.querySelector('.label');
     if (label) {
       label.textContent = `Credits: ${state.money}`;
+    }
+  }
+  if (survivalTimeEl) {
+    survivalTimeEl.classList.toggle('hidden', !state.survivalLevel);
+    if (state.survivalLevel) {
+      survivalTimeEl.textContent = `Time ${state.survivalTime.toFixed(1)}s`;
     }
   }
 }
@@ -1641,6 +1732,7 @@ function showMoneyToast() {
 }
 
 function getBounty(type) {
+  if (type === 'twin') return 5;
   if (type === 'fast') return 3;
   if (type === 'tank') return 5;
   return 1;
@@ -1652,6 +1744,45 @@ function awardMoney(amount) {
   updateHud();
   updateUpgrades();
   updateUpgradeVisibility();
+}
+
+function loadSurvivalRecords() {
+  try {
+    const raw = localStorage.getItem(survivalRecordsKey);
+    const list = raw ? JSON.parse(raw) : [];
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveSurvivalRecord(time) {
+  const records = loadSurvivalRecords();
+  const prevBest = records.length ? Math.max(...records) : 0;
+  records.push(time);
+  records.sort((a, b) => b - a);
+  const trimmed = records.slice(0, 5);
+  localStorage.setItem(survivalRecordsKey, JSON.stringify(trimmed));
+  renderSurvivalRecords(trimmed);
+  return time > prevBest;
+}
+
+function renderSurvivalRecords(records = null) {
+  const list = document.querySelector('#survival-records .records-list');
+  if (!list) return;
+  const data = records || loadSurvivalRecords();
+  list.innerHTML = '';
+  if (data.length === 0) {
+    const item = document.createElement('li');
+    item.textContent = 'No records yet';
+    list.appendChild(item);
+    return;
+  }
+  data.forEach(value => {
+    const item = document.createElement('li');
+    item.textContent = `${value.toFixed(1)}s`;
+    list.appendChild(item);
+  });
 }
 
 function getSkillCooldown(skill) {
@@ -1718,6 +1849,7 @@ skillButtons.forEach(button => {
   button.addEventListener('click', () => {
     const skill = button.dataset.skill;
     if (!state.running || !core.alive) return;
+    if (state.hardcoreLevel) return;
     if (!skill) return;
     if (skill === 'nova' && novaLevel === 0) return;
     if (skill === 'regen' && regenLevel === 0) return;
@@ -1772,6 +1904,7 @@ startButton.addEventListener('click', () => {
   startScreen.classList.add('hidden');
   state.betweenLevels = false;
   updateUpgradeVisibility();
+  updateSkillLocks();
   startCountdown();
 });
 
@@ -1896,7 +2029,7 @@ levelButtons.forEach(button => {
   button.addEventListener('click', () => {
     const level = Number(button.dataset.level);
     if (Number.isNaN(level)) return;
-    if (level > state.unlockedLevel) return;
+    if (level !== 6 && level > state.unlockedLevel) return;
     state.selectedLevel = level;
     updateLevelButtons();
   });
@@ -1999,6 +2132,7 @@ document.querySelectorAll('.skill').forEach(button => {
 loadProgress();
 updateHud();
 updateUpgradeVisibility();
+renderSurvivalRecords();
 
 requestAnimationFrame(render);
 
@@ -2044,9 +2178,11 @@ function resetSkillCooldowns() {
 function updateLevelButtons() {
   levelButtons.forEach(button => {
     const level = Number(button.dataset.level);
-    button.disabled = level > state.unlockedLevel;
+    const isSurvival = level === 6;
+    button.disabled = !isSurvival && level > state.unlockedLevel;
     button.classList.toggle('active', level === state.selectedLevel);
   });
+  updateUpgradeVisibility();
 }
 
 function updateUpgrades() {
@@ -2161,6 +2297,17 @@ function updateSkillLocks() {
   skillButtons.forEach(button => {
     const skill = button.dataset.skill;
     let unlocked = false;
+    const hardcoreLocked = state.hardcoreLevel && startScreen.classList.contains('hidden');
+    if (hardcoreLocked) {
+      button.disabled = true;
+      button.classList.remove('unlocked');
+      button.classList.add('locked');
+      const status = button.querySelector('.status');
+      if (status) {
+        status.textContent = 'Locked';
+      }
+      return;
+    }
     if (skill === 'nova') {
       unlocked = novaLevel > 0;
     } else if (skill === 'regen') {
@@ -2208,6 +2355,7 @@ function loadProgress() {
 
 function resetProgress() {
   localStorage.removeItem('unlockedLevel');
+  localStorage.removeItem(survivalRecordsKey);
   sessionStorage.removeItem('money');
   sessionStorage.removeItem('shieldUpgrades');
   sessionStorage.removeItem('novaLevel');
@@ -2230,12 +2378,14 @@ function resetProgress() {
   updateHud();
   updateUpgradeVisibility();
   updateResetVisibility();
+  renderSurvivalRecords([]);
 }
 
 function updateResetVisibility() {
   if (!resetProgressButton) return;
   const hasProgress = (
     Number(localStorage.getItem('unlockedLevel')) > 1 ||
+    (localStorage.getItem(survivalRecordsKey) || '[]') !== '[]' ||
     Number(sessionStorage.getItem('money')) > 0 ||
     Number(sessionStorage.getItem('shieldUpgrades')) > 0 ||
     Number(sessionStorage.getItem('novaLevel')) > 0 ||
