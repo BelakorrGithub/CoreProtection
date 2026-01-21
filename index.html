@@ -21,6 +21,7 @@
     </div>
   </div>
   <div id="admin-toast" class="hidden">You are not an admin</div>
+  <div id="admin-credit-floater" class="hidden">+1000</div>
   <div id="money-toast" class="hidden">Not enough credits</div>
   <div id="pause-overlay" class="hidden">
     <div class="pause-title">Paused</div>
@@ -53,6 +54,7 @@
       <div id="menu-main-actions">
         <button id="menu-play">Play</button>
         <button id="menu-upgrades-button">Upgrades</button>
+        <button id="menu-styles-button"><span class="new-badge">New!</span> Styles</button>
       </div>
     </div>
     <div id="menu-play-panel" class="hidden">
@@ -64,10 +66,10 @@
       </div>
       <button class="level-button final" data-level="4" disabled>Final Level</button>
       <button class="level-button hardcore" data-level="5" disabled>Hardcore Mode</button>
-      <button class="level-button survival" data-level="6">Survival Mode</button>
+      <button class="level-button survival" data-level="6"><span class="new-badge">New!</span> Survival Mode</button>
       <button id="start-button">Start</button>
       <div id="survival-records">
-        <div class="records-title">Survival Records</div>
+        <div class="records-title"><span class="new-badge">New!</span> Survival Records</div>
         <ol class="records-list"></ol>
       </div>
       <button id="reset-progress" class="level-button">Reset Progress</button>
@@ -108,6 +110,24 @@
         </button>
       </div>
       <button id="upgrades-back"><span aria-hidden="true">&lt;</span> Back to Menu</button>
+    </div>
+    <div id="menu-styles-panel" class="hidden">
+      <div class="styles-title">Styles</div>
+      <div class="styles-grid">
+        <button class="style-card" data-style="default">
+          <span class="style-name">Default</span>
+          <span class="style-desc">Classic space defense</span>
+        </button>
+        <button class="style-card" data-style="pixel">
+          <span class="style-name">Pixel</span>
+          <span class="style-desc">Retro arcade grid</span>
+        </button>
+        <button class="style-card" data-style="neon">
+          <span class="style-name">Neon</span>
+          <span class="style-desc">Hyper glow sci-fi</span>
+        </button>
+      </div>
+      <button id="styles-back"><span aria-hidden="true">&lt;</span> Back to Menu</button>
     </div>
   </div>
   <div id="confirm-reset" class="hidden">
