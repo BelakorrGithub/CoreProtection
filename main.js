@@ -6,6 +6,7 @@ const countdownEl = document.getElementById('countdown');
 const waveMessageEl = document.getElementById('wave-message');
 const gameoverEl = document.getElementById('gameover');
 const gameoverMenu = document.getElementById('gameover-menu');
+const gameoverRetry = document.getElementById('gameover-retry');
 const victoryEl = document.getElementById('victory');
 const hardcoreUnlocked = document.getElementById('hardcore-unlocked');
 const victoryClose = document.getElementById('victory-close');
@@ -141,6 +142,7 @@ let gameGain = null;
 let melodyIntervalMs = 140;
 let baseMelodyIntervalMs = 140;
 let baseMusicGain = 0.24;
+let musicSlowFactor = 1;
 let leadOsc = null;
 let debugHoldTimer = null;
 let debugHoldTriggered = false;
@@ -306,7 +308,7 @@ function applyThemeAudio(theme) {
   gamePulse.type = config.pulse;
   leadOsc.type = config.lead;
   state.musicGain = baseMusicGain * config.gain;
-  melodyIntervalMs = baseMelodyIntervalMs * config.tempo;
+  melodyIntervalMs = baseMelodyIntervalMs * config.tempo * musicSlowFactor;
 }
 
 function applyTheme(theme) {
@@ -572,6 +574,13 @@ function setMusicIntensity(level) {
   state.musicGain = baseMusicGain;
   melodyIntervalMs = baseMelodyIntervalMs;
   applyThemeAudio(document.body.dataset.theme || 'default');
+  restartMelodyTimer();
+}
+
+function setMusicSlow(isSlow) {
+  if (!audioCtx) return;
+  musicSlowFactor = isSlow ? 2 : 1;
+  applyThemeAudio(getThemeKey());
   restartMelodyTimer();
 }
 
@@ -954,6 +963,7 @@ function resetGame() {
   moneyToast.classList.add('hidden');
   gameoverEl.classList.add('hidden');
   gameoverMenu.classList.add('hidden');
+  gameoverRetry.classList.add('hidden');
   waveMessageEl.classList.add('hidden');
   pauseOverlay.classList.add('hidden');
   pauseButton.disabled = false;
@@ -1194,7 +1204,11 @@ function update(dt) {
     updateHud();
   }
   if (state.slowTimer > 0) {
+    const wasSlow = state.slowTimer > 0;
     state.slowTimer = Math.max(0, state.slowTimer - dt);
+    if (wasSlow && state.slowTimer <= 0) {
+      setMusicSlow(false);
+    }
   }
   if (state.aegisTimer > 0) {
     state.aegisTimer = Math.max(0, state.aegisTimer - dt);
@@ -1982,14 +1996,14 @@ function startCountdown() {
     }
     countdownEl.textContent = state.countdown;
     playSfx('tick');
-  }, 1000);
+  }, 500);
   countdownTimer = timer;
 }
 
 function updateHud() {
   if (state.survivalLevel) {
     hudLevel.textContent = 'Survival';
-    hudWave.textContent = 'Endless';
+    hudWave.textContent = '';
   } else {
     hudLevel.textContent = `Level ${state.level}`;
     hudWave.textContent = `Wave ${state.wave} of ${state.wavesTotal}`;
@@ -2136,9 +2150,10 @@ function handleCoreHit() {
   } else {
     gameoverEl.textContent = 'Game Over';
   }
-  gameoverEl.classList.remove('hidden');
-  gameoverMenu.classList.remove('hidden');
-  stopMusic();
+      gameoverEl.classList.remove('hidden');
+      gameoverMenu.classList.remove('hidden');
+      gameoverRetry.classList.remove('hidden');
+      stopMusic();
   if (waveTimeout) {
     clearTimeout(waveTimeout);
     waveTimeout = null;
@@ -2290,6 +2305,7 @@ skillButtons.forEach(button => {
       state.slowTimer = 3;
       playSfx('slow');
       setCooldown(skill);
+      setMusicSlow(true);
       return;
     }
     if (skill === 'aegis') {
@@ -2384,7 +2400,22 @@ gameoverMenu.addEventListener('click', () => {
   setMenuView('home');
   gameoverMenu.classList.add('hidden');
   gameoverEl.classList.add('hidden');
+  gameoverRetry.classList.add('hidden');
   updateUpgradeVisibility();
+});
+
+gameoverRetry.addEventListener('click', () => {
+  stopMusic();
+  resetGame();
+  applyLevelConfig(state.selectedLevel);
+  rebuildShields();
+  state.runStartMoney = state.money;
+  updateHud();
+  startScreen.classList.add('hidden');
+  state.betweenLevels = false;
+  updateUpgradeVisibility();
+  updateSkillLocks();
+  startCountdown();
 });
 
 pauseButton.addEventListener('click', () => {
