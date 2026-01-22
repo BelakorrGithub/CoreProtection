@@ -42,6 +42,9 @@ const adminCreditFloater = document.getElementById('admin-credit-floater');
 const confirmReset = document.getElementById('confirm-reset');
 const confirmResetYes = document.getElementById('confirm-reset-yes');
 const confirmResetNo = document.getElementById('confirm-reset-no');
+const hardcoreConfirm = document.getElementById('hardcore-confirm');
+const hardcoreConfirmYes = document.getElementById('hardcore-confirm-yes');
+const hardcoreConfirmNo = document.getElementById('hardcore-confirm-no');
 const actionsBar = document.getElementById('actions');
 const skillButtons = document.querySelectorAll('[data-skill]');
 const upgradeButtons = document.querySelectorAll('[data-upgrade]');
@@ -71,6 +74,8 @@ const state = {
   finalLevel: false,
   hardcoreLevel: false,
   survivalLevel: false,
+  bossLevel: false,
+  bossPhase: false,
   paused: false,
   runStartMoney: 0,
   slowTimer: 0,
@@ -85,9 +90,8 @@ const levels = [
   { level: 1, spawnInterval: 1.35, music: { gain: 0.2, tempo: 220 } },
   { level: 2, spawnInterval: 1.05, music: { gain: 0.26, tempo: 170 } },
   { level: 3, spawnInterval: 0.75, music: { gain: 0.32, tempo: 130 } },
-  { level: 4, spawnInterval: 1.2, music: { gain: 0.36, tempo: 110 } },
-  { level: 5, spawnInterval: 0.4, music: { gain: 0.4, tempo: 90 } },
-  { level: 6, spawnInterval: 1.2, music: { gain: 0.3, tempo: 140 } }
+  { level: 4, spawnInterval: 0.4, music: { gain: 0.4, tempo: 90 } },
+  { level: 5, spawnInterval: 1.2, music: { gain: 0.3, tempo: 140 } }
 ];
 
 const baseCoreRadius = 28;
@@ -120,6 +124,8 @@ const boss = {
   y: -400,
   width: 260,
   height: 200,
+  entry: 'top',
+  targetX: 0,
   targetY: 0,
   speed: 90,
   mainHp: 20,
@@ -152,10 +158,12 @@ let adminCreditsTimer = null;
 let adminCreditsTriggered = false;
 let adminCreditFloaterTimer = null;
 const survivalRecordsKey = 'survivalRecords';
+let pendingHardcoreStart = false;
 const themeMusic = {
   default: { gain: 1, tempo: 1, pulse: 'square', lead: 'sawtooth' },
   pixel: { gain: 0.85, tempo: 1.15, pulse: 'square', lead: 'square' },
-  neon: { gain: 1.2, tempo: 0.8, pulse: 'sawtooth', lead: 'triangle' }
+  neon: { gain: 1.2, tempo: 0.8, pulse: 'sawtooth', lead: 'triangle' },
+  forge: { gain: 1.05, tempo: 0.92, pulse: 'triangle', lead: 'sawtooth' }
 };
 const themeColors = {
   space1: '#1a2a4f',
@@ -177,7 +185,9 @@ const themePalette = {
   missileFinFast: 'rgba(120, 220, 255, 0.9)',
   missileTrailNormal: 'rgba(255, 140, 60, 0.9)',
   missileTrailFast: 'rgba(120, 220, 255, 0.9)',
-  twinBeam: 'rgba(120, 220, 140, 0.8)'
+  twinBeam: 'rgba(120, 220, 140, 0.8)',
+  screenFlash: '#9cd3ff',
+  shockwave: '140, 220, 255'
 };
 
 function isPixelTheme() {
@@ -188,12 +198,19 @@ function isNeonTheme() {
   return document.body.dataset.theme === 'neon';
 }
 
+function isForgeTheme() {
+  return document.body.dataset.theme === 'forge';
+}
+
 function getHudFont(size) {
   if (isPixelTheme()) {
     return `${Math.max(10, Math.round(size))}px "Press Start 2P", monospace`;
   }
   if (isNeonTheme()) {
     return `${size}px "Rajdhani", sans-serif`;
+  }
+  if (isForgeTheme()) {
+    return `${size}px "Chakra Petch", sans-serif`;
   }
   return `${size}px "Orbitron", "Russo One", sans-serif`;
 }
@@ -263,8 +280,16 @@ function updateLayout() {
     const baseSize = Math.min(width, height) * 0.42;
     boss.width = baseSize;
     boss.height = baseSize * 0.72;
-    boss.x = layout.x - boss.width / 2;
-    boss.targetY = 20 * layout.scale;
+    if (boss.entry === 'left') {
+      boss.targetX = 20 * layout.scale;
+      boss.targetY = layout.y - boss.height / 2;
+    } else if (boss.entry === 'right') {
+      boss.targetX = width - boss.width - 20 * layout.scale;
+      boss.targetY = layout.y - boss.height / 2;
+    } else {
+      boss.targetX = layout.x - boss.width / 2;
+      boss.targetY = 20 * layout.scale;
+    }
   }
 }
 
@@ -288,6 +313,9 @@ function getThemeMelody() {
   if (theme === 'neon') {
     return [392, 440, 523, 659, 784, 659, 523, 440];
   }
+  if (theme === 'forge') {
+    return [196, 220, 262, 294, 330, 294, 262, 220, 196, 220, 262, 294];
+  }
   return [220, 262, 330, 392, 440, 494, 440, 392, 330, 262, 330, 392];
 }
 
@@ -298,6 +326,9 @@ function getThemeLeadLine() {
   }
   if (theme === 'neon') {
     return [659, 784, 988, 1175, 988, 784, 659, 523];
+  }
+  if (theme === 'forge') {
+    return [392, 440, 523, 659, 523, 440, 392, 330, 392, 440];
   }
   return [440, 523, 659, 784, 659, 523, 440, 392];
 }
@@ -331,6 +362,8 @@ function applyTheme(theme) {
     themePalette.missileTrailNormal = 'rgba(255, 150, 80, 0.9)';
     themePalette.missileTrailFast = 'rgba(140, 240, 255, 0.95)';
     themePalette.twinBeam = 'rgba(120, 240, 170, 0.85)';
+    themePalette.screenFlash = '#7dd6ff';
+    themePalette.shockwave = '120, 210, 255';
   } else if (theme === 'neon') {
     themePalette.shield = ['#5af2ff', '#9dff5a', '#ff5ad5'];
     themePalette.coreOuter = '#ff9a4f';
@@ -346,6 +379,25 @@ function applyTheme(theme) {
     themePalette.missileTrailNormal = 'rgba(255, 120, 140, 0.95)';
     themePalette.missileTrailFast = 'rgba(120, 255, 255, 0.95)';
     themePalette.twinBeam = 'rgba(140, 255, 200, 0.9)';
+    themePalette.screenFlash = '#64f2ff';
+    themePalette.shockwave = '120, 255, 255';
+  } else if (theme === 'forge') {
+    themePalette.shield = ['#ffb35b', '#f0703c', '#61d4c3'];
+    themePalette.coreOuter = '#ff8b3d';
+    themePalette.coreInner = '#ffe2b8';
+    themePalette.missileNormal = '#ff9d5c';
+    themePalette.missileFast = '#65e0c6';
+    themePalette.missileTank = '#f2c24f';
+    themePalette.missileTwin = '#f2c24f';
+    themePalette.missileStrokeNormal = 'rgba(255, 210, 160, 0.75)';
+    themePalette.missileStrokeFast = 'rgba(170, 255, 235, 0.85)';
+    themePalette.missileFinNormal = 'rgba(255, 170, 120, 0.95)';
+    themePalette.missileFinFast = 'rgba(120, 240, 220, 0.95)';
+    themePalette.missileTrailNormal = 'rgba(255, 140, 80, 0.9)';
+    themePalette.missileTrailFast = 'rgba(110, 230, 210, 0.9)';
+    themePalette.twinBeam = 'rgba(120, 230, 200, 0.85)';
+    themePalette.screenFlash = '#ffb36b';
+    themePalette.shockwave = '255, 180, 120';
   } else {
     themePalette.shield = ['#52b8ff', '#58e28f', '#ff6b6b'];
     themePalette.coreOuter = '#ffb347';
@@ -361,6 +413,8 @@ function applyTheme(theme) {
     themePalette.missileTrailNormal = 'rgba(255, 140, 60, 0.9)';
     themePalette.missileTrailFast = 'rgba(120, 220, 255, 0.9)';
     themePalette.twinBeam = 'rgba(120, 220, 140, 0.8)';
+    themePalette.screenFlash = '#9cd3ff';
+    themePalette.shockwave = '140, 220, 255';
   }
   styleButtons.forEach(button => {
     button.classList.toggle('active', button.dataset.style === theme);
@@ -372,6 +426,21 @@ function applyTheme(theme) {
 
 function center() {
   return { x: layout.x, y: layout.y };
+}
+
+function drawPolygonPath(x, y, radius, sides, rotation = 0) {
+  ctx.beginPath();
+  for (let i = 0; i < sides; i += 1) {
+    const angle = rotation + (Math.PI * 2 * i) / sides;
+    const px = x + Math.cos(angle) * radius;
+    const py = y + Math.sin(angle) * radius;
+    if (i === 0) {
+      ctx.moveTo(px, py);
+    } else {
+      ctx.lineTo(px, py);
+    }
+  }
+  ctx.closePath();
 }
 
 function rebuildShields() {
@@ -450,30 +519,70 @@ function spawnTwinPair(x, y) {
     type: 'twin',
     twinId: id
   };
-  const m1 = { x: x + perpX * offset, y: y + perpY * offset, twinPart: 0, ...base };
-  const m2 = { x: x - perpX * offset, y: y - perpY * offset, twinPart: 1, ...base };
+  const m1 = { x: x + perpX * offset, y: y + perpY * offset, twinPart: 0, seed: Math.random(), ...base };
+  const m2 = { x: x - perpX * offset, y: y - perpY * offset, twinPart: 1, seed: Math.random(), ...base };
   missiles.push(m1, m2);
   twinGroups.set(id, { a: m1, b: m2, primeA: 0, primeB: 0 });
 }
 
-function initBoss() {
+function buildBossParts(mainHp, launchers) {
+  const hpScale = Math.max(0.5, mainHp / 20);
+  const parts = [
+    { id: 'main', x: 0.2, y: 0.25, w: 0.6, h: 0.5, hp: mainHp, type: 'main', flash: 0 }
+  ];
+  if (!launchers) return parts;
+  launchers.forEach((launcher, index) => {
+    const baseHp = launcher.baseHp || (launcher.type === 'tank' ? 8 : launcher.type === 'fast' ? 6 : 4);
+    parts.push({
+      id: launcher.id || `launcher-${index}`,
+      x: launcher.x,
+      y: launcher.y,
+      w: launcher.w,
+      h: launcher.h,
+      hp: Math.max(2, Math.round(baseHp * hpScale)),
+      type: launcher.type || 'standard',
+      flash: 0,
+      cooldown: 0,
+      rate: launcher.rate || 3
+    });
+  });
+  return parts;
+}
+
+function initBoss(options = {}) {
   const { x, y } = center();
   const scale = layout.scale;
   const baseSize = Math.min(width, height) * 0.42;
+  const entry = options.entry || 'top';
+  const mainHp = options.mainHp || 20;
+  const launchers = options.launchers || [
+    { id: 'front-left', x: 0.05, y: 0.15, w: 0.18, h: 0.18, type: 'standard', rate: 2.4, baseHp: 4 },
+    { id: 'front-right', x: 0.77, y: 0.15, w: 0.18, h: 0.18, type: 'standard', rate: 2.4, baseHp: 4 },
+    { id: 'rear-left', x: 0.12, y: 0.7, w: 0.2, h: 0.18, type: 'fast', rate: 3.2, baseHp: 6 },
+    { id: 'rear-right', x: 0.68, y: 0.7, w: 0.2, h: 0.18, type: 'tank', rate: 4.2, baseHp: 8 }
+  ];
   boss.active = true;
+  boss.entry = entry;
   boss.width = baseSize;
   boss.height = baseSize * 0.72;
-  boss.x = x - boss.width / 2;
-  boss.y = -boss.height - 40;
-  boss.targetY = 20 * scale;
-  boss.mainHp = 20;
-  boss.parts = [
-    { id: 'main', x: 0.2, y: 0.25, w: 0.6, h: 0.5, hp: 20, type: 'main', flash: 0 },
-    { id: 'front-left', x: 0.05, y: 0.15, w: 0.18, h: 0.18, hp: 4, type: 'standard', flash: 0, cooldown: 0, rate: 2.4 },
-    { id: 'front-right', x: 0.77, y: 0.15, w: 0.18, h: 0.18, hp: 4, type: 'standard', flash: 0, cooldown: 0, rate: 2.4 },
-    { id: 'rear-left', x: 0.12, y: 0.7, w: 0.2, h: 0.18, hp: 6, type: 'fast', flash: 0, cooldown: 0, rate: 3.2 },
-    { id: 'rear-right', x: 0.68, y: 0.7, w: 0.2, h: 0.18, hp: 8, type: 'tank', flash: 0, cooldown: 0, rate: 4.2 }
-  ];
+  if (entry === 'left') {
+    boss.x = -boss.width - 40;
+    boss.y = layout.y - boss.height / 2;
+    boss.targetX = 20 * scale;
+    boss.targetY = boss.y;
+  } else if (entry === 'right') {
+    boss.x = width + 40;
+    boss.y = layout.y - boss.height / 2;
+    boss.targetX = width - boss.width - 20 * scale;
+    boss.targetY = boss.y;
+  } else {
+    boss.x = x - boss.width / 2;
+    boss.y = -boss.height - 40;
+    boss.targetX = boss.x;
+    boss.targetY = 20 * scale;
+  }
+  boss.mainHp = mainHp;
+  boss.parts = buildBossParts(mainHp, launchers);
   boss.maxHp = boss.mainHp;
   updateBossBar();
 }
@@ -639,6 +748,29 @@ function playSfx(type) {
     gain.connect(masterGain);
     osc.start(now);
     osc.stop(now + 0.38);
+    return;
+  }
+
+  if (type === 'theme-forge') {
+    const osc1 = audioCtx.createOscillator();
+    const osc2 = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc1.type = 'triangle';
+    osc2.type = 'square';
+    osc1.frequency.setValueAtTime(420, now);
+    osc2.frequency.setValueAtTime(210, now);
+    osc1.frequency.exponentialRampToValueAtTime(170, now + 0.32);
+    osc2.frequency.exponentialRampToValueAtTime(90, now + 0.32);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.32, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.34);
+    osc1.connect(gain);
+    osc2.connect(gain);
+    gain.connect(masterGain);
+    osc1.start(now);
+    osc2.start(now);
+    osc1.stop(now + 0.36);
+    osc2.stop(now + 0.36);
     return;
   }
 
@@ -920,6 +1052,8 @@ function resetGame() {
   state.finalLevel = false;
   state.hardcoreLevel = false;
   state.survivalLevel = false;
+  state.bossLevel = false;
+  state.bossPhase = false;
   state.paused = false;
   state.slowTimer = 0;
   state.aegisTimer = 0;
@@ -981,7 +1115,7 @@ function showWaveMessage(text, duration = 1.4) {
 }
 
 function getWaveTarget(level, wave) {
-  if (level >= 5) {
+  if (level === 4) {
     const base = 20 + (wave - 1) * 6;
     return base;
   }
@@ -1005,10 +1139,12 @@ function getSurvivalSpawnInterval(time) {
 function applyLevelConfig(level) {
   const config = levels.find(item => item.level === level) || levels[0];
   state.level = config.level;
-  state.finalLevel = state.level === 4;
-  state.hardcoreLevel = state.level === 5;
-  state.survivalLevel = state.level === 6;
-  state.wavesTotal = state.finalLevel ? 1 : state.hardcoreLevel ? 5 : 3;
+  state.finalLevel = false;
+  state.hardcoreLevel = state.level === 4;
+  state.survivalLevel = state.level === 5;
+  state.bossLevel = state.level <= 3;
+  state.bossPhase = false;
+  state.wavesTotal = state.bossLevel ? 3 : state.hardcoreLevel ? 5 : 3;
   state.wave = 1;
   state.spawnInterval = config.spawnInterval;
   state.survivalTime = 0;
@@ -1019,6 +1155,7 @@ function applyLevelConfig(level) {
 function startWave(showMessage = true) {
   state.waveSpawned = 0;
   state.waveTarget = getWaveTarget(state.level, state.wave);
+  state.bossPhase = false;
   state.running = true;
   state.betweenLevels = false;
   updateHud();
@@ -1028,14 +1165,51 @@ function startWave(showMessage = true) {
   }
 }
 
-function startFinalLevel() {
+function getBossConfig(level) {
+  if (level === 1) {
+    return {
+      entry: 'left',
+      mainHp: 12,
+      launchers: [
+        { id: 'front-left', x: 0.1, y: 0.18, w: 0.18, h: 0.18, type: 'standard', rate: 3.4, baseHp: 3 },
+        { id: 'front-right', x: 0.72, y: 0.18, w: 0.18, h: 0.18, type: 'standard', rate: 3.4, baseHp: 3 }
+      ]
+    };
+  }
+  if (level === 2) {
+    return {
+      entry: 'right',
+      mainHp: 16,
+      launchers: [
+        { id: 'front-left', x: 0.06, y: 0.16, w: 0.18, h: 0.18, type: 'standard', rate: 2.9, baseHp: 4 },
+        { id: 'front-right', x: 0.76, y: 0.16, w: 0.18, h: 0.18, type: 'standard', rate: 2.9, baseHp: 4 },
+        { id: 'rear-center', x: 0.4, y: 0.68, w: 0.2, h: 0.18, type: 'fast', rate: 3.1, baseHp: 5 }
+      ]
+    };
+  }
+  return {
+    entry: 'top',
+    mainHp: 20,
+    launchers: [
+      { id: 'front-left', x: 0.05, y: 0.15, w: 0.18, h: 0.18, type: 'standard', rate: 2.2, baseHp: 4 },
+      { id: 'front-right', x: 0.77, y: 0.15, w: 0.18, h: 0.18, type: 'standard', rate: 2.2, baseHp: 4 },
+      { id: 'rear-left', x: 0.12, y: 0.7, w: 0.2, h: 0.18, type: 'fast', rate: 2.8, baseHp: 6 },
+      { id: 'rear-right', x: 0.68, y: 0.7, w: 0.2, h: 0.18, type: 'tank', rate: 3.6, baseHp: 8 }
+    ]
+  };
+}
+
+function startBossLevel(showMessage = true) {
   state.running = true;
   state.betweenLevels = false;
+  state.bossPhase = true;
   state.bossSpawnTimer = 0;
-  initBoss();
+  initBoss(getBossConfig(state.level));
   updateHud();
   updateUpgradeVisibility();
-  showWaveMessage('Final Level', 1.6);
+  if (showMessage) {
+    showWaveMessage('Boss Incoming', 1.6);
+  }
 }
 
 function startSurvival() {
@@ -1089,6 +1263,11 @@ function endWave() {
     showWaveMessage(getWaveLabel(), 1.1);
     waveTimeout = setTimeout(() => {
       startWave(false);
+    }, 1200);
+  } else if (state.bossLevel) {
+    showWaveMessage('Boss Incoming', 1.6);
+    waveTimeout = setTimeout(() => {
+      startBossLevel(false);
     }, 1200);
   } else {
     completeLevel();
@@ -1161,7 +1340,8 @@ function buildMissile(x, y, forcedType = null) {
     vy: Math.sin(angle) * speed,
     r: radius,
     type,
-    hp
+    hp,
+    seed: Math.random()
   };
 }
 
@@ -1183,7 +1363,7 @@ function spawnMissile() {
     x = -offset;
     y = Math.random() * height;
   }
-  if (!state.finalLevel && state.level > 1 && Math.random() > 0.92) {
+  if (!state.bossLevel && state.level > 1 && Math.random() > 0.92) {
     spawnTwinPair(x, y);
     return;
   }
@@ -1214,7 +1394,7 @@ function update(dt) {
     state.aegisTimer = Math.max(0, state.aegisTimer - dt);
   }
 
-  if (state.finalLevel) {
+  if (state.bossPhase) {
     state.bossSpawnTimer += dt;
     if (state.bossSpawnTimer >= 2.6) {
       state.bossSpawnTimer = 0;
@@ -1323,7 +1503,7 @@ function update(dt) {
     }
   }
 
-  if (!state.finalLevel && !state.survivalLevel && state.waveSpawned >= state.waveTarget && missiles.length === 0) {
+  if (state.running && !state.survivalLevel && !state.bossPhase && state.waveSpawned >= state.waveTarget && missiles.length === 0) {
     endWave();
   }
 
@@ -1363,6 +1543,8 @@ function drawBackground() {
 
 function drawCore() {
   const { x, y } = center();
+  const useHex = isForgeTheme();
+  const hexRotation = Math.PI / 6;
 
   if (state.aegisTimer > 0) {
     const outer = (baseShieldRadius + layerGap * (maxLayers - 1)) * layout.scale;
@@ -1390,6 +1572,23 @@ function drawCore() {
         ctx.beginPath();
         ctx.moveTo(x - outer, y + i);
         ctx.lineTo(x + outer, y + i);
+        ctx.stroke();
+      }
+      ctx.restore();
+    } else if (useHex) {
+      drawPolygonPath(x, y, outer, 6, hexRotation);
+      ctx.fill();
+      ctx.save();
+      drawPolygonPath(x, y, outer, 6, hexRotation);
+      ctx.clip();
+      ctx.globalAlpha = 0.2 + ratio * 0.2;
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+      ctx.lineWidth = 1.5;
+      const stripeGap = 10 * layout.scale;
+      for (let i = -outer; i <= outer; i += stripeGap) {
+        ctx.beginPath();
+        ctx.moveTo(x - outer, y + i);
+        ctx.lineTo(x + outer, y + i + outer * 0.2);
         ctx.stroke();
       }
       ctx.restore();
@@ -1445,8 +1644,12 @@ function drawCore() {
 
   for (let i = 0; i < maxLayers; i += 1) {
     const radius = (baseShieldRadius + layerGap * i) * layout.scale;
-    ctx.beginPath();
-    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    if (useHex) {
+      drawPolygonPath(x, y, radius, 6, hexRotation);
+    } else {
+      ctx.beginPath();
+      ctx.arc(x, y, radius, 0, Math.PI * 2);
+    }
     ctx.strokeStyle = 'rgba(80, 140, 200, 0.12)';
     ctx.lineWidth = 2;
     ctx.stroke();
@@ -1456,8 +1659,12 @@ function drawCore() {
     if (layer.hp <= 0) continue;
     const ratio = layer.hp / layer.max;
     const color = themePalette.shield[Math.min(themePalette.shield.length - 1, shieldLayers.indexOf(layer))];
-    ctx.beginPath();
-    ctx.arc(x, y, layer.radius, 0, Math.PI * 2);
+    if (useHex) {
+      drawPolygonPath(x, y, layer.radius, 6, hexRotation);
+    } else {
+      ctx.beginPath();
+      ctx.arc(x, y, layer.radius, 0, Math.PI * 2);
+    }
     ctx.strokeStyle = color;
     ctx.lineWidth = (3 + ratio * 3) * layout.scale;
     ctx.shadowColor = color;
@@ -1466,24 +1673,51 @@ function drawCore() {
     ctx.shadowBlur = 0;
   }
 
-  ctx.beginPath();
-  ctx.arc(x, y, core.radius, 0, Math.PI * 2);
+  if (useHex) {
+    drawPolygonPath(x, y, core.radius, 6, hexRotation);
+  } else {
+    ctx.beginPath();
+    ctx.arc(x, y, core.radius, 0, Math.PI * 2);
+  }
   ctx.fillStyle = themePalette.coreOuter;
-  ctx.shadowColor = isNeonTheme() ? 'rgba(120, 255, 240, 0.9)' : 'rgba(255, 180, 70, 0.8)';
-  ctx.shadowBlur = isNeonTheme() ? 28 : 18;
+  if (isNeonTheme()) {
+    ctx.shadowColor = 'rgba(120, 255, 240, 0.9)';
+    ctx.shadowBlur = 28;
+  } else if (useHex) {
+    ctx.shadowColor = 'rgba(255, 170, 100, 0.85)';
+    ctx.shadowBlur = 20;
+  } else {
+    ctx.shadowColor = 'rgba(255, 180, 70, 0.8)';
+    ctx.shadowBlur = 18;
+  }
   ctx.fill();
   ctx.shadowBlur = 0;
 
-  ctx.beginPath();
-  ctx.arc(x, y, core.radius * 0.6, 0, Math.PI * 2);
+  if (useHex) {
+    drawPolygonPath(x, y, core.radius * 0.6, 6, hexRotation);
+  } else {
+    ctx.beginPath();
+    ctx.arc(x, y, core.radius * 0.6, 0, Math.PI * 2);
+  }
   ctx.fillStyle = themePalette.coreInner;
   ctx.fill();
 }
 
 function updateBoss(dt) {
   if (!boss.active) return;
-  if (boss.y < boss.targetY) {
-    boss.y = Math.min(boss.targetY, boss.y + boss.speed * dt);
+  if (boss.x !== boss.targetX || boss.y !== boss.targetY) {
+    const dx = boss.targetX - boss.x;
+    const dy = boss.targetY - boss.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist > 0.5) {
+      const step = boss.speed * dt;
+      const move = Math.min(step, dist);
+      boss.x += (dx / dist) * move;
+      boss.y += (dy / dist) * move;
+    } else {
+      boss.x = boss.targetX;
+      boss.y = boss.targetY;
+    }
   }
   boss.parts.forEach(part => {
     if (part.hp <= 0 || part.type === 'main') return;
@@ -1505,6 +1739,7 @@ function updateBoss(dt) {
   const main = boss.parts.find(part => part.id === 'main');
   if (main && main.hp <= 0) {
     boss.active = false;
+    state.bossPhase = false;
     missiles.length = 0;
     twinGroups.clear();
     updateBossBar();
@@ -1618,6 +1853,158 @@ function hitBossAt(x, y) {
   return false;
 }
 
+function seededRandom(seed, offset) {
+  const value = Math.sin(seed * 1000 + offset) * 43758.5453;
+  return value - Math.floor(value);
+}
+
+function getMissileColors(m) {
+  const isFast = m.type === 'fast';
+  const isTank = m.type === 'tank';
+  const isTwin = m.type === 'twin';
+  const body = isTank ? themePalette.missileTank : isTwin ? themePalette.missileTwin : isFast ? themePalette.missileFast : themePalette.missileNormal;
+  const glow = isFast ? themePalette.missileStrokeFast : themePalette.missileStrokeNormal;
+  const trail = isFast ? themePalette.missileTrailFast : themePalette.missileTrailNormal;
+  return { body, glow, trail };
+}
+
+function drawPixelMeteor(m, angle, colors, tailScale) {
+  const isFast = m.type === 'fast';
+  const isTank = m.type === 'tank';
+  const bodyW = Math.round(m.r * (isTank ? 2.2 : isFast ? 1.6 : 1.9));
+  const bodyH = Math.round(m.r * (isTank ? 1.6 : isFast ? 1.2 : 1.4));
+  const segments = isFast ? 4 : 3;
+  const flicker = 0.95 + 0.08 * Math.sin(state.lastTime * 0.006 + (m.seed ?? 0.5) * 12);
+  const tailStep = Math.max(2, Math.round(m.r * (0.9 * tailScale) * flicker));
+  const tailAlpha = Math.max(0.35, Math.min(0.85, 0.55 + (flicker - 0.9) * 0.6));
+
+  ctx.save();
+  ctx.translate(m.x, m.y);
+  ctx.rotate(angle);
+
+  for (let i = 0; i < segments; i += 1) {
+    const segW = Math.max(1, Math.round(bodyW * (1 - i * 0.18) * flicker));
+    const segH = Math.max(1, Math.round(bodyH * (1 - i * 0.18) * flicker));
+    const segX = Math.round(-bodyW / 2 - (i + 1) * tailStep);
+    ctx.globalAlpha = (0.6 - i * 0.12) * tailAlpha;
+    ctx.fillStyle = colors.trail;
+    ctx.fillRect(segX - segW, Math.round(-segH / 2), segW, segH);
+  }
+  ctx.globalAlpha = 1;
+
+  ctx.fillStyle = colors.body;
+  ctx.fillRect(Math.round(-bodyW / 2), Math.round(-bodyH / 2), bodyW, bodyH);
+
+  ctx.fillStyle = colors.glow;
+  ctx.globalAlpha = 0.7;
+  ctx.fillRect(Math.round(bodyW * 0.05), Math.round(-bodyH * 0.3), Math.round(bodyW * 0.35), Math.round(bodyH * 0.6));
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+function drawMeteor(m) {
+  const angle = Math.atan2(m.vy, m.vx);
+  const isFast = m.type === 'fast';
+  const isTank = m.type === 'tank';
+  const isTwin = m.type === 'twin';
+  const colors = getMissileColors(m);
+  const tailScale = isTwin ? 0.7 : 1;
+  const seed = m.seed ?? 0.5;
+  const flicker = 0.95 + 0.08 * Math.sin(state.lastTime * 0.006 + seed * 12);
+
+  if (isPixelTheme()) {
+    drawPixelMeteor(m, angle, colors, tailScale);
+    return;
+  }
+
+  const tailLen = m.r * (isFast ? 7 : isTank ? 4.8 : 5.6) * tailScale * flicker;
+  const tailWidth = m.r * (isFast ? 1.1 : isTank ? 1.6 : 1.35) * flicker;
+  const bodyLen = m.r * (isFast ? 1.2 : isTank ? 1.6 : 1.35);
+  const bodyW = m.r * (isFast ? 0.8 : isTank ? 1.2 : 1.02);
+
+  ctx.save();
+  ctx.translate(m.x, m.y);
+  ctx.rotate(angle);
+
+  const tailGradient = ctx.createLinearGradient(0, 0, -tailLen, 0);
+  tailGradient.addColorStop(0, colors.trail);
+  tailGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = tailGradient;
+  ctx.globalAlpha = (isFast ? 0.95 : 0.85) * flicker;
+  ctx.beginPath();
+  ctx.moveTo(0, -tailWidth * 0.5);
+  ctx.lineTo(-tailLen, -tailWidth);
+  ctx.lineTo(-tailLen, tailWidth);
+  ctx.lineTo(0, tailWidth * 0.5);
+  ctx.closePath();
+  ctx.fill();
+  ctx.globalAlpha = 1;
+
+  ctx.fillStyle = colors.body;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, bodyLen, bodyW, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  const craterCount = isTank ? 5 : isFast ? 3 : 4;
+  const craters = [];
+  const maxAttempts = craterCount * 12;
+  let attempts = 0;
+  while (craters.length < craterCount && attempts < maxAttempts) {
+    attempts += 1;
+    const rr = bodyW * (0.16 + seededRandom(seed, attempts * 7.9) * 0.1);
+    const shade = 0.16 + seededRandom(seed, attempts * 23.1) * 0.2;
+    const rim = 0.08 + seededRandom(seed, attempts * 31.7) * 0.08;
+    const rx = (seededRandom(seed, attempts * 12.7) - 0.5) * bodyLen * 1.2;
+    const ry = (seededRandom(seed, attempts * 19.3) - 0.5) * bodyW * 1.1;
+    if (rx < -bodyLen * 0.35) continue;
+    if (rx > bodyLen * 0.85) continue;
+    const ellipseCheck = (rx * rx) / (bodyLen * bodyLen) + (ry * ry) / (bodyW * bodyW);
+    if (ellipseCheck > 1) continue;
+    if (Math.abs(ry) + rr > bodyW * 0.98) continue;
+    if (Math.abs(rx) + rr > bodyLen * 0.98) continue;
+    let overlap = false;
+    for (let i = 0; i < craters.length; i += 1) {
+      const dx = rx - craters[i].x;
+      const dy = ry - craters[i].y;
+      const minDist = rr + craters[i].r + bodyW * 0.12;
+      if (dx * dx + dy * dy < minDist * minDist) {
+        overlap = true;
+        break;
+      }
+    }
+    if (!overlap) {
+      craters.push({ x: rx, y: ry, r: rr, shade, rim });
+    }
+  }
+
+  for (const crater of craters) {
+    ctx.beginPath();
+    ctx.arc(crater.x, crater.y, crater.r, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(0, 0, 0, ${crater.shade})`;
+    ctx.fill();
+    ctx.strokeStyle = `rgba(255, 255, 255, ${crater.rim})`;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  const glowGradient = ctx.createRadialGradient(bodyLen * 0.6, 0, m.r * 0.1, 0, 0, bodyLen * 1.3);
+  glowGradient.addColorStop(0, colors.glow);
+  glowGradient.addColorStop(1, colors.body);
+  ctx.fillStyle = glowGradient;
+  ctx.globalAlpha = 0.85;
+  if (isNeonTheme()) {
+    ctx.shadowColor = colors.glow;
+    ctx.shadowBlur = 14;
+  }
+  ctx.beginPath();
+  ctx.ellipse(0, 0, bodyLen, bodyW, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.globalAlpha = 1;
+
+  ctx.restore();
+}
+
 function drawMissiles() {
   for (const m of missiles) {
     if (m.type === 'twin' && m.twinPart === 0) {
@@ -1669,97 +2056,10 @@ function drawMissiles() {
       }
     }
 
-    const angle = Math.atan2(m.vy, m.vx);
-    const isFast = m.type === 'fast';
     const isTank = m.type === 'tank';
-    const isTwin = m.type === 'twin';
-    const length = m.r * (isFast ? 3.2 : 2.4);
-    const width = m.r * (isFast ? 0.7 : 1.1);
-    const tipX = m.x + Math.cos(angle) * length * 0.6;
-    const tipY = m.y + Math.sin(angle) * length * 0.6;
-    const leftX = m.x + Math.cos(angle + Math.PI * 0.75) * width;
-    const leftY = m.y + Math.sin(angle + Math.PI * 0.75) * width;
-    const rightX = m.x + Math.cos(angle - Math.PI * 0.75) * width;
-    const rightY = m.y + Math.sin(angle - Math.PI * 0.75) * width;
-    const tailX = m.x - Math.cos(angle) * length * 0.6;
-    const tailY = m.y - Math.sin(angle) * length * 0.6;
-
-    if (isTank || isTwin) {
-      ctx.fillStyle = isTwin ? themePalette.missileTwin : themePalette.missileTank;
-    } else if (isFast) {
-      ctx.fillStyle = themePalette.missileFast;
-    } else {
-      ctx.fillStyle = themePalette.missileNormal;
-    }
-    if (isNeonTheme() && !isPixelTheme()) {
-      ctx.shadowColor = ctx.fillStyle;
-      ctx.shadowBlur = 18;
-    }
-    if (isPixelTheme()) {
-      ctx.save();
-      ctx.translate(m.x, m.y);
-      ctx.rotate(angle);
-      const bodyW = Math.round(length);
-      const bodyH = Math.round(width * 1.4);
-      ctx.fillRect(Math.round(-bodyW * 0.4), Math.round(-bodyH / 2), bodyW, bodyH);
-      ctx.fillRect(Math.round(bodyW * 0.4), Math.round(-bodyH * 0.25), Math.round(bodyW * 0.25), Math.round(bodyH * 0.5));
-      ctx.restore();
-    } else {
-      ctx.beginPath();
-      ctx.moveTo(tipX, tipY);
-      ctx.lineTo(leftX, leftY);
-      ctx.lineTo(tailX, tailY);
-      ctx.lineTo(rightX, rightY);
-      ctx.closePath();
-      ctx.fill();
-    }
-
-    if (!isTank) {
-      ctx.strokeStyle = isFast ? themePalette.missileStrokeFast : themePalette.missileStrokeNormal;
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-    }
-
-    if (!isTank) {
-      const finX = m.x - Math.cos(angle) * length * 0.15;
-      const finY = m.y - Math.sin(angle) * length * 0.15;
-      if (!isPixelTheme()) {
-        ctx.beginPath();
-        ctx.moveTo(finX, finY);
-        ctx.lineTo(
-          finX + Math.cos(angle + Math.PI / 2) * width * 0.7,
-          finY + Math.sin(angle + Math.PI / 2) * width * 0.7
-        );
-        ctx.lineTo(
-          finX + Math.cos(angle - Math.PI / 2) * width * 0.7,
-          finY + Math.sin(angle - Math.PI / 2) * width * 0.7
-        );
-        ctx.closePath();
-        ctx.fillStyle = isFast ? themePalette.missileFinFast : themePalette.missileFinNormal;
-        ctx.fill();
-      }
-    }
-
-    ctx.beginPath();
-    ctx.moveTo(tailX, tailY);
-    ctx.lineTo(
-      tailX - Math.cos(angle) * length * (isFast ? 0.75 : 0.4),
-      tailY - Math.sin(angle) * length * (isFast ? 0.75 : 0.4)
-    );
-    ctx.strokeStyle = isFast ? themePalette.missileTrailFast : themePalette.missileTrailNormal;
-    ctx.lineWidth = isFast ? 2.5 : 2;
-    ctx.stroke();
-    if (isNeonTheme() && !isPixelTheme()) {
-      ctx.shadowBlur = 0;
-    }
+    drawMeteor(m);
 
     if (isTank) {
-      ctx.beginPath();
-      ctx.arc(m.x, m.y, m.r * 0.85, 0, Math.PI * 2);
-      ctx.strokeStyle = 'rgba(120, 220, 140, 0.7)';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-
       ctx.fillStyle = '#eaffdf';
       ctx.font = getHudFont(Math.max(12, m.r * 0.9));
       ctx.textAlign = 'center';
@@ -1904,7 +2204,7 @@ function drawScreenEffects() {
   if (screenFlash > 0) {
     ctx.save();
     ctx.globalAlpha = screenFlash * 0.6;
-    ctx.fillStyle = '#9cd3ff';
+    ctx.fillStyle = themePalette.screenFlash || '#9cd3ff';
     ctx.fillRect(0, 0, width, height);
     ctx.restore();
   }
@@ -1913,12 +2213,16 @@ function drawScreenEffects() {
     const maxRadius = Math.hypot(width, height);
     const radius = maxRadius * (1 - shockwave);
     ctx.save();
-    ctx.strokeStyle = `rgba(140, 220, 255, ${shockwave * 0.7})`;
+    const shockwaveColor = themePalette.shockwave || '140, 220, 255';
+    ctx.strokeStyle = `rgba(${shockwaveColor}, ${shockwave * 0.7})`;
     ctx.lineWidth = 6;
     const { x, y } = center();
     if (isPixelTheme()) {
       const size = Math.round(radius * 2);
       ctx.strokeRect(Math.round(x - size / 2), Math.round(y - size / 2), size, size);
+    } else if (isForgeTheme()) {
+      drawPolygonPath(x, y, radius, 6, Math.PI / 6);
+      ctx.stroke();
     } else {
       ctx.beginPath();
       ctx.arc(x, y, radius, 0, Math.PI * 2);
@@ -1972,11 +2276,13 @@ function startCountdown() {
   countdownEl.textContent = state.countdown;
   countdownEl.classList.remove('hidden');
   if (state.hardcoreLevel) {
-    showWaveMessage('Hardcore Mode: No skills or upgrades', 2.2);
+    showWaveMessage('Hardcore Mode', 2.2);
   } else if (state.survivalLevel) {
     showWaveMessage('Survival Mode', 2.2);
+  } else if (state.bossPhase) {
+    showWaveMessage('Boss Incoming', 2.2);
   } else {
-    showWaveMessage(state.finalLevel ? 'Final Level' : getWaveLabel(), 2.2);
+    showWaveMessage(getWaveLabel(), 2.2);
   }
   playSfx('tick');
   const timer = setInterval(() => {
@@ -1985,10 +2291,10 @@ function startCountdown() {
       clearInterval(timer);
       countdownEl.classList.add('hidden');
       setMusicMode('game');
-      if (state.finalLevel) {
-        startFinalLevel();
-      } else if (state.survivalLevel) {
+      if (state.survivalLevel) {
         startSurvival();
+      } else if (state.bossPhase) {
+        startBossLevel();
       } else {
         startWave(false);
       }
@@ -2006,7 +2312,7 @@ function updateHud() {
     hudWave.textContent = '';
   } else {
     hudLevel.textContent = `Level ${state.level}`;
-    hudWave.textContent = `Wave ${state.wave} of ${state.wavesTotal}`;
+    hudWave.textContent = state.bossPhase ? 'Boss' : `Wave ${state.wave} of ${state.wavesTotal}`;
   }
   moneyEl.lastChild.textContent = `Credits: ${state.money}`;
   if (menuCredits) {
@@ -2262,7 +2568,7 @@ canvas.addEventListener('pointerdown', e => {
       break;
     }
   }
-  if (state.finalLevel) {
+  if (state.bossPhase) {
     hitBossAt(x, y);
   }
 });
@@ -2319,6 +2625,11 @@ skillButtons.forEach(button => {
 startButton.addEventListener('click', () => {
   initAudio();
   stopMusic();
+  if (state.selectedLevel === 4 && !pendingHardcoreStart) {
+    hardcoreConfirm.classList.remove('hidden');
+    return;
+  }
+  pendingHardcoreStart = false;
   resetGame();
   applyLevelConfig(state.selectedLevel);
   rebuildShields();
@@ -2391,6 +2702,17 @@ confirmResetYes.addEventListener('click', () => {
 
 confirmResetNo.addEventListener('click', () => {
   confirmReset.classList.add('hidden');
+});
+
+hardcoreConfirmYes.addEventListener('click', () => {
+  hardcoreConfirm.classList.add('hidden');
+  pendingHardcoreStart = true;
+  startButton.click();
+});
+
+hardcoreConfirmNo.addEventListener('click', () => {
+  hardcoreConfirm.classList.add('hidden');
+  pendingHardcoreStart = false;
 });
 
 gameoverMenu.addEventListener('click', () => {
@@ -2558,7 +2880,7 @@ levelButtons.forEach(button => {
   button.addEventListener('click', () => {
     const level = Number(button.dataset.level);
     if (Number.isNaN(level)) return;
-    if (level !== 6 && level > state.unlockedLevel) return;
+    if (level !== 5 && level > state.unlockedLevel) return;
     state.selectedLevel = level;
     updateLevelButtons();
   });
@@ -2710,7 +3032,7 @@ function resetSkillCooldowns() {
 function updateLevelButtons() {
   levelButtons.forEach(button => {
     const level = Number(button.dataset.level);
-    const isSurvival = level === 6;
+    const isSurvival = level === 5;
     button.disabled = !isSurvival && level > state.unlockedLevel;
     button.classList.toggle('active', level === state.selectedLevel);
   });

@@ -71,9 +71,8 @@
         <button class="level-button" data-level="2" disabled>Level 2</button>
         <button class="level-button" data-level="3" disabled>Level 3</button>
       </div>
-      <button class="level-button final" data-level="4" disabled>Final Level</button>
-      <button class="level-button hardcore" data-level="5" disabled>Hardcore Mode</button>
-      <button class="level-button survival" data-level="6"><span class="new-badge">New!</span> Survival Mode</button>
+      <button class="level-button hardcore" data-level="4" disabled>Hardcore Mode</button>
+      <button class="level-button survival" data-level="5"><span class="new-badge">New!</span> Survival Mode</button>
       <button id="start-button">Start</button>
       <div id="survival-records">
         <div class="records-title"><span class="new-badge">New!</span> Survival Records</div>
@@ -133,6 +132,10 @@
           <span class="style-name">Neon</span>
           <span class="style-desc">Hyper glow sci-fi</span>
         </button>
+        <button class="style-card" data-style="forge">
+          <span class="style-name">Forge</span>
+          <span class="style-desc">Molten steel defense</span>
+        </button>
       </div>
       <button id="styles-back"><span aria-hidden="true">&lt;</span> Back to Menu</button>
     </div>
@@ -144,6 +147,16 @@
       <div class="confirm-actions">
         <button id="confirm-reset-yes">Yes</button>
         <button id="confirm-reset-no">Cancel</button>
+      </div>
+    </div>
+  </div>
+  <div id="hardcore-confirm" class="hidden">
+    <div class="confirm-card">
+      <div class="confirm-title">Hardcore Mode</div>
+      <div class="confirm-text">No skills or upgrades will be available in this mode.</div>
+      <div class="confirm-actions">
+        <button id="hardcore-confirm-yes">Play Hardcore</button>
+        <button id="hardcore-confirm-no">Cancel</button>
       </div>
     </div>
   </div>

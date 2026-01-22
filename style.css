@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600&family=Press+Start+2P&family=Rajdhani:wght@500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600&family=Orbitron:wght@400;600&family=Press+Start+2P&family=Rajdhani:wght@500;700&display=swap');
 
 html, body {
   margin: 0;
@@ -146,6 +146,53 @@ body[data-theme="neon"] {
   --gameover-color: #ffb454;
 }
 
+body[data-theme="forge"] {
+  --font-main: "Chakra Petch", sans-serif;
+  --font-title: "Chakra Petch", sans-serif;
+  --bg-1: #2a1a12;
+  --bg-2: #0c0806;
+  --space-1: #2b1f16;
+  --space-2: #150b07;
+  --space-3: #070403;
+  --star-color: 255, 210, 150;
+  --text-main: #ffe7cf;
+  --text-soft: #f2c79c;
+  --accent: #ffb35b;
+  --accent-strong: #ff7b3a;
+  --accent-warm: #ffe1a1;
+  --hud-shadow: 0 0 10px rgba(255, 150, 90, 0.55);
+  --panel-bg: rgba(20, 12, 8, 0.9);
+  --panel-border: rgba(255, 160, 90, 0.75);
+  --button-bg: rgba(22, 12, 8, 0.9);
+  --button-border: rgba(255, 160, 90, 0.8);
+  --button-text: #ffe7cf;
+  --button-shadow: 0 0 16px rgba(255, 120, 60, 0.55);
+  --button-active-bg: rgba(60, 30, 18, 0.95);
+  --button-active-border: rgba(255, 200, 130, 0.95);
+  --button-active-shadow: 0 0 22px rgba(255, 140, 80, 0.8);
+  --start-bg: rgba(90, 35, 15, 0.9);
+  --start-border: rgba(255, 190, 130, 0.9);
+  --start-shadow: 0 0 18px rgba(255, 140, 80, 0.7);
+  --action-bg: #120a06;
+  --skill-bg: rgba(24, 14, 8, 0.88);
+  --skill-border: rgba(255, 160, 90, 0.55);
+  --skill-text: #f4d2ae;
+  --skill-unlocked-bg: linear-gradient(160deg, rgba(70, 30, 12, 0.95), rgba(20, 10, 6, 0.9));
+  --skill-unlocked-border: rgba(255, 190, 120, 0.95);
+  --skill-unlocked-text: #ffe9d2;
+  --utility-bg: rgba(30, 20, 12, 0.85);
+  --utility-border: rgba(255, 200, 120, 0.7);
+  --utility-text: #ffd8a3;
+  --menu-bg: radial-gradient(circle at 45% 35%, rgba(80, 35, 18, 0.95), rgba(10, 8, 6, 0.98));
+  --title-color: #ffb35b;
+  --title-shadow: 0 0 24px rgba(255, 140, 80, 0.85);
+  --overlay-bg: rgba(12, 8, 6, 0.8);
+  --gameover-color: #ffb35b;
+  --toast-admin-bg: rgba(40, 12, 8, 0.85);
+  --toast-admin-border: rgba(255, 120, 90, 0.7);
+  --toast-admin-text: #ffd6c6;
+}
+
 body[data-theme="pixel"] canvas {
   image-rendering: pixelated;
 }
@@ -192,6 +239,56 @@ body[data-theme="neon"] .level-button.survival {
   border-color: rgba(200, 120, 255, 0.95);
   color: #f0ddff;
   box-shadow: 0 0 18px rgba(200, 120, 255, 0.7);
+}
+
+body[data-theme="forge"] .level-button.hardcore {
+  background: rgba(90, 20, 12, 0.95);
+  border-color: rgba(255, 140, 110, 0.9);
+  color: #ffd6c6;
+  box-shadow: 0 0 18px rgba(255, 110, 80, 0.6);
+}
+
+body[data-theme="forge"] .level-button.hardcore.active {
+  background: rgba(120, 30, 16, 0.98);
+  border-color: rgba(255, 190, 140, 0.95);
+  box-shadow: 0 0 20px rgba(255, 140, 100, 0.75);
+}
+
+body[data-theme="forge"] .level-button.hardcore:disabled {
+  background: rgba(70, 18, 10, 0.7);
+  border-color: rgba(200, 120, 90, 0.5);
+  color: #d8b6a8;
+  box-shadow: none;
+}
+
+body[data-theme="forge"] .level-button.hardcore:not(:disabled):hover,
+body[data-theme="forge"] .level-button.hardcore:not(:disabled):focus-visible {
+  box-shadow: 0 0 18px rgba(255, 150, 110, 0.75);
+}
+
+body[data-theme="forge"] .level-button.survival {
+  background: rgba(70, 30, 18, 0.95);
+  border-color: rgba(255, 190, 130, 0.9);
+  color: #ffe1c6;
+  box-shadow: 0 0 16px rgba(255, 150, 90, 0.6);
+}
+
+body[data-theme="forge"] .level-button.survival.active {
+  background: rgba(95, 45, 26, 0.98);
+  border-color: rgba(255, 210, 150, 0.95);
+  box-shadow: 0 0 20px rgba(255, 170, 110, 0.75);
+}
+
+body[data-theme="forge"] .level-button.survival:disabled {
+  background: rgba(60, 28, 18, 0.7);
+  border-color: rgba(200, 150, 110, 0.5);
+  color: #e2c4a8;
+  box-shadow: none;
+}
+
+body[data-theme="forge"] .level-button.survival:not(:disabled):hover,
+body[data-theme="forge"] .level-button.survival:not(:disabled):focus-visible {
+  box-shadow: 0 0 18px rgba(255, 180, 120, 0.8);
 }
 
 button, .skill, #hud, #start-screen, #victory, #confirm-reset, #admin-toast, #money-toast {
@@ -258,6 +355,22 @@ canvas {
 
 #boss-bar.hidden {
   display: none;
+}
+
+body[data-theme="forge"] #boss-bar {
+  color: #ffd9b0;
+  text-shadow: 0 0 10px rgba(255, 140, 80, 0.55);
+}
+
+body[data-theme="forge"] .boss-track {
+  border-color: rgba(255, 160, 100, 0.7);
+  background: rgba(30, 14, 8, 0.85);
+  box-shadow: 0 0 12px rgba(255, 120, 60, 0.4);
+}
+
+body[data-theme="forge"] .boss-fill {
+  background: linear-gradient(90deg, #ff8b3d, #ffd36b);
+  box-shadow: 0 0 14px rgba(255, 150, 90, 0.85);
 }
 
 .boss-track {
@@ -655,6 +768,19 @@ canvas {
   display: none;
 }
 
+#hardcore-confirm {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: var(--overlay-bg);
+  z-index: 6;
+}
+
+#hardcore-confirm.hidden {
+  display: none;
+}
+
 .confirm-card {
   border: 1px solid var(--panel-border);
   background: var(--panel-bg);
@@ -1025,7 +1151,7 @@ canvas {
 
   #countdown,
   #gameover {
-    font-size: 44px;
+    font-size: 36px;
   }
 
   .action-row {
@@ -1049,6 +1175,10 @@ canvas {
 }
 
 @media (max-width: 480px) {
+  #gameover {
+    font-size: 28px;
+  }
+
   body[data-theme="pixel"] #start-screen .title {
     font-size: 22px;
   }
