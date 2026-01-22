@@ -39,12 +39,14 @@ body {
   --start-border: rgba(120, 240, 180, 0.8);
   --start-shadow: 0 0 16px rgba(80, 200, 140, 0.45);
   --action-bg: #0b111f;
+  --safe-bottom: 0px;
   --skill-bg: rgba(10, 16, 30, 0.75);
   --skill-border: rgba(120, 200, 255, 0.5);
   --skill-text: #b9dfff;
   --skill-unlocked-bg: linear-gradient(160deg, rgba(20, 60, 90, 0.9), rgba(10, 20, 40, 0.8));
   --skill-unlocked-border: rgba(120, 220, 255, 0.9);
   --skill-unlocked-text: #eaf6ff;
+  --skill-ready-glow: 80, 255, 130;
   --utility-bg: rgba(20, 16, 12, 0.8);
   --utility-border: rgba(255, 200, 120, 0.6);
   --utility-text: #ffd8a3;
@@ -518,9 +520,9 @@ body[data-theme="forge"] .boss-fill {
 
 #gameover-menu {
   position: absolute;
-  top: 42%;
   left: 50%;
-  transform: translate(-50%, -50%);
+  bottom: calc(var(--safe-bottom) + 112px);
+  transform: translateX(-50%);
   border: 1px solid var(--panel-border);
   background: var(--panel-bg);
   color: var(--text-main);
@@ -533,9 +535,9 @@ body[data-theme="forge"] .boss-fill {
 
 #gameover-retry {
   position: absolute;
-  top: 48%;
   left: 50%;
-  transform: translate(-50%, -50%);
+  bottom: calc(var(--safe-bottom) + 64px);
+  transform: translateX(-50%);
   border: 1px solid var(--panel-border);
   background: var(--panel-bg);
   color: var(--text-main);
@@ -1073,6 +1075,26 @@ body[data-theme="forge"] .boss-fill {
   text-shadow: 0 0 8px rgba(80, 160, 255, 0.6);
 }
 
+.skill.ready-flash {
+  box-shadow: 0 0 12px rgba(80, 160, 255, 0.35),
+    0 0 20px rgba(var(--skill-ready-glow), 0.7),
+    0 0 42px rgba(var(--skill-ready-glow), 0.55);
+}
+
+.skill.ready-flash::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border: 2px solid rgba(var(--skill-ready-glow), 0.95);
+  background: radial-gradient(circle, rgba(var(--skill-ready-glow), 0.55) 0%, rgba(var(--skill-ready-glow), 0.25) 45%, rgba(var(--skill-ready-glow), 0) 75%);
+  box-shadow: 0 0 18px rgba(var(--skill-ready-glow), 1),
+    0 0 38px rgba(var(--skill-ready-glow), 0.8),
+    0 0 64px rgba(var(--skill-ready-glow), 0.55);
+  opacity: 0;
+  pointer-events: none;
+  animation: skill-ready-flash 1.05s ease-out;
+}
+
 .skill .icon {
   width: 20px;
   height: 20px;
@@ -1080,6 +1102,21 @@ body[data-theme="forge"] .boss-fill {
   background-size: contain;
   background-repeat: no-repeat;
   background-position: center;
+}
+
+@keyframes skill-ready-flash {
+  0% {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  28% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.04);
+  }
 }
 
 .icon-explosion {
@@ -1153,6 +1190,7 @@ body[data-theme="forge"] .boss-fill {
   #gameover {
     font-size: 36px;
   }
+
 
   .action-row {
     width: min(96vw, 640px);

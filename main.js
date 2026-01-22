@@ -266,6 +266,7 @@ function createStars() {
 function updateLayout() {
   const actionsRect = actionsBar.getBoundingClientRect();
   layout.safeBottom = actionsRect.height + 16;
+  document.body.style.setProperty('--safe-bottom', `${layout.safeBottom}px`);
   const safeTop = 56;
   const availableHeight = Math.max(200, height - layout.safeBottom - safeTop);
   layout.x = width / 2;
@@ -1868,6 +1869,108 @@ function getMissileColors(m) {
   return { body, glow, trail };
 }
 
+function getMeteorBodyDims(m) {
+  const isFast = m.type === 'fast';
+  const isTank = m.type === 'tank';
+  if (isPixelTheme()) {
+    const bodyW = m.r * (isTank ? 2.2 : isFast ? 1.6 : 1.9);
+    const bodyH = m.r * (isTank ? 1.6 : isFast ? 1.2 : 1.4);
+    return { bodyW, bodyH };
+  }
+  const bodyLen = m.r * (isFast ? 1.2 : isTank ? 1.6 : 1.35);
+  const bodyW = m.r * (isFast ? 0.8 : isTank ? 1.2 : 1.02);
+  return { bodyLen, bodyW };
+}
+
+function isPointOnMeteor(m, x, y) {
+  const angle = Math.atan2(m.vy, m.vx);
+  const dx = x - m.x;
+  const dy = y - m.y;
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  const rx = dx * cos + dy * sin;
+  const ry = -dx * sin + dy * cos;
+  const pad = Math.max(4, m.r * 0.18);
+  if (isPixelTheme()) {
+    const { bodyW, bodyH } = getMeteorBodyDims(m);
+    return Math.abs(rx) <= bodyW * 0.5 + pad && Math.abs(ry) <= bodyH * 0.5 + pad;
+  }
+  const { bodyLen, bodyW } = getMeteorBodyDims(m);
+  const rectHalf = Math.max(0, bodyLen - bodyW);
+  const radius = bodyW + pad;
+  if (Math.abs(rx) <= rectHalf) {
+    return Math.abs(ry) <= radius;
+  }
+  const cx = Math.sign(rx || 1) * rectHalf;
+  const dxCircle = rx - cx;
+  return dxCircle * dxCircle + ry * ry <= radius * radius;
+}
+
+function getMeteorDents(seed, isTank, isFast) {
+  const dents = [];
+  const pairs = isTank ? 2 : 1;
+  const baseDepth = isFast ? 0.08 : isTank ? 0.12 : 0.1;
+  for (let i = 0; i < pairs; i += 1) {
+    const spread = 0.35 + seededRandom(seed, 91 + i * 7.3) * 0.2;
+    const depth = baseDepth + seededRandom(seed, 129 + i * 9.1) * 0.06;
+    const topJitter = (seededRandom(seed, 173 + i * 11.7) - 0.5) * 0.5;
+    const bottomJitter = (seededRandom(seed, 211 + i * 13.2) - 0.5) * 0.5;
+    dents.push({ angle: -Math.PI / 2 + topJitter, width: spread, depth });
+    dents.push({ angle: Math.PI / 2 + bottomJitter, width: spread, depth });
+  }
+  return dents;
+}
+
+function getDentFactor(angle, dents) {
+  let dent = 0;
+  for (const entry of dents) {
+    const delta = Math.atan2(Math.sin(angle - entry.angle), Math.cos(angle - entry.angle));
+    const influence = Math.exp(-(delta * delta) / (2 * entry.width * entry.width));
+    dent += entry.depth * influence;
+  }
+  return Math.min(dent, 0.28);
+}
+
+function getCapsuleRadius(angle, bodyLen, bodyW) {
+  const rectHalf = Math.max(0, bodyLen - bodyW);
+  if (rectHalf === 0) {
+    return bodyW;
+  }
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  const absSin = Math.abs(sin);
+  if (absSin > 1e-6) {
+    const tRect = bodyW / absSin;
+    const xRect = tRect * cos;
+    if (Math.abs(xRect) <= rectHalf) {
+      return tRect;
+    }
+  }
+  const dir = cos === 0 ? 1 : Math.sign(cos);
+  const cx = dir * rectHalf;
+  const disc = Math.max(0, (cx * cos) ** 2 - (cx * cx - bodyW * bodyW));
+  return cx * cos + Math.sqrt(disc);
+}
+
+function buildMeteorBodyPath(bodyLen, bodyW, dents, steps = 32) {
+  for (let i = 0; i <= steps; i += 1) {
+    const t = (i / steps) * Math.PI * 2;
+    const cos = Math.cos(t);
+    const sin = Math.sin(t);
+    const baseR = getCapsuleRadius(t, bodyLen, bodyW);
+    const r = baseR * (1 - getDentFactor(t, dents));
+    const x = r * cos;
+    const y = r * sin;
+    if (i === 0) {
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+    } else {
+      ctx.lineTo(x, y);
+    }
+  }
+  ctx.closePath();
+}
+
 function drawPixelMeteor(m, angle, colors, tailScale) {
   const isFast = m.type === 'fast';
   const isTank = m.type === 'tank';
@@ -1911,6 +2014,7 @@ function drawMeteor(m) {
   const tailScale = isTwin ? 0.7 : 1;
   const seed = m.seed ?? 0.5;
   const flicker = 0.95 + 0.08 * Math.sin(state.lastTime * 0.006 + seed * 12);
+  const dents = getMeteorDents(seed, isTank, isFast);
 
   if (isPixelTheme()) {
     drawPixelMeteor(m, angle, colors, tailScale);
@@ -1919,8 +2023,7 @@ function drawMeteor(m) {
 
   const tailLen = m.r * (isFast ? 7 : isTank ? 4.8 : 5.6) * tailScale * flicker;
   const tailWidth = m.r * (isFast ? 1.1 : isTank ? 1.6 : 1.35) * flicker;
-  const bodyLen = m.r * (isFast ? 1.2 : isTank ? 1.6 : 1.35);
-  const bodyW = m.r * (isFast ? 0.8 : isTank ? 1.2 : 1.02);
+  const { bodyLen, bodyW } = getMeteorBodyDims(m);
 
   ctx.save();
   ctx.translate(m.x, m.y);
@@ -1941,8 +2044,7 @@ function drawMeteor(m) {
   ctx.globalAlpha = 1;
 
   ctx.fillStyle = colors.body;
-  ctx.beginPath();
-  ctx.ellipse(0, 0, bodyLen, bodyW, 0, 0, Math.PI * 2);
+  buildMeteorBodyPath(bodyLen, bodyW, dents, isFast ? 26 : isTank ? 32 : 30);
   ctx.fill();
 
   const craterCount = isTank ? 5 : isFast ? 3 : 4;
@@ -1958,10 +2060,12 @@ function drawMeteor(m) {
     const ry = (seededRandom(seed, attempts * 19.3) - 0.5) * bodyW * 1.1;
     if (rx < -bodyLen * 0.35) continue;
     if (rx > bodyLen * 0.85) continue;
-    const ellipseCheck = (rx * rx) / (bodyLen * bodyLen) + (ry * ry) / (bodyW * bodyW);
-    if (ellipseCheck > 1) continue;
     if (Math.abs(ry) + rr > bodyW * 0.98) continue;
     if (Math.abs(rx) + rr > bodyLen * 0.98) continue;
+    const angleCheck = Math.atan2(ry, rx);
+    const baseR = getCapsuleRadius(angleCheck, bodyLen, bodyW);
+    const dentedR = baseR * (1 - getDentFactor(angleCheck, dents));
+    if (Math.hypot(rx, ry) + rr > dentedR * 0.98) continue;
     let overlap = false;
     for (let i = 0; i < craters.length; i += 1) {
       const dx = rx - craters[i].x;
@@ -1996,8 +2100,7 @@ function drawMeteor(m) {
     ctx.shadowColor = colors.glow;
     ctx.shadowBlur = 14;
   }
-  ctx.beginPath();
-  ctx.ellipse(0, 0, bodyLen, bodyW, 0, 0, Math.PI * 2);
+  buildMeteorBodyPath(bodyLen, bodyW, dents, isFast ? 26 : isTank ? 32 : 30);
   ctx.fill();
   ctx.shadowBlur = 0;
   ctx.globalAlpha = 1;
@@ -2540,8 +2643,7 @@ canvas.addEventListener('pointerdown', e => {
   const y = e.clientY;
   for (let i = missiles.length - 1; i >= 0; i -= 1) {
     const m = missiles[i];
-    const dist = Math.hypot(m.x - x, m.y - y);
-    if (dist <= m.r + 18) {
+    if (isPointOnMeteor(m, x, y)) {
       if (m.type === 'twin') {
         handleTwinTap(m);
       } else if (m.type === 'tank') {
@@ -2979,6 +3081,13 @@ document.querySelectorAll('.skill').forEach(button => {
     button.dataset.label = label.textContent;
   }
 });
+skillButtons.forEach(button => {
+  button.addEventListener('animationend', event => {
+    if (event.animationName === 'skill-ready-flash') {
+      button.classList.remove('ready-flash');
+    }
+  });
+});
 
 const savedTheme = localStorage.getItem('theme') || 'default';
 applyTheme(savedTheme);
@@ -2994,11 +3103,13 @@ function updateCooldowns(dt) {
   skillButtons.forEach(button => {
     const skill = button.dataset.skill;
     if (!skill) return;
+    const wasCoolingDown = skillState[skill] > 0;
     const remaining = Math.max(0, skillState[skill] - dt);
     skillState[skill] = remaining;
     const label = button.querySelector('.label');
     if (remaining > 0) {
       button.classList.add('cooldown');
+      button.classList.remove('ready-flash');
       const total = getSkillCooldown(skill);
       const ratio = total > 0 ? remaining / total : 0;
       button.style.setProperty('--cooldown-scale', ratio.toString());
@@ -3012,6 +3123,9 @@ function updateCooldowns(dt) {
       button.dataset.remaining = '';
       if (label) {
         label.textContent = `${button.dataset.label}`;
+      }
+      if (wasCoolingDown && !button.disabled) {
+        button.classList.add('ready-flash');
       }
     }
   });
