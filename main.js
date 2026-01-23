@@ -138,6 +138,7 @@ let shockwave = 0;
 
 let audioCtx = null;
 let masterGain = null;
+let bgMusic = null;
 let melodyTimer = null;
 let gamePulse = null;
 let countdownTimer = null;
@@ -189,6 +190,171 @@ const themePalette = {
   screenFlash: '#9cd3ff',
   shockwave: '140, 220, 255'
 };
+const showMeteorHitboxes = true;
+const shootSfxPool = [];
+const shootSfxState = { index: 0 };
+const hitSfxPool = [];
+const hitSfxState = { index: 0 };
+
+function playShootSfx() {
+  if (shootSfxPool.length === 0) {
+    for (let i = 0; i < 4; i += 1) {
+      const audio = new Audio('sound/destroy.wav');
+      audio.preload = 'auto';
+      audio.volume = 0.6;
+      shootSfxPool.push(audio);
+    }
+  }
+  const audio = shootSfxPool[shootSfxState.index];
+  shootSfxState.index = (shootSfxState.index + 1) % shootSfxPool.length;
+  audio.currentTime = 0;
+  void audio.play().catch(() => {});
+}
+
+function playHitSfx() {
+  if (hitSfxPool.length === 0) {
+    for (let i = 0; i < 4; i += 1) {
+      const audio = new Audio('sound/hit.wav');
+      audio.preload = 'auto';
+      audio.volume = 0.55;
+      hitSfxPool.push(audio);
+    }
+  }
+  const audio = hitSfxPool[hitSfxState.index];
+  hitSfxState.index = (hitSfxState.index + 1) % hitSfxPool.length;
+  audio.currentTime = 0;
+  void audio.play().catch(() => {});
+}
+const meteorSprite = new Image();
+const meteorSpriteData = {
+  ready: false,
+  cols: 3,
+  rows: 3,
+  frameW: 0,
+  frameH: 0,
+  frameCount: 3,
+  frameTime: 140,
+  rowByType: {
+    normal: 0,
+    tank: 1,
+    fast: 2,
+    twin: 1
+  },
+  hitBounds: null,
+  manualHitbox: {
+    enabled: true,
+    widthScale: 1.2,
+    heightScale: 0.7,
+    centerX: 0.6,
+    centerY: 0.5,
+    rotation: -(25 * Math.PI) / 180,
+    offsetForward: -0.1,
+    offsetRight: -0.1
+  },
+  scale: 1.4,
+  scaleByType: {
+    twin: 0.85
+  },
+  rotationOffset: Math.PI + Math.PI / 8 + (5 * Math.PI) / 180,
+  anchorX: 0.82,
+  anchorY: 0.5,
+  rockHeightRatio: 0.8
+};
+
+meteorSprite.onload = () => {
+  meteorSpriteData.ready = true;
+  meteorSpriteData.frameW = meteorSprite.width / meteorSpriteData.cols;
+  meteorSpriteData.frameH = meteorSprite.height / meteorSpriteData.rows;
+  const canvas = document.createElement('canvas');
+  const spriteCtx = canvas.getContext('2d');
+  canvas.width = meteorSprite.width;
+  canvas.height = meteorSprite.height;
+  spriteCtx.drawImage(meteorSprite, 0, 0);
+  const imageData = spriteCtx.getImageData(0, 0, canvas.width, canvas.height);
+  const { data, width, height } = imageData;
+  const hitBounds = Array.from({ length: meteorSpriteData.rows }, () =>
+    Array.from({ length: meteorSpriteData.cols }, () => null)
+  );
+
+  for (let row = 0; row < meteorSpriteData.rows; row += 1) {
+    for (let col = 0; col < meteorSpriteData.cols; col += 1) {
+      const x0 = Math.floor(col * meteorSpriteData.frameW);
+      const y0 = Math.floor(row * meteorSpriteData.frameH);
+      const x1 = col === meteorSpriteData.cols - 1 ? width : Math.floor((col + 1) * meteorSpriteData.frameW);
+      const y1 = row === meteorSpriteData.rows - 1 ? height : Math.floor((row + 1) * meteorSpriteData.frameH);
+      const frameW = x1 - x0;
+      const frameH = y1 - y0;
+      let minX = x1;
+      let maxX = x0 - 1;
+      let minY = y1;
+      let maxY = y0 - 1;
+      const colCounts = new Array(frameW).fill(0);
+      for (let y = y0; y < y1; y += 1) {
+        for (let x = x0; x < x1; x += 1) {
+          const alpha = data[(y * width + x) * 4 + 3];
+          if (alpha > 10) {
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+            colCounts[x - x0] += 1;
+          }
+        }
+      }
+      if (maxX < minX || maxY < minY) {
+        minX = x0;
+        minY = y0;
+        maxX = x1 - 1;
+        maxY = y1 - 1;
+      }
+      const maxCount = colCounts.reduce((acc, value) => Math.max(acc, value), 0);
+      const threshold = Math.max(2, Math.floor(maxCount * 0.55));
+      let minCol = -1;
+      let maxCol = -1;
+      for (let i = 0; i < colCounts.length; i += 1) {
+        if (colCounts[i] >= threshold) {
+          if (minCol === -1) minCol = i;
+          maxCol = i;
+        }
+      }
+      let hitMinX = minX;
+      let hitMaxX = maxX;
+      let hitMinY = minY;
+      let hitMaxY = maxY;
+      if (minCol !== -1) {
+        hitMinX = x0 + minCol;
+        hitMaxX = x0 + maxCol;
+        hitMinY = y1;
+        hitMaxY = y0 - 1;
+        for (let y = y0; y < y1; y += 1) {
+          for (let x = hitMinX; x <= hitMaxX; x += 1) {
+            const alpha = data[(y * width + x) * 4 + 3];
+            if (alpha > 10) {
+              if (y < hitMinY) hitMinY = y;
+              if (y > hitMaxY) hitMaxY = y;
+            }
+          }
+        }
+        if (hitMaxY < hitMinY) {
+          hitMinX = minX;
+          hitMinY = minY;
+          hitMaxX = maxX;
+          hitMaxY = maxY;
+        }
+      }
+      hitBounds[row][col] = {
+        minX: hitMinX - x0,
+        minY: hitMinY - y0,
+        maxX: hitMaxX - x0,
+        maxY: hitMaxY - y0,
+        frameW,
+        frameH
+      };
+    }
+  }
+  meteorSpriteData.hitBounds = hitBounds;
+};
+meteorSprite.src = 'img/meteorSprite.png';
 
 function isPixelTheme() {
   return document.body.dataset.theme === 'pixel';
@@ -335,12 +501,12 @@ function getThemeLeadLine() {
 }
 
 function applyThemeAudio(theme) {
-  if (!audioCtx || !gamePulse || !leadOsc) return;
   const config = themeMusic[theme] || themeMusic.default;
-  gamePulse.type = config.pulse;
-  leadOsc.type = config.lead;
   state.musicGain = baseMusicGain * config.gain;
   melodyIntervalMs = baseMelodyIntervalMs * config.tempo * musicSlowFactor;
+  if (bgMusic) {
+    bgMusic.volume = Math.min(1, state.musicGain);
+  }
 }
 
 function applyTheme(theme) {
@@ -594,86 +760,31 @@ function initAudio() {
   masterGain = audioCtx.createGain();
   masterGain.gain.value = 0.2;
   masterGain.connect(audioCtx.destination);
-
-  gameGain = audioCtx.createGain();
-  gameGain.gain.value = 0.0001;
-  gameGain.connect(masterGain);
-
-  const padGain = audioCtx.createGain();
-  padGain.gain.value = 0.1;
-  padGain.connect(gameGain);
-
-  const osc1 = audioCtx.createOscillator();
-  osc1.type = 'sine';
-  osc1.frequency.value = 110;
-  osc1.connect(padGain);
-
-  const osc2 = audioCtx.createOscillator();
-  osc2.type = 'triangle';
-  osc2.frequency.value = 220;
-  osc2.connect(padGain);
-
-  const lfo = audioCtx.createOscillator();
-  const lfoGain = audioCtx.createGain();
-  lfo.frequency.value = 0.22;
-  lfoGain.gain.value = 0.12;
-  lfo.connect(lfoGain);
-  lfoGain.connect(padGain.gain);
-
-  const pulseGain = audioCtx.createGain();
-  pulseGain.gain.value = 0.16;
-  pulseGain.connect(gameGain);
-  const pulse = audioCtx.createOscillator();
-  pulse.type = 'square';
-  pulse.frequency.value = 220;
-  pulse.connect(pulseGain);
-  gamePulse = pulse;
-
-  const leadGain = audioCtx.createGain();
-  leadGain.gain.value = 0.08;
-  leadGain.connect(gameGain);
-  const lead = audioCtx.createOscillator();
-  lead.type = 'sawtooth';
-  lead.frequency.value = 440;
-  lead.connect(leadGain);
-  leadOsc = lead;
-
-  osc1.start();
-  osc2.start();
-  lfo.start();
-  pulse.start();
-  lead.start();
-
-  applyThemeAudio(getThemeKey());
-  restartMelodyTimer();
-
+  if (!bgMusic) {
+    bgMusic = new Audio('music/music1.mp3');
+    bgMusic.loop = true;
+    bgMusic.preload = 'auto';
+    bgMusic.volume = Math.min(1, state.musicGain);
+    bgMusic.playbackRate = musicSlowFactor;
+  }
 }
 
 function setMusicMode(mode) {
-  if (!audioCtx) return;
-  const now = audioCtx.currentTime;
+  if (!bgMusic) return;
   if (mode === 'game') {
-    gameGain.gain.exponentialRampToValueAtTime(state.musicGain, now + 0.4);
+    bgMusic.volume = Math.min(1, state.musicGain);
+    bgMusic.playbackRate = musicSlowFactor;
+    void bgMusic.play().catch(() => {});
   } else {
-    gameGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.4);
+    bgMusic.pause();
   }
 }
 
 function restartMelodyTimer() {
-  if (!audioCtx || !gamePulse || !leadOsc) return;
   if (melodyTimer) {
     clearInterval(melodyTimer);
+    melodyTimer = null;
   }
-  const melody = getThemeMelody();
-  const leadLine = getThemeLeadLine();
-  let step = 0;
-  melodyTimer = setInterval(() => {
-    const freq = melody[step % melody.length];
-    gamePulse.frequency.setTargetAtTime(freq, audioCtx.currentTime, 0.02);
-    const leadFreq = leadLine[step % leadLine.length];
-    leadOsc.frequency.setTargetAtTime(leadFreq, audioCtx.currentTime, 0.02);
-    step += 1;
-  }, melodyIntervalMs);
 }
 
 function setMusicIntensity(level) {
@@ -683,24 +794,34 @@ function setMusicIntensity(level) {
   baseMelodyIntervalMs = config.music.tempo;
   state.musicGain = baseMusicGain;
   melodyIntervalMs = baseMelodyIntervalMs;
-  applyThemeAudio(document.body.dataset.theme || 'default');
-  restartMelodyTimer();
+  if (bgMusic) {
+    bgMusic.volume = Math.min(1, state.musicGain);
+  }
 }
 
 function setMusicSlow(isSlow) {
-  if (!audioCtx) return;
-  musicSlowFactor = isSlow ? 2 : 1;
-  applyThemeAudio(getThemeKey());
-  restartMelodyTimer();
+  musicSlowFactor = isSlow ? 0.5 : 1;
+  if (bgMusic) {
+    bgMusic.playbackRate = musicSlowFactor;
+  }
 }
 
 function stopMusic() {
-  if (!audioCtx) return;
-  const now = audioCtx.currentTime;
-  gameGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
+  if (!bgMusic) return;
+  bgMusic.pause();
 }
 
 function playSfx(type) {
+  if (type === 'boom') {
+    playShootSfx();
+    return;
+  }
+
+  if (type === 'hitsoft') {
+    playHitSfx();
+    return;
+  }
+
   if (!audioCtx) return;
   const now = audioCtx.currentTime;
 
@@ -876,21 +997,6 @@ function playSfx(type) {
     return;
   }
 
-  if (type === 'hitsoft') {
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.type = 'square';
-    osc.frequency.setValueAtTime(200, now);
-    osc.frequency.exponentialRampToValueAtTime(120, now + 0.2);
-    gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(0.45, now + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.28);
-    osc.connect(gain);
-    gain.connect(masterGain);
-    osc.start(now);
-    osc.stop(now + 0.3);
-    return;
-  }
 
   if (type === 'success') {
     const osc = audioCtx.createOscillator();
@@ -1333,6 +1439,7 @@ function buildMissile(x, y, forcedType = null) {
     const factor = getSurvivalDifficulty(state.survivalTime);
     travelTime *= 1 - factor * 0.35;
   }
+  radius *= 1.5;
   const speed = distance / travelTime;
   return {
     x,
@@ -1883,13 +1990,33 @@ function getMeteorBodyDims(m) {
 }
 
 function isPointOnMeteor(m, x, y) {
-  const angle = Math.atan2(m.vy, m.vx);
+  const angle = getMeteorRotation(m, Math.atan2(m.vy, m.vx));
   const dx = x - m.x;
   const dy = y - m.y;
   const cos = Math.cos(angle);
   const sin = Math.sin(angle);
   const rx = dx * cos + dy * sin;
   const ry = -dx * sin + dy * cos;
+  const spriteRect = getSpriteHitboxRect(m);
+  if (spriteRect) {
+    const manual = meteorSpriteData.manualHitbox;
+    let localX = rx;
+    let localY = ry;
+    if (manual?.enabled && manual.rotation) {
+      const cos = Math.cos(-manual.rotation);
+      const sin = Math.sin(-manual.rotation);
+      const nextX = localX * cos - localY * sin;
+      const nextY = localX * sin + localY * cos;
+      localX = nextX;
+      localY = nextY;
+    }
+    return (
+      localX >= spriteRect.x &&
+      localX <= spriteRect.x + spriteRect.w &&
+      localY >= spriteRect.y &&
+      localY <= spriteRect.y + spriteRect.h
+    );
+  }
   const pad = Math.max(4, m.r * 0.18);
   if (isPixelTheme()) {
     const { bodyW, bodyH } = getMeteorBodyDims(m);
@@ -1971,6 +2098,152 @@ function buildMeteorBodyPath(bodyLen, bodyW, dents, steps = 32) {
   ctx.closePath();
 }
 
+function getSpriteFrame(m) {
+  if (!meteorSpriteData.ready) return null;
+  const row = meteorSpriteData.rowByType[m.type];
+  if (row === undefined) return null;
+  const frame = Math.floor((state.lastTime / meteorSpriteData.frameTime) + (m.seed ?? 0.5) * meteorSpriteData.frameCount)
+    % meteorSpriteData.frameCount;
+  const sx = frame * meteorSpriteData.frameW;
+  const sy = row * meteorSpriteData.frameH;
+  return { row, frame, sx, sy };
+}
+
+function getSpriteDrawSize(m) {
+  const { bodyW } = getMeteorBodyDims(m);
+  const rockHeight = bodyW * 2;
+  const typeScale = meteorSpriteData.scaleByType?.[m.type] ?? 1;
+  const spriteH = (rockHeight / meteorSpriteData.rockHeightRatio) * meteorSpriteData.scale * typeScale;
+  const spriteW = spriteH * (meteorSpriteData.frameW / meteorSpriteData.frameH);
+  return { spriteW, spriteH };
+}
+
+function getSpriteHitboxRect(m) {
+  const frameData = getSpriteFrame(m);
+  if (!frameData) return null;
+  const { spriteW, spriteH } = getSpriteDrawSize(m);
+  const manual = meteorSpriteData.manualHitbox;
+  if (manual?.enabled) {
+    const w = spriteW * manual.widthScale;
+    const h = spriteH * manual.heightScale;
+    let offsetX = spriteW * (manual.offsetForward ?? 0);
+    let offsetY = spriteH * (manual.offsetRight ?? 0);
+    if (manual.rotation) {
+      const cos = Math.cos(-manual.rotation);
+      const sin = Math.sin(-manual.rotation);
+      const rotX = offsetX * cos - offsetY * sin;
+      const rotY = offsetX * sin + offsetY * cos;
+      offsetX = rotX;
+      offsetY = rotY;
+    }
+    const cx = -spriteW * meteorSpriteData.anchorX + spriteW * manual.centerX + offsetX;
+    const cy = -spriteH * meteorSpriteData.anchorY + spriteH * manual.centerY + offsetY;
+    return { x: cx - w / 2, y: cy - h / 2, w, h };
+  }
+  const hitBounds = meteorSpriteData.hitBounds?.[frameData.row]?.[frameData.frame];
+  if (!hitBounds) return null;
+  const x = -spriteW * meteorSpriteData.anchorX + (hitBounds.minX / hitBounds.frameW) * spriteW;
+  const y = -spriteH * meteorSpriteData.anchorY + (hitBounds.minY / hitBounds.frameH) * spriteH;
+  const w = ((hitBounds.maxX - hitBounds.minX + 1) / hitBounds.frameW) * spriteW;
+  const h = ((hitBounds.maxY - hitBounds.minY + 1) / hitBounds.frameH) * spriteH;
+  return { x, y, w, h };
+}
+
+function drawSpriteMeteor(m, angle) {
+  const frameData = getSpriteFrame(m);
+  if (!frameData) return false;
+  const { spriteW, spriteH } = getSpriteDrawSize(m);
+  const prevSmoothing = ctx.imageSmoothingEnabled;
+
+  ctx.save();
+  ctx.translate(m.x, m.y);
+  ctx.rotate(angle + meteorSpriteData.rotationOffset);
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(
+    meteorSprite,
+    frameData.sx,
+    frameData.sy,
+    meteorSpriteData.frameW,
+    meteorSpriteData.frameH,
+    -spriteW * meteorSpriteData.anchorX,
+    -spriteH * meteorSpriteData.anchorY,
+    spriteW,
+    spriteH
+  );
+  ctx.imageSmoothingEnabled = prevSmoothing;
+  ctx.restore();
+  return true;
+}
+
+function getMeteorRotation(m, angle) {
+  if (!meteorSpriteData.ready) return angle;
+  const row = meteorSpriteData.rowByType[m.type];
+  if (row === undefined) return angle;
+  return angle + meteorSpriteData.rotationOffset;
+}
+
+function drawMeteorKillHitbox(m, angle) {
+  ctx.save();
+  ctx.translate(m.x, m.y);
+  ctx.rotate(angle);
+  ctx.strokeStyle = 'rgba(180, 180, 180, 0.6)';
+  ctx.lineWidth = 1;
+  const spriteRect = getSpriteHitboxRect(m);
+  if (spriteRect) {
+    const manual = meteorSpriteData.manualHitbox;
+    if (manual?.enabled && manual.rotation) {
+      ctx.rotate(manual.rotation);
+    }
+    ctx.strokeRect(spriteRect.x, spriteRect.y, spriteRect.w, spriteRect.h);
+    ctx.restore();
+    return;
+  }
+  const pad = Math.max(4, m.r * 0.18);
+  if (isPixelTheme()) {
+    const { bodyW, bodyH } = getMeteorBodyDims(m);
+    const w = bodyW + pad * 2;
+    const h = bodyH + pad * 2;
+    ctx.strokeRect(-w / 2, -h / 2, w, h);
+  } else {
+    const { bodyLen, bodyW } = getMeteorBodyDims(m);
+    const rectHalf = Math.max(0, bodyLen - bodyW);
+    const radius = bodyW + pad;
+    ctx.beginPath();
+    if (rectHalf === 0) {
+      ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    } else {
+      ctx.moveTo(-rectHalf, -radius);
+      ctx.lineTo(rectHalf, -radius);
+      ctx.arc(rectHalf, 0, radius, -Math.PI / 2, Math.PI / 2);
+      ctx.lineTo(-rectHalf, radius);
+      ctx.arc(-rectHalf, 0, radius, Math.PI / 2, -Math.PI / 2);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawMeteorShieldHitbox(m) {
+  const radius = Math.max(2, m.r * 0.12);
+  ctx.save();
+  ctx.translate(m.x, m.y);
+  ctx.strokeStyle = 'rgba(180, 180, 180, 0.4)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.arc(0, 0, radius, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawMeteorHitboxes(m, angle) {
+  if (!showMeteorHitboxes) return;
+  drawMeteorKillHitbox(m, angle);
+  if (m.type !== 'twin') {
+    drawMeteorShieldHitbox(m);
+  }
+}
+
 function drawPixelMeteor(m, angle, colors, tailScale) {
   const isFast = m.type === 'fast';
   const isTank = m.type === 'tank';
@@ -2015,6 +2288,10 @@ function drawMeteor(m) {
   const seed = m.seed ?? 0.5;
   const flicker = 0.95 + 0.08 * Math.sin(state.lastTime * 0.006 + seed * 12);
   const dents = getMeteorDents(seed, isTank, isFast);
+
+  if (drawSpriteMeteor(m, angle)) {
+    return;
+  }
 
   if (isPixelTheme()) {
     drawPixelMeteor(m, angle, colors, tailScale);
@@ -2147,6 +2424,17 @@ function drawMissiles() {
         }
         ctx.stroke();
         ctx.shadowBlur = 0;
+        if (showMeteorHitboxes) {
+          ctx.save();
+          ctx.strokeStyle = 'rgba(180, 180, 180, 0.4)';
+          ctx.lineWidth = 1;
+          ctx.setLineDash([4, 4]);
+          ctx.beginPath();
+          ctx.moveTo(ax, ay);
+          ctx.lineTo(bx, by);
+          ctx.stroke();
+          ctx.restore();
+        }
         if (isPixelTheme()) {
           ctx.fillStyle = themePalette.twinBeam;
           for (let i = 0; i <= steps; i += 2) {
@@ -2160,7 +2448,9 @@ function drawMissiles() {
     }
 
     const isTank = m.type === 'tank';
+    const angle = getMeteorRotation(m, Math.atan2(m.vy, m.vx));
     drawMeteor(m);
+    drawMeteorHitboxes(m, angle);
 
     if (isTank) {
       ctx.fillStyle = '#eaffdf';
