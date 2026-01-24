@@ -2505,34 +2505,25 @@ function getSpriteHitboxRect(m, config = meteorSpriteData.manualHitbox) {
 }
 
 function getTwinBeamAnchor(m) {
-  const angle = getMeteorRotation(m, Math.atan2(m.vy, m.vx));
-  let localX = 0;
-  let localY = 0;
   const rect = getSpriteHitboxRect(m, meteorSpriteData.manualHitbox);
+  const center = rect ? getMeteorHitboxCenter(m) : { x: m.x, y: m.y };
+  const speed = Math.hypot(m.vx, m.vy) || 1;
+  const dirX = m.vx / speed;
+  const dirY = m.vy / speed;
+  let frontOffset = 0;
   if (rect) {
-    localX = rect.x + rect.w;
-    localY = rect.y + rect.h * 0.5;
-    const manual = meteorSpriteData.manualHitbox;
-    if (manual?.enabled && manual.rotation) {
-      const cos = Math.cos(manual.rotation);
-      const sin = Math.sin(manual.rotation);
-      const rotX = localX * cos - localY * sin;
-      const rotY = localX * sin + localY * cos;
-      localX = rotX;
-      localY = rotY;
-    }
+    frontOffset = Math.max(rect.w, rect.h) * 0.5;
   } else if (isPixelTheme()) {
     const { bodyW } = getMeteorBodyDims(m);
-    localX = bodyW * 0.5;
+    frontOffset = bodyW * 0.5;
   } else {
     const { bodyLen } = getMeteorBodyDims(m);
-    localX = bodyLen;
+    frontOffset = bodyLen;
   }
-  const cos = Math.cos(angle);
-  const sin = Math.sin(angle);
+  const tunedOffset = frontOffset * 0.65;
   return {
-    x: m.x + localX * cos - localY * sin,
-    y: m.y + localX * sin + localY * cos
+    x: center.x + dirX * tunedOffset,
+    y: center.y + dirY * tunedOffset
   };
 }
 
