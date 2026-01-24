@@ -11,7 +11,7 @@ const victoryEl = document.getElementById('victory');
 const hardcoreUnlocked = document.getElementById('hardcore-unlocked');
 const victoryClose = document.getElementById('victory-close');
 const startScreen = document.getElementById('start-screen');
-const startButton = document.getElementById('start-button');
+const normalStartButton = document.getElementById('normal-start');
 const resetProgressButton = document.getElementById('reset-progress');
 const debugSkip = document.getElementById('debug-skip');
 const adminToast = document.getElementById('admin-toast');
@@ -30,11 +30,21 @@ const menuPlay = document.getElementById('menu-play');
 const menuUpgradesButton = document.getElementById('menu-upgrades-button');
 const menuHomePanel = document.getElementById('menu-home-panel');
 const menuPlayPanel = document.getElementById('menu-play-panel');
+const menuNormalPanel = document.getElementById('menu-normal-panel');
+const menuHardcorePanel = document.getElementById('menu-hardcore-panel');
+const menuSurvivalPanel = document.getElementById('menu-survival-panel');
 const menuUpgradesPanel = document.getElementById('menu-upgrades-panel');
 const upgradesBack = document.getElementById('upgrades-back');
 const playBack = document.getElementById('play-back');
 const normalModeToggle = document.getElementById('normal-mode-toggle');
+const hardcoreModeToggle = document.getElementById('hardcore-mode-toggle');
+const survivalModeToggle = document.getElementById('survival-mode-toggle');
 const normalLevels = document.getElementById('normal-levels');
+const normalBack = document.getElementById('normal-back');
+const hardcoreBack = document.getElementById('hardcore-back');
+const survivalBack = document.getElementById('survival-back');
+const hardcoreStartButton = document.getElementById('hardcore-start');
+const survivalStartButton = document.getElementById('survival-start');
 const menuOptionsButton = document.getElementById('menu-options-button');
 const menuOptionsPanel = document.getElementById('menu-options-panel');
 const optionsBack = document.getElementById('options-back');
@@ -48,9 +58,6 @@ const adminCreditFloater = document.getElementById('admin-credit-floater');
 const confirmReset = document.getElementById('confirm-reset');
 const confirmResetYes = document.getElementById('confirm-reset-yes');
 const confirmResetNo = document.getElementById('confirm-reset-no');
-const hardcoreConfirm = document.getElementById('hardcore-confirm');
-const hardcoreConfirmYes = document.getElementById('hardcore-confirm-yes');
-const hardcoreConfirmNo = document.getElementById('hardcore-confirm-no');
 const actionsBar = document.getElementById('actions');
 const skillButtons = document.querySelectorAll('[data-skill]');
 const upgradeButtons = document.querySelectorAll('[data-upgrade]');
@@ -178,7 +185,6 @@ let adminCreditsTimer = null;
 let adminCreditsTriggered = false;
 let adminCreditFloaterTimer = null;
 const survivalRecordsKey = 'survivalRecords';
-let pendingHardcoreStart = false;
 const maxNormalLevels = 3;
 const themeMusic = {
   default: { gain: 1, tempo: 1, pulse: 'square', lead: 'sawtooth' },
@@ -3451,14 +3457,10 @@ skillButtons.forEach(button => {
   });
 });
 
-startButton.addEventListener('click', () => {
+function startSelectedLevel(level) {
   initAudio();
   stopMusic();
-  if (state.selectedLevel === 4 && !pendingHardcoreStart) {
-    hardcoreConfirm.classList.remove('hidden');
-    return;
-  }
-  pendingHardcoreStart = false;
+  state.selectedLevel = level;
   resetGame();
   applyLevelConfig(state.selectedLevel);
   rebuildShields();
@@ -3469,7 +3471,25 @@ startButton.addEventListener('click', () => {
   updateUpgradeVisibility();
   updateSkillLocks();
   startCountdown();
-});
+}
+
+if (normalStartButton) {
+  normalStartButton.addEventListener('click', () => {
+    startSelectedLevel(state.selectedLevel);
+  });
+}
+
+if (hardcoreStartButton) {
+  hardcoreStartButton.addEventListener('click', () => {
+    startSelectedLevel(4);
+  });
+}
+
+if (survivalStartButton) {
+  survivalStartButton.addEventListener('click', () => {
+    startSelectedLevel(5);
+  });
+}
 
 startScreen.addEventListener('pointerdown', () => {
   initAudio();
@@ -3481,10 +3501,21 @@ if (menuPlay) {
   });
 }
 
-if (normalModeToggle && normalLevels) {
+if (normalModeToggle) {
   normalModeToggle.addEventListener('click', () => {
-    normalLevels.classList.toggle('hidden');
-    normalModeToggle.classList.toggle('active', !normalLevels.classList.contains('hidden'));
+    setMenuView('normal');
+  });
+}
+
+if (hardcoreModeToggle) {
+  hardcoreModeToggle.addEventListener('click', () => {
+    setMenuView('hardcore');
+  });
+}
+
+if (survivalModeToggle) {
+  survivalModeToggle.addEventListener('click', () => {
+    setMenuView('survival');
   });
 }
 
@@ -3509,6 +3540,24 @@ if (upgradesBack) {
 if (playBack) {
   playBack.addEventListener('click', () => {
     setMenuView('home');
+  });
+}
+
+if (normalBack) {
+  normalBack.addEventListener('click', () => {
+    setMenuView('play');
+  });
+}
+
+if (hardcoreBack) {
+  hardcoreBack.addEventListener('click', () => {
+    setMenuView('play');
+  });
+}
+
+if (survivalBack) {
+  survivalBack.addEventListener('click', () => {
+    setMenuView('play');
   });
 }
 
@@ -3556,16 +3605,6 @@ confirmResetNo.addEventListener('click', () => {
   confirmReset.classList.add('hidden');
 });
 
-hardcoreConfirmYes.addEventListener('click', () => {
-  hardcoreConfirm.classList.add('hidden');
-  pendingHardcoreStart = true;
-  startButton.click();
-});
-
-hardcoreConfirmNo.addEventListener('click', () => {
-  hardcoreConfirm.classList.add('hidden');
-  pendingHardcoreStart = false;
-});
 
 gameoverMenu.addEventListener('click', () => {
   stopMusic();
@@ -3902,10 +3941,11 @@ function updateLevelButtons() {
     if (Number.isNaN(level)) return;
     const isNormal = button.classList.contains('normal-level');
     const isSurvival = button.classList.contains('survival');
+    const isHardcore = button.classList.contains('hardcore');
     if (isNormal) {
       const normalUnlocked = Math.min(state.unlockedLevel, maxNormalLevels);
       button.disabled = level > normalUnlocked;
-    } else if (isSurvival) {
+    } else if (isSurvival || isHardcore) {
       button.disabled = false;
     } else {
       button.disabled = level > state.unlockedLevel;
@@ -4129,17 +4169,27 @@ function updateResetVisibility() {
 }
 
 function setMenuView(view) {
-  if (!menuPlayPanel || !menuUpgradesPanel || !menuOptionsPanel) return;
+  if (!menuUpgradesPanel || !menuOptionsPanel) return;
   const showPlay = view === 'play';
+  const showNormal = view === 'normal';
+  const showHardcore = view === 'hardcore';
+  const showSurvival = view === 'survival';
   const showUpgrades = view === 'upgrades';
   const showOptions = view === 'options';
-  menuPlayPanel.classList.toggle('hidden', !showPlay);
+  if (menuPlayPanel) {
+    menuPlayPanel.classList.toggle('hidden', !showPlay);
+  }
+  if (menuNormalPanel) {
+    menuNormalPanel.classList.toggle('hidden', !showNormal);
+  }
+  if (menuHardcorePanel) {
+    menuHardcorePanel.classList.toggle('hidden', !showHardcore);
+  }
+  if (menuSurvivalPanel) {
+    menuSurvivalPanel.classList.toggle('hidden', !showSurvival);
+  }
   menuUpgradesPanel.classList.toggle('hidden', !showUpgrades);
   menuOptionsPanel.classList.toggle('hidden', !showOptions);
-  if (showPlay && normalLevels && normalModeToggle) {
-    normalLevels.classList.add('hidden');
-    normalModeToggle.classList.remove('active');
-  }
   if (menuHomePanel) {
     menuHomePanel.classList.toggle('hidden', view !== 'home');
   }

@@ -69,25 +69,41 @@
       <div class="modes-title">Modes</div>
       <div id="mode-select">
         <button id="normal-mode-toggle" class="level-button mode-button">Normal Mode</button>
-        <div id="normal-levels" class="hidden">
-          <button class="level-button normal-level" data-level="1">Level 1</button>
-          <button class="level-button normal-level" data-level="2">Level 2</button>
-          <button class="level-button normal-level" data-level="3">Level 3</button>
-          <button class="level-button normal-level" data-level="4" disabled>Level 4</button>
-          <button class="level-button normal-level" data-level="5" disabled>Level 5</button>
-          <button class="level-button normal-level" data-level="6" disabled>Level 6</button>
-          <button class="level-button normal-level" data-level="7" disabled>Level 7</button>
-          <button class="level-button normal-level" data-level="8" disabled>Level 8</button>
-          <button class="level-button normal-level" data-level="9" disabled>Level 9</button>
-        </div>
-        <button class="level-button hardcore mode-button" data-level="4" disabled>Hardcore Mode</button>
-        <button class="level-button survival mode-button" data-level="5">Survival Mode</button>
+        <button id="hardcore-mode-toggle" class="level-button hardcore mode-button" data-level="4">Hardcore Mode</button>
+        <button id="survival-mode-toggle" class="level-button survival mode-button" data-level="5">Survival Mode</button>
       </div>
-      <button id="start-button">Start</button>
+    </div>
+    <div id="menu-normal-panel" class="hidden">
+      <button id="normal-back"><span aria-hidden="true">&lt;</span> Back to Modes</button>
+      <div class="modes-title">Normal Levels</div>
+      <div id="normal-levels">
+        <button class="level-button normal-level" data-level="1">Level 1</button>
+        <button class="level-button normal-level" data-level="2">Level 2</button>
+        <button class="level-button normal-level" data-level="3">Level 3</button>
+        <button class="level-button normal-level" data-level="4" disabled>Level 4</button>
+        <button class="level-button normal-level" data-level="5" disabled>Level 5</button>
+        <button class="level-button normal-level" data-level="6" disabled>Level 6</button>
+        <button class="level-button normal-level" data-level="7" disabled>Level 7</button>
+        <button class="level-button normal-level" data-level="8" disabled>Level 8</button>
+        <button class="level-button normal-level" data-level="9" disabled>Level 9</button>
+      </div>
+      <button id="normal-start">Start</button>
+    </div>
+    <div id="menu-hardcore-panel" class="hidden">
+      <button id="hardcore-back"><span aria-hidden="true">&lt;</span> Back to Modes</button>
+      <div class="modes-title">Hardcore Mode</div>
+      <div class="confirm-text">No skills or upgrades will be available in this mode.</div>
+      <button id="hardcore-start">Start</button>
+    </div>
+    <div id="menu-survival-panel" class="hidden">
+      <button id="survival-back"><span aria-hidden="true">&lt;</span> Back to Modes</button>
+      <div class="modes-title">Survival Mode</div>
+      <div class="modes-description">Endless waves with scores tracked by time survived.</div>
       <div id="survival-records">
-        <div class="records-title">Survival Records</div>
+        <div class="records-title">High Scores</div>
         <ol class="records-list"></ol>
       </div>
+      <button id="survival-start">Start</button>
     </div>
     <div id="menu-upgrades-panel" class="hidden">
       <div id="menu-credits"><span class="icon icon-coin" aria-hidden="true"></span><span class="label">Credits: 0</span></div>

@@ -646,6 +646,9 @@ body[data-theme="forge"] .boss-fill {
 #menu-main-actions button,
 #upgrades-back,
 #play-back,
+#normal-back,
+#hardcore-back,
+#survival-back,
 #options-back {
   border: 1px solid var(--button-border);
   background: var(--button-bg);
@@ -657,6 +660,9 @@ body[data-theme="forge"] .boss-fill {
 }
 
 #menu-play-panel,
+#menu-normal-panel,
+#menu-hardcore-panel,
+#menu-survival-panel,
 #menu-upgrades-panel,
 #menu-options-panel {
   display: grid;
@@ -664,12 +670,18 @@ body[data-theme="forge"] .boss-fill {
   place-items: center;
 }
 
-#menu-play-panel #play-back {
+#menu-play-panel #play-back,
+#menu-normal-panel #normal-back,
+#menu-hardcore-panel #hardcore-back,
+#menu-survival-panel #survival-back {
   order: 99;
   margin-top: 12px;
 }
 
 #menu-play-panel.hidden,
+#menu-normal-panel.hidden,
+#menu-hardcore-panel.hidden,
+#menu-survival-panel.hidden,
 #menu-upgrades-panel.hidden,
 #menu-options-panel.hidden {
   display: none;
@@ -795,7 +807,10 @@ body[data-theme="retro"] .style-card.active {
   margin-top: -2px;
 }
 
-#start-button {
+#start-button,
+#normal-start,
+#hardcore-start,
+#survival-start {
   border: 1px solid var(--start-border);
   background: var(--start-bg);
   color: var(--text-main);
