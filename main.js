@@ -33,6 +33,8 @@ const menuPlayPanel = document.getElementById('menu-play-panel');
 const menuUpgradesPanel = document.getElementById('menu-upgrades-panel');
 const upgradesBack = document.getElementById('upgrades-back');
 const playBack = document.getElementById('play-back');
+const normalModeToggle = document.getElementById('normal-mode-toggle');
+const normalLevels = document.getElementById('normal-levels');
 const menuOptionsButton = document.getElementById('menu-options-button');
 const menuOptionsPanel = document.getElementById('menu-options-panel');
 const optionsBack = document.getElementById('options-back');
@@ -177,6 +179,7 @@ let adminCreditsTriggered = false;
 let adminCreditFloaterTimer = null;
 const survivalRecordsKey = 'survivalRecords';
 let pendingHardcoreStart = false;
+const maxNormalLevels = 3;
 const themeMusic = {
   default: { gain: 1, tempo: 1, pulse: 'square', lead: 'sawtooth' },
   retro: { gain: 0.85, tempo: 1.15, pulse: 'square', lead: 'square' },
@@ -869,9 +872,12 @@ function removeTwinGroup(id) {
   twinGroups.delete(id);
 }
 
-function handleTwinTap(m) {
+function handleTwinTap(m, tapX, tapY) {
   const group = twinGroups.get(m.twinId);
   if (!group) return false;
+  const payoutX = Number.isFinite(tapX) ? tapX : m.x;
+  const payoutY = Number.isFinite(tapY) ? tapY : m.y;
+  const floaterY = payoutY + 12;
   const now = performance.now();
   const windowMs = 40;
   if (m.twinPart === 0) {
@@ -881,8 +887,7 @@ function handleTwinTap(m) {
       triggerExplosion(m.x, m.y, '#7fdc7a', 36, 0.22, 8);
       const bounty = getBounty(m.type);
       awardMoney(bounty);
-      const center = getMeteorHitboxCenter(m);
-      spawnCashFloater(center.x, center.y, bounty);
+      spawnCashFloater(payoutX, floaterY, bounty);
     } else {
       group.primeA = now;
       playSfx('hitsoft');
@@ -896,8 +901,7 @@ function handleTwinTap(m) {
     triggerExplosion(m.x, m.y, '#7fdc7a', 36, 0.22, 8);
     const bounty = getBounty(m.type);
     awardMoney(bounty);
-    const center = getMeteorHitboxCenter(m);
-    spawnCashFloater(center.x, center.y, bounty);
+    spawnCashFloater(payoutX, floaterY, bounty);
   } else {
     group.primeB = now;
     playSfx('hitsoft');
@@ -2876,7 +2880,20 @@ function drawMissiles() {
       ctx.font = getHudFont(Math.max(12, m.r * 0.9));
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(String(m.hp), m.x, m.y);
+      const center = getMeteorHitboxCenter(m);
+      const speed = Math.hypot(m.vx, m.vy) || 1;
+      const dirX = m.vx / speed;
+      const dirY = m.vy / speed;
+      const sideX = -dirY;
+      const sideY = dirX;
+      const forwardOffset = m.r * 0.2;
+      const lateralOffset = m.r * 0.45;
+      const textX = center.x + dirX * forwardOffset + sideX * lateralOffset;
+      const textY = center.y + dirY * forwardOffset + sideY * lateralOffset;
+      ctx.lineWidth = Math.max(2, Math.round(m.r * 0.08));
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.75)';
+      ctx.strokeText(String(m.hp), textX, textY);
+      ctx.fillText(String(m.hp), textX, textY);
     }
   }
 }
@@ -3354,7 +3371,7 @@ canvas.addEventListener('pointerdown', e => {
     const m = missiles[i];
     if (isPointOnMeteor(m, x, y)) {
       if (m.type === 'twin') {
-        handleTwinTap(m);
+        handleTwinTap(m, x, y);
       } else if (m.type === 'tank') {
         m.hp -= 1;
         if (m.hp <= 0) {
@@ -3363,8 +3380,7 @@ canvas.addEventListener('pointerdown', e => {
           triggerExplosion(m.x, m.y, '#b8ff9b', 46, 0.26);
           const bounty = getBounty(m.type);
           awardMoney(bounty);
-          const center = getMeteorHitboxCenter(m);
-          spawnCashFloater(center.x, center.y, bounty);
+          spawnCashFloater(x, y + 12, bounty);
         } else {
           playSfx('hitsoft');
           triggerExplosion(m.x, m.y, '#b8ff9b', 22, 0.16, 4);
@@ -3375,8 +3391,7 @@ canvas.addEventListener('pointerdown', e => {
         triggerExplosion(m.x, m.y, '#ff9b6b', 40, 0.22);
         const bounty = getBounty(m.type);
         awardMoney(bounty);
-        const center = getMeteorHitboxCenter(m);
-        spawnCashFloater(center.x, center.y, bounty);
+        spawnCashFloater(x, y + 12, bounty);
       }
       break;
     }
@@ -3463,6 +3478,13 @@ startScreen.addEventListener('pointerdown', () => {
 if (menuPlay) {
   menuPlay.addEventListener('click', () => {
     setMenuView('play');
+  });
+}
+
+if (normalModeToggle && normalLevels) {
+  normalModeToggle.addEventListener('click', () => {
+    normalLevels.classList.toggle('hidden');
+    normalModeToggle.classList.toggle('active', !normalLevels.classList.contains('hidden'));
   });
 }
 
@@ -3709,8 +3731,10 @@ styleButtons.forEach(button => {
 levelButtons.forEach(button => {
   button.addEventListener('click', () => {
     const level = Number(button.dataset.level);
+    const isNormal = button.classList.contains('normal-level');
     if (Number.isNaN(level)) return;
-    if (level !== 5 && level > state.unlockedLevel) return;
+    if (isNormal && level > maxNormalLevels) return;
+    if (level !== 5 && !isNormal && level > state.unlockedLevel) return;
     state.selectedLevel = level;
     updateLevelButtons();
   });
@@ -3875,9 +3899,19 @@ function resetSkillCooldowns() {
 function updateLevelButtons() {
   levelButtons.forEach(button => {
     const level = Number(button.dataset.level);
-    const isSurvival = level === 5;
-    button.disabled = !isSurvival && level > state.unlockedLevel;
-    button.classList.toggle('active', level === state.selectedLevel);
+    if (Number.isNaN(level)) return;
+    const isNormal = button.classList.contains('normal-level');
+    const isSurvival = button.classList.contains('survival');
+    if (isNormal) {
+      const normalUnlocked = Math.min(state.unlockedLevel, maxNormalLevels);
+      button.disabled = level > normalUnlocked;
+    } else if (isSurvival) {
+      button.disabled = false;
+    } else {
+      button.disabled = level > state.unlockedLevel;
+    }
+    const canMatchLevel = !(isNormal && level > maxNormalLevels);
+    button.classList.toggle('active', canMatchLevel && level === state.selectedLevel);
   });
   updateUpgradeVisibility();
 }
@@ -4102,6 +4136,10 @@ function setMenuView(view) {
   menuPlayPanel.classList.toggle('hidden', !showPlay);
   menuUpgradesPanel.classList.toggle('hidden', !showUpgrades);
   menuOptionsPanel.classList.toggle('hidden', !showOptions);
+  if (showPlay && normalLevels && normalModeToggle) {
+    normalLevels.classList.add('hidden');
+    normalModeToggle.classList.remove('active');
+  }
   if (menuHomePanel) {
     menuHomePanel.classList.toggle('hidden', view !== 'home');
   }

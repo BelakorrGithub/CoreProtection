@@ -889,10 +889,29 @@ body[data-theme="retro"] .style-card.active {
   margin-top: -4px;
 }
 
-#level-select {
+.modes-title {
+  font-size: 14px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  text-shadow: var(--hud-shadow);
+}
+
+#mode-select {
   display: grid;
-  grid-auto-flow: column;
   gap: 10px;
+  width: min(92vw, 520px);
+}
+
+.mode-button {
+  width: 100%;
+}
+
+#normal-levels {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(80px, 1fr));
+  gap: 10px;
+  width: 100%;
 }
 
 .level-button.survival {
@@ -1244,8 +1263,8 @@ body[data-theme="retro"] .style-card.active {
     width: min(86vw, 300px);
   }
 
-  #level-select {
-    grid-auto-flow: column;
+  #normal-levels {
+    grid-template-columns: repeat(3, minmax(70px, 1fr));
   }
 
   #countdown,
