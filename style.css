@@ -25,7 +25,15 @@ body {
   --accent: #9cd3ff;
   --accent-strong: #50c8ff;
   --accent-warm: #ffd26a;
-  --hud-shadow: 0 0 8px rgba(130, 200, 255, 0.5);
+  --text-outline: 0 1px 0 rgba(6, 8, 12, 0.9),
+    0 -1px 0 rgba(6, 8, 12, 0.9),
+    1px 0 0 rgba(6, 8, 12, 0.9),
+    -1px 0 0 rgba(6, 8, 12, 0.9),
+    1px 1px 0 rgba(6, 8, 12, 0.9),
+    -1px 1px 0 rgba(6, 8, 12, 0.9),
+    1px -1px 0 rgba(6, 8, 12, 0.9),
+    -1px -1px 0 rgba(6, 8, 12, 0.9);
+  --hud-shadow: var(--text-outline), 0 0 8px rgba(130, 200, 255, 0.5);
   --panel-bg: rgba(12, 20, 40, 0.8);
   --panel-border: rgba(120, 200, 255, 0.8);
   --button-bg: rgba(12, 20, 40, 0.8);
@@ -52,7 +60,7 @@ body {
   --utility-text: #ffd8a3;
   --menu-bg: radial-gradient(circle at 50% 40%, rgba(20, 30, 60, 0.8), rgba(5, 7, 13, 0.95));
   --title-color: #9cd3ff;
-  --title-shadow: 0 0 20px rgba(80, 160, 255, 0.6);
+  --title-shadow: var(--text-outline), 0 0 20px rgba(80, 160, 255, 0.6);
   --overlay-bg: rgba(5, 7, 13, 0.7);
   --gameover-color: #ffd26a;
   --toast-admin-bg: rgba(40, 10, 10, 0.8);
@@ -60,7 +68,7 @@ body {
   --toast-admin-text: #ffd6d6;
 }
 
-body[data-theme="pixel"] {
+body[data-theme="retro"] {
   --font-main: "Press Start 2P", monospace;
   --font-title: "Press Start 2P", monospace;
   --bg-1: #101522;
@@ -74,7 +82,7 @@ body[data-theme="pixel"] {
   --accent: #7dd6ff;
   --accent-strong: #4fd2ff;
   --accent-warm: #ffd36d;
-  --hud-shadow: none;
+  --hud-shadow: var(--text-outline);
   --panel-bg: rgba(8, 12, 20, 0.95);
   --panel-border: rgba(120, 200, 255, 0.7);
   --button-bg: rgba(8, 12, 20, 0.9);
@@ -99,7 +107,7 @@ body[data-theme="pixel"] {
   --utility-text: #ffd8a3;
   --menu-bg: radial-gradient(circle at 50% 40%, rgba(12, 18, 28, 0.95), rgba(4, 6, 10, 0.98));
   --title-color: #9cd3ff;
-  --title-shadow: none;
+  --title-shadow: var(--text-outline);
   --overlay-bg: rgba(5, 7, 13, 0.85);
   --gameover-color: #ffd36d;
 }
@@ -195,37 +203,37 @@ body[data-theme="forge"] {
   --toast-admin-text: #ffd6c6;
 }
 
-body[data-theme="pixel"] canvas {
+body[data-theme="retro"] canvas {
   image-rendering: pixelated;
 }
 
-body[data-theme="pixel"] .icon,
-body[data-theme="pixel"] .skill .icon {
+body[data-theme="retro"] .icon,
+body[data-theme="retro"] .skill .icon {
   image-rendering: pixelated;
 }
 
-body[data-theme="pixel"] .level-button,
-body[data-theme="pixel"] #start-button,
-body[data-theme="pixel"] .skill,
-body[data-theme="pixel"] .style-card {
+body[data-theme="retro"] .level-button,
+body[data-theme="retro"] #start-button,
+body[data-theme="retro"] .skill,
+body[data-theme="retro"] .style-card {
   box-shadow: none;
 }
 
-body[data-theme="pixel"] .level-button.hardcore {
+body[data-theme="retro"] .level-button.hardcore {
   background: rgba(60, 10, 10, 0.95);
   border-color: rgba(255, 120, 120, 0.9);
   color: #ffd6d6;
   box-shadow: none;
 }
 
-body[data-theme="pixel"] .level-button.survival {
+body[data-theme="retro"] .level-button.survival {
   background: rgba(50, 12, 70, 0.95);
   border-color: rgba(200, 140, 255, 0.9);
   color: #f2d7ff;
   box-shadow: none;
 }
 
-body[data-theme="pixel"] #hud {
+body[data-theme="retro"] #hud {
   line-height: 1.4;
 }
 
@@ -507,7 +515,7 @@ body[data-theme="forge"] .boss-fill {
   transform: translate(-50%, -50%);
   font-size: 64px;
   letter-spacing: 0.08em;
-  text-shadow: 0 0 18px rgba(20, 40, 80, 0.9), 0 0 24px rgba(255, 240, 200, 0.6);
+  text-shadow: var(--text-outline), 0 0 18px rgba(20, 40, 80, 0.9), 0 0 24px rgba(255, 240, 200, 0.6);
   z-index: 3;
   text-align: center;
 }
@@ -586,7 +594,7 @@ body[data-theme="forge"] .boss-fill {
 #wave-message {
   font-size: 32px;
   color: var(--accent);
-  text-shadow: 0 0 16px rgba(20, 40, 80, 0.9), 0 0 18px rgba(100, 200, 255, 0.6);
+  text-shadow: var(--text-outline), 0 0 16px rgba(20, 40, 80, 0.9), 0 0 18px rgba(100, 200, 255, 0.6);
   top: 24%;
 }
 
@@ -637,7 +645,8 @@ body[data-theme="forge"] .boss-fill {
 
 #menu-main-actions button,
 #upgrades-back,
-#play-back {
+#play-back,
+#options-back {
   border: 1px solid var(--button-border);
   background: var(--button-bg);
   color: var(--button-text);
@@ -648,7 +657,8 @@ body[data-theme="forge"] .boss-fill {
 }
 
 #menu-play-panel,
-#menu-upgrades-panel {
+#menu-upgrades-panel,
+#menu-options-panel {
   display: grid;
   gap: 14px;
   place-items: center;
@@ -660,18 +670,64 @@ body[data-theme="forge"] .boss-fill {
 }
 
 #menu-play-panel.hidden,
-#menu-upgrades-panel.hidden {
+#menu-upgrades-panel.hidden,
+#menu-options-panel.hidden {
   display: none;
 }
 
-#menu-styles-panel {
+.options-title {
+  font-size: 14px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  text-shadow: var(--hud-shadow);
+}
+
+.options-grid {
   display: grid;
-  gap: 16px;
-  place-items: center;
+  gap: 12px;
+  width: min(88vw, 420px);
 }
 
-#menu-styles-panel.hidden {
-  display: none;
+.options-grid + .styles-title {
+  margin-top: 6px;
+}
+
+.option-row {
+  border: 1px solid var(--panel-border);
+  background: var(--panel-bg);
+  color: var(--text-main);
+  padding: 14px 16px;
+  display: grid;
+  gap: 8px;
+}
+
+.option-row label {
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+}
+
+.option-control {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.option-control input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent-strong);
+  background: transparent;
+}
+
+.option-value {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--text-main);
+  min-width: 4ch;
+  text-align: right;
 }
 
 .styles-title {
@@ -702,6 +758,12 @@ body[data-theme="forge"] .boss-fill {
 .style-card.active {
   border-color: var(--button-active-border);
   box-shadow: var(--button-active-shadow);
+}
+
+body[data-theme="retro"] .style-card.active {
+  border-color: var(--button-active-border);
+  background: var(--button-active-bg);
+  box-shadow: inset 0 0 0 2px rgba(160, 230, 255, 0.85);
 }
 
 .style-name {
@@ -1169,7 +1231,7 @@ body[data-theme="forge"] .boss-fill {
 }
 
 @media (max-width: 720px) {
-  body[data-theme="pixel"] #start-screen .title {
+  body[data-theme="retro"] #start-screen .title {
     font-size: 28px;
   }
 
@@ -1217,7 +1279,7 @@ body[data-theme="forge"] .boss-fill {
     font-size: 28px;
   }
 
-  body[data-theme="pixel"] #start-screen .title {
+  body[data-theme="retro"] #start-screen .title {
     font-size: 22px;
   }
 

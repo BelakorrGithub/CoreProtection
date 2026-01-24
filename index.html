@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="style.css">
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <meta property="og:title" content="Core Protection" />
-  <meta property="og:description" content="Defend the core in a neon/pixel arcade survival." />
+  <meta property="og:description" content="Defend the core in a neon/retro arcade survival." />
   <meta property="og:image" content="https://belakorrgithub.github.io/CoreProtection/preview.svg" />
   <meta property="og:url" content="https://belakorrgithub.github.io/CoreProtection/" />
   <meta name="twitter:card" content="summary_large_image" />
@@ -61,7 +61,7 @@
       <div id="menu-main-actions">
         <button id="menu-play">Play</button>
         <button id="menu-upgrades-button">Upgrades</button>
-        <button id="menu-styles-button"><span class="new-badge">New!</span> Styles</button>
+        <button id="menu-options-button">Options</button>
       </div>
     </div>
     <div id="menu-play-panel" class="hidden">
@@ -72,13 +72,12 @@
         <button class="level-button" data-level="3" disabled>Level 3</button>
       </div>
       <button class="level-button hardcore" data-level="4" disabled>Hardcore Mode</button>
-      <button class="level-button survival" data-level="5"><span class="new-badge">New!</span> Survival Mode</button>
+      <button class="level-button survival" data-level="5">Survival Mode</button>
       <button id="start-button">Start</button>
       <div id="survival-records">
-        <div class="records-title"><span class="new-badge">New!</span> Survival Records</div>
+        <div class="records-title">Survival Records</div>
         <ol class="records-list"></ol>
       </div>
-      <button id="reset-progress" class="level-button">Reset Progress</button>
     </div>
     <div id="menu-upgrades-panel" class="hidden">
       <div id="menu-credits"><span class="icon icon-coin" aria-hidden="true"></span><span class="label">Credits: 0</span></div>
@@ -117,15 +116,32 @@
       </div>
       <button id="upgrades-back"><span aria-hidden="true">&lt;</span> Back to Menu</button>
     </div>
-    <div id="menu-styles-panel" class="hidden">
+    <div id="menu-options-panel" class="hidden">
+      <div class="options-title">Options</div>
+      <div class="options-grid">
+        <div class="option-row">
+          <label for="music-volume">Music</label>
+          <div class="option-control">
+            <input id="music-volume" type="range" min="0" max="100" step="1" value="100">
+            <span class="option-value" id="music-volume-value">100%</span>
+          </div>
+        </div>
+        <div class="option-row">
+          <label for="sfx-volume">Sounds</label>
+          <div class="option-control">
+            <input id="sfx-volume" type="range" min="0" max="100" step="1" value="100">
+            <span class="option-value" id="sfx-volume-value">100%</span>
+          </div>
+        </div>
+      </div>
       <div class="styles-title">Styles</div>
-      <div class="styles-grid">
+      <div class="styles-grid options-styles">
         <button class="style-card" data-style="default">
           <span class="style-name">Default</span>
           <span class="style-desc">Classic space defense</span>
         </button>
-        <button class="style-card" data-style="pixel">
-          <span class="style-name">Pixel</span>
+        <button class="style-card" data-style="retro">
+          <span class="style-name">Retro</span>
           <span class="style-desc">Retro arcade grid</span>
         </button>
         <button class="style-card" data-style="neon">
@@ -137,7 +153,8 @@
           <span class="style-desc">Molten steel defense</span>
         </button>
       </div>
-      <button id="styles-back"><span aria-hidden="true">&lt;</span> Back to Menu</button>
+      <button id="reset-progress" class="level-button">Reset Progress</button>
+      <button id="options-back"><span aria-hidden="true">&lt;</span> Back to Menu</button>
     </div>
   </div>
   <div id="confirm-reset" class="hidden">

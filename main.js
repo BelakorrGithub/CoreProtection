@@ -33,9 +33,13 @@ const menuPlayPanel = document.getElementById('menu-play-panel');
 const menuUpgradesPanel = document.getElementById('menu-upgrades-panel');
 const upgradesBack = document.getElementById('upgrades-back');
 const playBack = document.getElementById('play-back');
-const menuStylesButton = document.getElementById('menu-styles-button');
-const menuStylesPanel = document.getElementById('menu-styles-panel');
-const stylesBack = document.getElementById('styles-back');
+const menuOptionsButton = document.getElementById('menu-options-button');
+const menuOptionsPanel = document.getElementById('menu-options-panel');
+const optionsBack = document.getElementById('options-back');
+const musicVolumeSlider = document.getElementById('music-volume');
+const sfxVolumeSlider = document.getElementById('sfx-volume');
+const musicVolumeValue = document.getElementById('music-volume-value');
+const sfxVolumeValue = document.getElementById('sfx-volume-value');
 const styleButtons = document.querySelectorAll('[data-style]');
 const adminCreditsButton = document.getElementById('admin-credits');
 const adminCreditFloater = document.getElementById('admin-credit-floater');
@@ -139,6 +143,7 @@ let shockwave = 0;
 let audioCtx = null;
 let masterGain = null;
 let bgMusic = null;
+let bgMusicTrack = null;
 let melodyTimer = null;
 let gamePulse = null;
 let countdownTimer = null;
@@ -149,8 +154,20 @@ let gameGain = null;
 let melodyIntervalMs = 140;
 let baseMelodyIntervalMs = 140;
 let baseMusicGain = 0.24;
+const audioSettingsKey = {
+  music: 'musicVolume',
+  sfx: 'sfxVolume'
+};
+const baseSfxGain = 0.2;
+const baseShootVolume = 0.4;
+const baseHitVolume = 0.55;
+let musicVolume = 1;
+let sfxVolume = 1;
 let musicSlowFactor = 1;
 let leadOsc = null;
+let melodyStep = 0;
+let lastMusicPreview = 0;
+let lastSfxPreview = 0;
 let debugHoldTimer = null;
 let debugHoldTriggered = false;
 let adminToastTimer = null;
@@ -162,9 +179,15 @@ const survivalRecordsKey = 'survivalRecords';
 let pendingHardcoreStart = false;
 const themeMusic = {
   default: { gain: 1, tempo: 1, pulse: 'square', lead: 'sawtooth' },
-  pixel: { gain: 0.85, tempo: 1.15, pulse: 'square', lead: 'square' },
+  retro: { gain: 0.85, tempo: 1.15, pulse: 'square', lead: 'square' },
   neon: { gain: 1.2, tempo: 0.8, pulse: 'sawtooth', lead: 'triangle' },
   forge: { gain: 1.05, tempo: 0.92, pulse: 'triangle', lead: 'sawtooth' }
+};
+const themeMusicTracks = {
+  default: null,
+  retro: 'music/retroMusic.mp3',
+  neon: 'music/neonMusic.mp3',
+  forge: 'music/forgeMusic.mp3'
 };
 const themeColors = {
   space1: '#1a2a4f',
@@ -186,44 +209,36 @@ const themePalette = {
   missileFinFast: 'rgba(120, 220, 255, 0.9)',
   missileTrailNormal: 'rgba(255, 140, 60, 0.9)',
   missileTrailFast: 'rgba(120, 220, 255, 0.9)',
-  twinBeam: 'rgba(120, 220, 140, 0.8)',
+  twinBeam: 'rgba(110, 255, 150, 0.85)',
   screenFlash: '#9cd3ff',
   shockwave: '140, 220, 255'
 };
-const showMeteorHitboxes = true;
-const shootSfxPool = [];
-const shootSfxState = { index: 0 };
-const hitSfxPool = [];
-const hitSfxState = { index: 0 };
+const showMeteorHitboxes = false;
+let shootSfx = null;
+let hitSfx = null;
 
 function playShootSfx() {
-  if (shootSfxPool.length === 0) {
-    for (let i = 0; i < 4; i += 1) {
-      const audio = new Audio('sound/destroy.wav');
-      audio.preload = 'auto';
-      audio.volume = 0.6;
-      shootSfxPool.push(audio);
-    }
+  if (!shootSfx) {
+    shootSfx = new Audio('sound/destroy.wav');
+    shootSfx.preload = 'auto';
+    shootSfx.volume = baseShootVolume * sfxVolume;
   }
-  const audio = shootSfxPool[shootSfxState.index];
-  shootSfxState.index = (shootSfxState.index + 1) % shootSfxPool.length;
-  audio.currentTime = 0;
-  void audio.play().catch(() => {});
+  shootSfx.volume = baseShootVolume * sfxVolume;
+  shootSfx.pause();
+  shootSfx.currentTime = 0;
+  void shootSfx.play().catch(() => {});
 }
 
 function playHitSfx() {
-  if (hitSfxPool.length === 0) {
-    for (let i = 0; i < 4; i += 1) {
-      const audio = new Audio('sound/hit.wav');
-      audio.preload = 'auto';
-      audio.volume = 0.55;
-      hitSfxPool.push(audio);
-    }
+  if (!hitSfx) {
+    hitSfx = new Audio('sound/hit.wav');
+    hitSfx.preload = 'auto';
+    hitSfx.volume = baseHitVolume * sfxVolume;
   }
-  const audio = hitSfxPool[hitSfxState.index];
-  hitSfxState.index = (hitSfxState.index + 1) % hitSfxPool.length;
-  audio.currentTime = 0;
-  void audio.play().catch(() => {});
+  hitSfx.volume = baseHitVolume * sfxVolume;
+  hitSfx.pause();
+  hitSfx.currentTime = 0;
+  void hitSfx.play().catch(() => {});
 }
 const meteorSprite = new Image();
 const meteorSpriteData = {
@@ -250,6 +265,16 @@ const meteorSpriteData = {
     rotation: -(25 * Math.PI) / 180,
     offsetForward: -0.1,
     offsetRight: -0.1
+  },
+  manualShieldHitbox: {
+    enabled: true,
+    widthScale: 0.95,
+    heightScale: 0.45,
+    centerX: 0.6,
+    centerY: 0.5,
+    rotation: -(25 * Math.PI) / 180,
+    offsetForward: -0.08,
+    offsetRight: -0.08
   },
   scale: 1.4,
   scaleByType: {
@@ -357,7 +382,7 @@ meteorSprite.onload = () => {
 meteorSprite.src = 'img/meteorSprite.png';
 
 function isPixelTheme() {
-  return document.body.dataset.theme === 'pixel';
+  return document.body.dataset.theme === 'retro';
 }
 
 function isNeonTheme() {
@@ -468,13 +493,18 @@ function readThemeColors() {
   themeColors.star = styles.getPropertyValue('--star-color').trim() || themeColors.star;
 }
 
+function normalizeThemeKey(theme) {
+  if (theme === 'pixel') return 'retro';
+  return theme || 'default';
+}
+
 function getThemeKey() {
-  return document.body.dataset.theme || 'default';
+  return normalizeThemeKey(document.body.dataset.theme);
 }
 
 function getThemeMelody() {
   const theme = getThemeKey();
-  if (theme === 'pixel') {
+  if (theme === 'retro') {
     return [660, 550, 440, 494, 523, 440, 392, 330, 392, 440, 494, 523, 588, 523, 494, 440];
   }
   if (theme === 'neon') {
@@ -488,7 +518,7 @@ function getThemeMelody() {
 
 function getThemeLeadLine() {
   const theme = getThemeKey();
-  if (theme === 'pixel') {
+  if (theme === 'retro') {
     return [880, 660, 740, 660, 880, 990, 740, 660, 880, 740, 660, 740, 990, 880, 740, 660];
   }
   if (theme === 'neon') {
@@ -500,21 +530,227 @@ function getThemeLeadLine() {
   return [440, 523, 659, 784, 659, 523, 440, 392];
 }
 
-function applyThemeAudio(theme) {
+function clamp01(value) {
+  return Math.min(1, Math.max(0, value));
+}
+
+function updateVolumeLabel(element, value) {
+  if (element) {
+    element.textContent = `${Math.round(value * 100)}%`;
+  }
+}
+
+function canPreviewVolume(now, lastTime, interval = 120) {
+  return now - lastTime >= interval;
+}
+
+function previewMusicVolume() {
+  if (!audioCtx || !gameGain) return;
+  const nowMs = performance.now();
+  if (!canPreviewVolume(nowMs, lastMusicPreview)) return;
+  lastMusicPreview = nowMs;
+  const now = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(480, now);
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(0.18, now + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.16);
+  osc.connect(gain);
+  gain.connect(gameGain);
+  osc.start(now);
+  osc.stop(now + 0.18);
+}
+
+function previewSfxVolume() {
+  if (!audioCtx) return;
+  const nowMs = performance.now();
+  if (!canPreviewVolume(nowMs, lastSfxPreview)) return;
+  lastSfxPreview = nowMs;
+  playSfx('tick');
+}
+
+function updateMusicGain(theme = getThemeKey()) {
+  const previousInterval = melodyIntervalMs;
   const config = themeMusic[theme] || themeMusic.default;
-  state.musicGain = baseMusicGain * config.gain;
+  state.musicGain = baseMusicGain * config.gain * musicVolume;
   melodyIntervalMs = baseMelodyIntervalMs * config.tempo * musicSlowFactor;
   if (bgMusic) {
     bgMusic.volume = Math.min(1, state.musicGain);
   }
+  if (gameGain) {
+    gameGain.gain.value = state.musicGain;
+  }
+  if (melodyTimer && Math.abs(melodyIntervalMs - previousInterval) > 0.5) {
+    restartProceduralMusic();
+  }
+}
+
+function getThemeMusicSrc(theme = getThemeKey()) {
+  return themeMusicTracks[theme] || themeMusicTracks.default;
+}
+
+function ensureThemeMusic(theme = getThemeKey()) {
+  const nextSrc = getThemeMusicSrc(theme);
+  if (!nextSrc) {
+    if (bgMusic) {
+      bgMusic.pause();
+    }
+    bgMusicTrack = null;
+    return;
+  }
+  if (!bgMusic) {
+    bgMusic = new Audio(nextSrc);
+    bgMusic.loop = true;
+    bgMusic.preload = 'auto';
+    bgMusicTrack = nextSrc;
+  }
+  if (bgMusicTrack === nextSrc) {
+    return;
+  }
+  const wasPlaying = !bgMusic.paused;
+  bgMusic.src = nextSrc;
+  bgMusicTrack = nextSrc;
+  bgMusic.load();
+  bgMusic.playbackRate = musicSlowFactor;
+  bgMusic.volume = Math.min(1, state.musicGain);
+  if (wasPlaying) {
+    void bgMusic.play().catch(() => {});
+  }
+}
+
+function isProceduralTheme(theme = getThemeKey()) {
+  return theme === 'default';
+}
+
+function playProceduralTone(frequency, type, gainValue, duration) {
+  if (!audioCtx || !gameGain) return;
+  const now = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(frequency, now);
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(gainValue, now + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+  osc.connect(gain);
+  gain.connect(gameGain);
+  osc.start(now);
+  osc.stop(now + duration + 0.02);
+}
+
+function startProceduralMusic() {
+  if (!audioCtx || !gameGain) return;
+  if (melodyTimer) return;
+  const theme = getThemeKey();
+  const config = themeMusic[theme] || themeMusic.default;
+  const melody = getThemeMelody();
+  const lead = getThemeLeadLine();
+  melodyTimer = setInterval(() => {
+    const melodyFreq = melody[melodyStep % melody.length];
+    playProceduralTone(melodyFreq, config.pulse, 0.22, 0.16);
+    if (melodyStep % 2 === 0) {
+      const leadFreq = lead[Math.floor(melodyStep / 2) % lead.length];
+      playProceduralTone(leadFreq, config.lead, 0.18, 0.28);
+    }
+    melodyStep += 1;
+  }, melodyIntervalMs);
+}
+
+function stopProceduralMusic() {
+  restartMelodyTimer();
+  melodyStep = 0;
+}
+
+function restartProceduralMusic() {
+  if (!melodyTimer) return;
+  stopProceduralMusic();
+  startProceduralMusic();
+}
+
+function applySfxVolume() {
+  if (masterGain) {
+    masterGain.gain.value = baseSfxGain * sfxVolume;
+  }
+  if (shootSfx) {
+    shootSfx.volume = baseShootVolume * sfxVolume;
+  }
+  if (hitSfx) {
+    hitSfx.volume = baseHitVolume * sfxVolume;
+  }
+}
+
+function setMusicVolume(value) {
+  musicVolume = clamp01(value);
+  localStorage.setItem(audioSettingsKey.music, String(musicVolume));
+  updateMusicGain();
+  updateVolumeLabel(musicVolumeValue, musicVolume);
+}
+
+function setSfxVolume(value) {
+  sfxVolume = clamp01(value);
+  localStorage.setItem(audioSettingsKey.sfx, String(sfxVolume));
+  applySfxVolume();
+  updateVolumeLabel(sfxVolumeValue, sfxVolume);
+}
+
+function loadAudioSettings() {
+  const storedMusicRaw = localStorage.getItem(audioSettingsKey.music);
+  if (storedMusicRaw !== null) {
+    const storedMusic = Number(storedMusicRaw);
+    if (Number.isFinite(storedMusic)) {
+      musicVolume = clamp01(storedMusic);
+    } else {
+      localStorage.setItem(audioSettingsKey.music, String(musicVolume));
+    }
+  } else {
+    localStorage.setItem(audioSettingsKey.music, String(musicVolume));
+  }
+  const storedSfxRaw = localStorage.getItem(audioSettingsKey.sfx);
+  if (storedSfxRaw !== null) {
+    const storedSfx = Number(storedSfxRaw);
+    if (Number.isFinite(storedSfx)) {
+      sfxVolume = clamp01(storedSfx);
+    } else {
+      localStorage.setItem(audioSettingsKey.sfx, String(sfxVolume));
+    }
+  } else {
+    localStorage.setItem(audioSettingsKey.sfx, String(sfxVolume));
+  }
+  if (musicVolumeSlider) {
+    musicVolumeSlider.value = String(Math.round(musicVolume * 100));
+  }
+  if (sfxVolumeSlider) {
+    sfxVolumeSlider.value = String(Math.round(sfxVolume * 100));
+  }
+  updateVolumeLabel(musicVolumeValue, musicVolume);
+  updateVolumeLabel(sfxVolumeValue, sfxVolume);
+  applySfxVolume();
+  updateMusicGain();
+  ensureThemeMusic();
+}
+
+function applyThemeAudio(theme) {
+  updateMusicGain(theme);
+  if (state.running && !state.paused) {
+    setMusicMode('game');
+    return;
+  }
+  if (isProceduralTheme(theme)) {
+    stopProceduralMusic();
+    return;
+  }
+  ensureThemeMusic(theme);
 }
 
 function applyTheme(theme) {
-  document.body.dataset.theme = theme;
-  localStorage.setItem('theme', theme);
+  const normalizedTheme = normalizeThemeKey(theme);
+  document.body.dataset.theme = normalizedTheme;
+  localStorage.setItem('theme', normalizedTheme);
   readThemeColors();
-  applyThemeAudio(theme);
-  if (theme === 'pixel') {
+  applyThemeAudio(normalizedTheme);
+  if (normalizedTheme === 'retro') {
     themePalette.shield = ['#62c6ff', '#7dff9d', '#ff6d6d'];
     themePalette.coreOuter = '#ffcf6e';
     themePalette.coreInner = '#fff2cc';
@@ -528,10 +764,10 @@ function applyTheme(theme) {
     themePalette.missileFinFast = 'rgba(130, 230, 255, 0.95)';
     themePalette.missileTrailNormal = 'rgba(255, 150, 80, 0.9)';
     themePalette.missileTrailFast = 'rgba(140, 240, 255, 0.95)';
-    themePalette.twinBeam = 'rgba(120, 240, 170, 0.85)';
+    themePalette.twinBeam = 'rgba(110, 255, 160, 0.9)';
     themePalette.screenFlash = '#7dd6ff';
     themePalette.shockwave = '120, 210, 255';
-  } else if (theme === 'neon') {
+  } else if (normalizedTheme === 'neon') {
     themePalette.shield = ['#5af2ff', '#9dff5a', '#ff5ad5'];
     themePalette.coreOuter = '#ff9a4f';
     themePalette.coreInner = '#ffe3a6';
@@ -545,10 +781,10 @@ function applyTheme(theme) {
     themePalette.missileFinFast = 'rgba(120, 255, 250, 0.95)';
     themePalette.missileTrailNormal = 'rgba(255, 120, 140, 0.95)';
     themePalette.missileTrailFast = 'rgba(120, 255, 255, 0.95)';
-    themePalette.twinBeam = 'rgba(140, 255, 200, 0.9)';
+    themePalette.twinBeam = 'rgba(120, 255, 180, 0.9)';
     themePalette.screenFlash = '#64f2ff';
     themePalette.shockwave = '120, 255, 255';
-  } else if (theme === 'forge') {
+  } else if (normalizedTheme === 'forge') {
     themePalette.shield = ['#ffb35b', '#f0703c', '#61d4c3'];
     themePalette.coreOuter = '#ff8b3d';
     themePalette.coreInner = '#ffe2b8';
@@ -562,7 +798,7 @@ function applyTheme(theme) {
     themePalette.missileFinFast = 'rgba(120, 240, 220, 0.95)';
     themePalette.missileTrailNormal = 'rgba(255, 140, 80, 0.9)';
     themePalette.missileTrailFast = 'rgba(110, 230, 210, 0.9)';
-    themePalette.twinBeam = 'rgba(120, 230, 200, 0.85)';
+    themePalette.twinBeam = 'rgba(120, 255, 170, 0.85)';
     themePalette.screenFlash = '#ffb36b';
     themePalette.shockwave = '255, 180, 120';
   } else {
@@ -579,15 +815,15 @@ function applyTheme(theme) {
     themePalette.missileFinFast = 'rgba(120, 220, 255, 0.9)';
     themePalette.missileTrailNormal = 'rgba(255, 140, 60, 0.9)';
     themePalette.missileTrailFast = 'rgba(120, 220, 255, 0.9)';
-    themePalette.twinBeam = 'rgba(120, 220, 140, 0.8)';
+    themePalette.twinBeam = 'rgba(110, 255, 150, 0.85)';
     themePalette.screenFlash = '#9cd3ff';
     themePalette.shockwave = '140, 220, 255';
   }
   styleButtons.forEach(button => {
-    button.classList.toggle('active', button.dataset.style === theme);
+    button.classList.toggle('active', button.dataset.style === normalizedTheme);
   });
   if (audioCtx) {
-    playSfx(`theme-${theme}`);
+    playSfx(`theme-${normalizedTheme}`);
   }
 }
 
@@ -645,7 +881,8 @@ function handleTwinTap(m) {
       triggerExplosion(m.x, m.y, '#7fdc7a', 36, 0.22, 8);
       const bounty = getBounty(m.type);
       awardMoney(bounty);
-      spawnCashFloater(m.x, m.y, bounty);
+      const center = getMeteorHitboxCenter(m);
+      spawnCashFloater(center.x, center.y, bounty);
     } else {
       group.primeA = now;
       playSfx('hitsoft');
@@ -659,7 +896,8 @@ function handleTwinTap(m) {
     triggerExplosion(m.x, m.y, '#7fdc7a', 36, 0.22, 8);
     const bounty = getBounty(m.type);
     awardMoney(bounty);
-    spawnCashFloater(m.x, m.y, bounty);
+    const center = getMeteorHitboxCenter(m);
+    spawnCashFloater(center.x, center.y, bounty);
   } else {
     group.primeB = now;
     playSfx('hitsoft');
@@ -758,25 +996,36 @@ function initAudio() {
   if (audioCtx) return;
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   masterGain = audioCtx.createGain();
-  masterGain.gain.value = 0.2;
+  masterGain.gain.value = baseSfxGain * sfxVolume;
   masterGain.connect(audioCtx.destination);
-  if (!bgMusic) {
-    bgMusic = new Audio('music/music1.mp3');
-    bgMusic.loop = true;
-    bgMusic.preload = 'auto';
-    bgMusic.volume = Math.min(1, state.musicGain);
-    bgMusic.playbackRate = musicSlowFactor;
+  if (!gameGain) {
+    gameGain = audioCtx.createGain();
+    gameGain.gain.value = state.musicGain;
+    gameGain.connect(audioCtx.destination);
   }
+  ensureThemeMusic();
+  applySfxVolume();
 }
 
 function setMusicMode(mode) {
-  if (!bgMusic) return;
   if (mode === 'game') {
-    bgMusic.volume = Math.min(1, state.musicGain);
-    bgMusic.playbackRate = musicSlowFactor;
-    void bgMusic.play().catch(() => {});
+    const theme = getThemeKey();
+    if (isProceduralTheme(theme)) {
+      stopMusic();
+      startProceduralMusic();
+    } else {
+      stopProceduralMusic();
+      ensureThemeMusic(theme);
+      if (!bgMusic) return;
+      bgMusic.volume = Math.min(1, state.musicGain);
+      bgMusic.playbackRate = musicSlowFactor;
+      void bgMusic.play().catch(() => {});
+    }
   } else {
-    bgMusic.pause();
+    stopProceduralMusic();
+    if (bgMusic) {
+      bgMusic.pause();
+    }
   }
 }
 
@@ -792,11 +1041,7 @@ function setMusicIntensity(level) {
   if (!config || !config.music) return;
   baseMusicGain = config.music.gain;
   baseMelodyIntervalMs = config.music.tempo;
-  state.musicGain = baseMusicGain;
-  melodyIntervalMs = baseMelodyIntervalMs;
-  if (bgMusic) {
-    bgMusic.volume = Math.min(1, state.musicGain);
-  }
+  updateMusicGain();
 }
 
 function setMusicSlow(isSlow) {
@@ -804,9 +1049,11 @@ function setMusicSlow(isSlow) {
   if (bgMusic) {
     bgMusic.playbackRate = musicSlowFactor;
   }
+  updateMusicGain();
 }
 
 function stopMusic() {
+  stopProceduralMusic();
   if (!bgMusic) return;
   bgMusic.pause();
 }
@@ -841,7 +1088,7 @@ function playSfx(type) {
     return;
   }
 
-  if (type === 'theme-pixel') {
+  if (type === 'theme-retro') {
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
     osc.type = 'square';
@@ -1566,6 +1813,9 @@ function update(dt) {
       break;
     }
   }
+  const useShieldHitbox = meteorSpriteData.manualShieldHitbox?.enabled && meteorSpriteData.ready;
+  const useForgeHex = useShieldHitbox && isForgeTheme() && !isPixelTheme();
+  const hexRotation = Math.PI / 6;
   for (let i = missiles.length - 1; i >= 0; i -= 1) {
     const m = missiles[i];
     m.x += m.vx * dt * speedFactor;
@@ -1576,7 +1826,15 @@ function update(dt) {
     const dist = Math.hypot(dx, dy);
     const squareDist = Math.max(Math.abs(dx), Math.abs(dy));
 
-    if (state.aegisTimer > 0 && (dist <= aegisRadius || (isPixelTheme() && squareDist <= aegisRadius))) {
+    const aegisHitbox = useForgeHex
+      ? isMeteorHitboxIntersectingHex(m, target.x, target.y, aegisRadius, meteorSpriteData.manualShieldHitbox, hexRotation)
+      : useShieldHitbox
+        ? isMeteorHitboxInRadius(m, target.x, target.y, aegisRadius, meteorSpriteData.manualShieldHitbox)
+        : null;
+    const aegisHit = useShieldHitbox
+      ? Boolean(aegisHitbox)
+      : (dist <= aegisRadius || (isPixelTheme() && squareDist <= aegisRadius));
+    if (state.aegisTimer > 0 && aegisHit) {
       if (m.type === 'twin') {
         removeTwinGroup(m.twinId);
       } else {
@@ -1589,7 +1847,15 @@ function update(dt) {
     const activeLayer = getActiveShield();
     const shieldRadius = activeLayer ? activeLayer.radius : 0;
 
-    if (shieldRadius > 0 && (dist <= shieldRadius || (isPixelTheme() && squareDist <= shieldRadius))) {
+    const shieldHitbox = useForgeHex
+      ? isMeteorHitboxIntersectingHex(m, target.x, target.y, shieldRadius, meteorSpriteData.manualShieldHitbox, hexRotation)
+      : useShieldHitbox
+        ? isMeteorHitboxInRadius(m, target.x, target.y, shieldRadius, meteorSpriteData.manualShieldHitbox)
+        : null;
+    const shieldHit = useShieldHitbox
+      ? Boolean(shieldHitbox)
+      : (dist <= shieldRadius || (isPixelTheme() && squareDist <= shieldRadius));
+    if (shieldRadius > 0 && shieldHit) {
       activeLayer.hp = Math.max(0, activeLayer.hp - 35);
       if (m.type === 'twin') {
         removeTwinGroup(m.twinId);
@@ -1947,7 +2213,7 @@ function hitBossAt(x, y) {
     if (x >= px && x <= px + pw && y >= py && y <= py + ph) {
       part.hp -= 1;
       part.flash = 0.6;
-      playSfx('hitsoft');
+      playSfx(part.hp <= 0 ? 'boom' : 'hitsoft');
       triggerExplosion(x, y, '#9cd3ff', 32, 0.2, 6);
       if (part.hp <= 0) {
         const bounty = part.type === 'main' ? 50 : 10;
@@ -2031,6 +2297,95 @@ function isPointOnMeteor(m, x, y) {
   const cx = Math.sign(rx || 1) * rectHalf;
   const dxCircle = rx - cx;
   return dxCircle * dxCircle + ry * ry <= radius * radius;
+}
+
+function isCircleIntersectingRect(px, py, rect, radius) {
+  const clampedX = Math.max(rect.x, Math.min(px, rect.x + rect.w));
+  const clampedY = Math.max(rect.y, Math.min(py, rect.y + rect.h));
+  const dx = px - clampedX;
+  const dy = py - clampedY;
+  return dx * dx + dy * dy <= radius * radius;
+}
+
+function getRegularPolygonPoints(x, y, radius, sides, rotation = 0) {
+  const points = [];
+  for (let i = 0; i < sides; i += 1) {
+    const angle = rotation + (Math.PI * 2 * i) / sides;
+    points.push({
+      x: x + Math.cos(angle) * radius,
+      y: y + Math.sin(angle) * radius
+    });
+  }
+  return points;
+}
+
+function projectPolygon(points, axisX, axisY) {
+  let min = Infinity;
+  let max = -Infinity;
+  for (const p of points) {
+    const dot = p.x * axisX + p.y * axisY;
+    if (dot < min) min = dot;
+    if (dot > max) max = dot;
+  }
+  return { min, max };
+}
+
+function polygonsIntersectSAT(polyA, polyB) {
+  for (const poly of [polyA, polyB]) {
+    for (let i = 0; i < poly.length; i += 1) {
+      const a = poly[i];
+      const b = poly[(i + 1) % poly.length];
+      const axisX = -(b.y - a.y);
+      const axisY = b.x - a.x;
+      const projA = projectPolygon(polyA, axisX, axisY);
+      const projB = projectPolygon(polyB, axisX, axisY);
+      if (projA.max < projB.min || projB.max < projA.min) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+function toHitboxSpace(m, x, y, config) {
+  const angle = getMeteorRotation(m, Math.atan2(m.vy, m.vx));
+  const dx = x - m.x;
+  const dy = y - m.y;
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  let rx = dx * cos + dy * sin;
+  let ry = -dx * sin + dy * cos;
+  const manual = config;
+  if (manual?.enabled && manual.rotation) {
+    const rotCos = Math.cos(-manual.rotation);
+    const rotSin = Math.sin(-manual.rotation);
+    const nextX = rx * rotCos - ry * rotSin;
+    const nextY = rx * rotSin + ry * rotCos;
+    rx = nextX;
+    ry = nextY;
+  }
+  return { x: rx, y: ry };
+}
+
+function isMeteorHitboxInRadius(m, centerX, centerY, radius, config = meteorSpriteData.manualHitbox) {
+  const spriteRect = getSpriteHitboxRect(m, config);
+  if (!spriteRect) return null;
+  const local = toHitboxSpace(m, centerX, centerY, config);
+  return isCircleIntersectingRect(local.x, local.y, spriteRect, radius);
+}
+
+function isMeteorHitboxIntersectingHex(m, centerX, centerY, radius, config, rotation) {
+  const spriteRect = getSpriteHitboxRect(m, config);
+  if (!spriteRect) return null;
+  const rectPoints = [
+    { x: spriteRect.x, y: spriteRect.y },
+    { x: spriteRect.x + spriteRect.w, y: spriteRect.y },
+    { x: spriteRect.x + spriteRect.w, y: spriteRect.y + spriteRect.h },
+    { x: spriteRect.x, y: spriteRect.y + spriteRect.h }
+  ];
+  const hexPoints = getRegularPolygonPoints(centerX, centerY, radius, 6, rotation);
+  const localHex = hexPoints.map(point => toHitboxSpace(m, point.x, point.y, config));
+  return polygonsIntersectSAT(localHex, rectPoints);
 }
 
 function getMeteorDents(seed, isTank, isFast) {
@@ -2118,11 +2473,11 @@ function getSpriteDrawSize(m) {
   return { spriteW, spriteH };
 }
 
-function getSpriteHitboxRect(m) {
+function getSpriteHitboxRect(m, config = meteorSpriteData.manualHitbox) {
   const frameData = getSpriteFrame(m);
   if (!frameData) return null;
   const { spriteW, spriteH } = getSpriteDrawSize(m);
-  const manual = meteorSpriteData.manualHitbox;
+  const manual = config;
   if (manual?.enabled) {
     const w = spriteW * manual.widthScale;
     const h = spriteH * manual.heightScale;
@@ -2147,6 +2502,63 @@ function getSpriteHitboxRect(m) {
   const w = ((hitBounds.maxX - hitBounds.minX + 1) / hitBounds.frameW) * spriteW;
   const h = ((hitBounds.maxY - hitBounds.minY + 1) / hitBounds.frameH) * spriteH;
   return { x, y, w, h };
+}
+
+function getTwinBeamAnchor(m) {
+  const angle = getMeteorRotation(m, Math.atan2(m.vy, m.vx));
+  let localX = 0;
+  let localY = 0;
+  const rect = getSpriteHitboxRect(m, meteorSpriteData.manualHitbox);
+  if (rect) {
+    localX = rect.x + rect.w;
+    localY = rect.y + rect.h * 0.5;
+    const manual = meteorSpriteData.manualHitbox;
+    if (manual?.enabled && manual.rotation) {
+      const cos = Math.cos(manual.rotation);
+      const sin = Math.sin(manual.rotation);
+      const rotX = localX * cos - localY * sin;
+      const rotY = localX * sin + localY * cos;
+      localX = rotX;
+      localY = rotY;
+    }
+  } else if (isPixelTheme()) {
+    const { bodyW } = getMeteorBodyDims(m);
+    localX = bodyW * 0.5;
+  } else {
+    const { bodyLen } = getMeteorBodyDims(m);
+    localX = bodyLen;
+  }
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  return {
+    x: m.x + localX * cos - localY * sin,
+    y: m.y + localX * sin + localY * cos
+  };
+}
+
+function getMeteorHitboxCenter(m, config = meteorSpriteData.manualHitbox) {
+  const rect = getSpriteHitboxRect(m, config);
+  if (!rect) {
+    return { x: m.x, y: m.y };
+  }
+  let localX = rect.x + rect.w * 0.5;
+  let localY = rect.y + rect.h * 0.5;
+  const manual = config;
+  if (manual?.enabled && manual.rotation) {
+    const cos = Math.cos(manual.rotation);
+    const sin = Math.sin(manual.rotation);
+    const rotX = localX * cos - localY * sin;
+    const rotY = localX * sin + localY * cos;
+    localX = rotX;
+    localY = rotY;
+  }
+  const angle = getMeteorRotation(m, Math.atan2(m.vy, m.vx));
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  return {
+    x: m.x + localX * cos - localY * sin,
+    y: m.y + localX * sin + localY * cos
+  };
 }
 
 function drawSpriteMeteor(m, angle) {
@@ -2239,6 +2651,20 @@ function drawMeteorShieldHitbox(m) {
 function drawMeteorHitboxes(m, angle) {
   if (!showMeteorHitboxes) return;
   drawMeteorKillHitbox(m, angle);
+  const shieldRect = getSpriteHitboxRect(m, meteorSpriteData.manualShieldHitbox);
+  if (shieldRect) {
+    ctx.save();
+    ctx.translate(m.x, m.y);
+    ctx.rotate(angle);
+    const manual = meteorSpriteData.manualShieldHitbox;
+    if (manual?.enabled && manual.rotation) {
+      ctx.rotate(manual.rotation);
+    }
+    ctx.strokeStyle = 'rgba(120, 220, 255, 0.6)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(shieldRect.x, shieldRect.y, shieldRect.w, shieldRect.h);
+    ctx.restore();
+  }
   if (m.type !== 'twin') {
     drawMeteorShieldHitbox(m);
   }
@@ -2390,10 +2816,12 @@ function drawMissiles() {
     if (m.type === 'twin' && m.twinPart === 0) {
       const group = twinGroups.get(m.twinId);
       if (group && group.b) {
-        const ax = group.a.x;
-        const ay = group.a.y;
-        const bx = group.b.x;
-        const by = group.b.y;
+        const anchorA = getTwinBeamAnchor(group.a);
+        const anchorB = getTwinBeamAnchor(group.b);
+        const ax = anchorA.x;
+        const ay = anchorA.y;
+        const bx = anchorB.x;
+        const by = anchorB.y;
         const steps = 10;
         const waveAmp = 4 * layout.scale;
         const waveFreq = 6;
@@ -2944,7 +3372,8 @@ canvas.addEventListener('pointerdown', e => {
           triggerExplosion(m.x, m.y, '#b8ff9b', 46, 0.26);
           const bounty = getBounty(m.type);
           awardMoney(bounty);
-          spawnCashFloater(m.x, m.y, bounty);
+          const center = getMeteorHitboxCenter(m);
+          spawnCashFloater(center.x, center.y, bounty);
         } else {
           playSfx('hitsoft');
           triggerExplosion(m.x, m.y, '#b8ff9b', 22, 0.16, 4);
@@ -2955,7 +3384,8 @@ canvas.addEventListener('pointerdown', e => {
         triggerExplosion(m.x, m.y, '#ff9b6b', 40, 0.22);
         const bounty = getBounty(m.type);
         awardMoney(bounty);
-        spawnCashFloater(m.x, m.y, bounty);
+        const center = getMeteorHitboxCenter(m);
+        spawnCashFloater(center.x, center.y, bounty);
       }
       break;
     }
@@ -2981,7 +3411,8 @@ skillButtons.forEach(button => {
         let reward = 0;
         missiles.forEach(missile => {
           reward += getBounty(missile.type);
-          spawnCashFloater(missile.x, missile.y, getBounty(missile.type));
+          const center = getMeteorHitboxCenter(missile);
+          spawnCashFloater(center.x, center.y, getBounty(missile.type));
         });
         awardMoney(reward);
       }
@@ -3050,9 +3481,9 @@ if (menuUpgradesButton) {
   });
 }
 
-if (menuStylesButton) {
-  menuStylesButton.addEventListener('click', () => {
-    setMenuView('styles');
+if (menuOptionsButton) {
+  menuOptionsButton.addEventListener('click', () => {
+    setMenuView('options');
   });
 }
 
@@ -3068,9 +3499,25 @@ if (playBack) {
   });
 }
 
-if (stylesBack) {
-  stylesBack.addEventListener('click', () => {
+if (optionsBack) {
+  optionsBack.addEventListener('click', () => {
     setMenuView('home');
+  });
+}
+
+if (musicVolumeSlider) {
+  musicVolumeSlider.addEventListener('input', () => {
+    initAudio();
+    setMusicVolume(Number(musicVolumeSlider.value) / 100);
+    previewMusicVolume();
+  });
+}
+
+if (sfxVolumeSlider) {
+  sfxVolumeSlider.addEventListener('input', () => {
+    initAudio();
+    setSfxVolume(Number(sfxVolumeSlider.value) / 100);
+    previewSfxVolume();
   });
 }
 
@@ -3381,6 +3828,7 @@ skillButtons.forEach(button => {
 
 const savedTheme = localStorage.getItem('theme') || 'default';
 applyTheme(savedTheme);
+loadAudioSettings();
 loadProgress();
 updateHud();
 updateUpgradeVisibility();
@@ -3651,19 +4099,21 @@ function updateResetVisibility() {
     Number(localStorage.getItem('slowLevel')) > 0 ||
     Number(localStorage.getItem('aegisLevel')) > 0
   );
-  resetProgressButton.classList.toggle('hidden', !hasProgress);
+  const showOptions = !startScreen.classList.contains('hidden') && menuOptionsPanel && !menuOptionsPanel.classList.contains('hidden');
+  resetProgressButton.classList.toggle('hidden', !hasProgress || !showOptions);
 }
 
 function setMenuView(view) {
-  if (!menuPlayPanel || !menuUpgradesPanel || !menuStylesPanel) return;
+  if (!menuPlayPanel || !menuUpgradesPanel || !menuOptionsPanel) return;
   const showPlay = view === 'play';
   const showUpgrades = view === 'upgrades';
-  const showStyles = view === 'styles';
+  const showOptions = view === 'options';
   menuPlayPanel.classList.toggle('hidden', !showPlay);
   menuUpgradesPanel.classList.toggle('hidden', !showUpgrades);
-  menuStylesPanel.classList.toggle('hidden', !showStyles);
+  menuOptionsPanel.classList.toggle('hidden', !showOptions);
   if (menuHomePanel) {
     menuHomePanel.classList.toggle('hidden', view !== 'home');
   }
   updateUpgradeVisibility();
+  updateResetVisibility();
 }
