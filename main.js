@@ -250,29 +250,116 @@ const showMeteorHitboxes = false;
 const showShieldHitboxes = false; // Set to true to show shield hitboxes in normal gameplay
 let shootSfx = null;
 let hitSfx = null;
+let shootSfxBuffer = null;
+let hitSfxBuffer = null;
+let audioBuffersLoaded = false;
+
+// Cargar buffers de audio para reducir latencia en móviles
+async function loadAudioBuffers() {
+  if (!audioCtx || audioBuffersLoaded) return;
+  
+  try {
+    // Cargar destroy.wav
+    const destroyResponse = await fetch('sound/destroy.wav');
+    const destroyArrayBuffer = await destroyResponse.arrayBuffer();
+    shootSfxBuffer = await audioCtx.decodeAudioData(destroyArrayBuffer);
+    
+    // Cargar hit.wav
+    const hitResponse = await fetch('sound/hit.wav');
+    const hitArrayBuffer = await hitResponse.arrayBuffer();
+    hitSfxBuffer = await audioCtx.decodeAudioData(hitArrayBuffer);
+    
+    audioBuffersLoaded = true;
+  } catch (err) {
+    // Si falla, usar el método HTML Audio como fallback
+    console.warn('Failed to load audio buffers, using HTML Audio fallback:', err);
+  }
+}
 
 function playShootSfx() {
+  // En móviles, usar AudioContext con buffers para menor latencia
+  if (audioCtx && audioBuffersLoaded && shootSfxBuffer) {
+    // Asegurar que el contexto esté activo
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume().then(() => {
+        // Reproducir después de resumir
+        const source = audioCtx.createBufferSource();
+        const gain = audioCtx.createGain();
+        source.buffer = shootSfxBuffer;
+        gain.gain.value = baseShootVolume * sfxVolume;
+        source.connect(gain);
+        gain.connect(masterGain);
+        source.start(0);
+      }).catch(() => {});
+      return;
+    }
+    // Si ya está activo, reproducir inmediatamente
+    const source = audioCtx.createBufferSource();
+    const gain = audioCtx.createGain();
+    source.buffer = shootSfxBuffer;
+    gain.gain.value = baseShootVolume * sfxVolume;
+    source.connect(gain);
+    gain.connect(masterGain);
+    source.start(0);
+    return;
+  }
+  
+  // Fallback a HTML Audio si los buffers no están cargados
   if (!shootSfx) {
     shootSfx = new Audio('sound/destroy.wav');
     shootSfx.preload = 'auto';
     shootSfx.volume = baseShootVolume * sfxVolume;
+    // En móviles, intentar cargar inmediatamente
+    shootSfx.load();
   }
   shootSfx.volume = baseShootVolume * sfxVolume;
-  shootSfx.pause();
-  shootSfx.currentTime = 0;
-  void shootSfx.play().catch(() => {});
+  // Usar cloneNode para evitar latencia de resetear currentTime
+  const audioClone = shootSfx.cloneNode();
+  audioClone.volume = baseShootVolume * sfxVolume;
+  void audioClone.play().catch(() => {});
 }
 
 function playHitSfx() {
+  // En móviles, usar AudioContext con buffers para menor latencia
+  if (audioCtx && audioBuffersLoaded && hitSfxBuffer) {
+    // Asegurar que el contexto esté activo
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume().then(() => {
+        // Reproducir después de resumir
+        const source = audioCtx.createBufferSource();
+        const gain = audioCtx.createGain();
+        source.buffer = hitSfxBuffer;
+        gain.gain.value = baseHitVolume * sfxVolume;
+        source.connect(gain);
+        gain.connect(masterGain);
+        source.start(0);
+      }).catch(() => {});
+      return;
+    }
+    // Si ya está activo, reproducir inmediatamente
+    const source = audioCtx.createBufferSource();
+    const gain = audioCtx.createGain();
+    source.buffer = hitSfxBuffer;
+    gain.gain.value = baseHitVolume * sfxVolume;
+    source.connect(gain);
+    gain.connect(masterGain);
+    source.start(0);
+    return;
+  }
+  
+  // Fallback a HTML Audio si los buffers no están cargados
   if (!hitSfx) {
     hitSfx = new Audio('sound/hit.wav');
     hitSfx.preload = 'auto';
     hitSfx.volume = baseHitVolume * sfxVolume;
+    // En móviles, intentar cargar inmediatamente
+    hitSfx.load();
   }
   hitSfx.volume = baseHitVolume * sfxVolume;
-  hitSfx.pause();
-  hitSfx.currentTime = 0;
-  void hitSfx.play().catch(() => {});
+  // Usar cloneNode para evitar latencia de resetear currentTime
+  const audioClone = hitSfx.cloneNode();
+  audioClone.volume = baseHitVolume * sfxVolume;
+  void audioClone.play().catch(() => {});
 }
 const meteorSprite = new Image();
 const meteorSpriteData = {
@@ -1082,6 +1169,10 @@ function initAudio() {
         // Si falla, continuar de todas formas
       });
     }
+    // Cargar buffers de audio si aún no están cargados
+    if (!audioBuffersLoaded) {
+      loadAudioBuffers();
+    }
     return;
   }
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -1103,6 +1194,9 @@ function initAudio() {
       // Si falla (por ejemplo, por política de autoplay), se resumirá en la primera interacción
     });
   }
+  
+  // Cargar buffers de audio para reducir latencia en móviles
+  loadAudioBuffers();
 }
 
 function setMusicMode(mode) {
@@ -4169,12 +4263,22 @@ canvas.addEventListener('pointerdown', e => {
   // Block all attacks and interactions during countdown
   if (isInCountdown) return;
   
-  // En móviles, asegurar que el AudioContext esté activo antes de reproducir sonidos
+  // En móviles, asegurar que el AudioContext esté activo ANTES de cualquier otra cosa
   // Esto reduce significativamente la latencia de audio
-  if (audioCtx && audioCtx.state === 'suspended') {
-    audioCtx.resume().catch(() => {
-      // Si falla, continuar de todas formas
-    });
+  if (audioCtx) {
+    if (audioCtx.state === 'suspended') {
+      // Resumir de forma síncrona si es posible, o al menos iniciar el proceso
+      const resumePromise = audioCtx.resume();
+      // No esperar, pero iniciar el proceso inmediatamente
+      resumePromise.catch(() => {});
+    }
+    // Asegurar que los buffers estén cargados
+    if (!audioBuffersLoaded) {
+      loadAudioBuffers();
+    }
+  } else {
+    // Si no hay AudioContext, inicializarlo inmediatamente
+    initAudio();
   }
   
   const x = e.clientX;
