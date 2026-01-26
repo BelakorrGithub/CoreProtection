@@ -29,6 +29,28 @@
   <div id="admin-toast" class="hidden">You are not an admin</div>
   <div id="admin-credit-floater" class="hidden">+1000</div>
   <div id="money-toast" class="hidden">Not enough credits</div>
+  <div id="level-locked-toast" class="hidden">This level is not available yet</div>
+  <div id="debug-panel" class="hidden">
+    <div class="debug-title">Debug Controls</div>
+    <div class="debug-controls">
+      <div class="debug-row">
+        <label>Distance:</label>
+        <input type="number" id="debug-distance" step="0.1" value="-3.2">
+      </div>
+      <div class="debug-row">
+        <label>Angle Offset:</label>
+        <input type="number" id="debug-angle-offset" step="0.01" value="-0.3">
+      </div>
+      <div class="debug-row">
+        <label>Use Base Angle:</label>
+        <input type="checkbox" id="debug-use-base-angle">
+      </div>
+      <div class="debug-row">
+        <label>Show Variables:</label>
+        <input type="checkbox" id="debug-show-variables">
+      </div>
+    </div>
+  </div>
   <div id="pause-overlay" class="hidden">
     <div class="pause-title">Paused</div>
     <div class="pause-subtitle" id="pause-resume">Tap to resume</div>
@@ -62,6 +84,11 @@
         <button id="menu-play">Play</button>
         <button id="menu-upgrades-button">Upgrades</button>
         <button id="menu-options-button">Options</button>
+        <button class="skill upgrade" id="debug-mode-button">
+          <span class="icon icon-debug" aria-hidden="true"></span>
+          <span class="label">Debug Mode</span>
+          <span class="status">Admin</span>
+        </button>
       </div>
     </div>
     <div id="menu-play-panel" class="hidden">

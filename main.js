@@ -1,3 +1,6 @@
+// Debug buttons visibility - set to true to show admin debug buttons
+const SHOW_DEBUG_BUTTONS = false;
+
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 const hudLevel = document.getElementById('level');
@@ -16,6 +19,7 @@ const resetProgressButton = document.getElementById('reset-progress');
 const debugSkip = document.getElementById('debug-skip');
 const adminToast = document.getElementById('admin-toast');
 const moneyToast = document.getElementById('money-toast');
+const levelLockedToast = document.getElementById('level-locked-toast');
 const pauseOverlay = document.getElementById('pause-overlay');
 const pauseButton = document.getElementById('pause-button');
 const pauseMenu = document.getElementById('pause-menu');
@@ -55,6 +59,12 @@ const sfxVolumeValue = document.getElementById('sfx-volume-value');
 const styleButtons = document.querySelectorAll('[data-style]');
 const adminCreditsButton = document.getElementById('admin-credits');
 const adminCreditFloater = document.getElementById('admin-credit-floater');
+const debugModeButton = document.getElementById('debug-mode-button');
+const debugPanel = document.getElementById('debug-panel');
+const debugDistanceInput = document.getElementById('debug-distance');
+const debugAngleOffsetInput = document.getElementById('debug-angle-offset');
+const debugUseBaseAngleInput = document.getElementById('debug-use-base-angle');
+const debugShowVariablesInput = document.getElementById('debug-show-variables');
 const confirmReset = document.getElementById('confirm-reset');
 const confirmResetYes = document.getElementById('confirm-reset-yes');
 const confirmResetNo = document.getElementById('confirm-reset-no');
@@ -96,7 +106,9 @@ const state = {
   survivalTime: 0,
   musicGain: 0.24,
   musicTempo: 140,
-  lastTime: 0
+  lastTime: 0,
+  animationTime: 0, // Time used for animations, only updates when game is running and not paused
+  debugMode: false
 };
 
 const levels = [
@@ -131,6 +143,8 @@ let twinCounter = 0;
 const explosions = [];
 const confetti = [];
 const cashFloaters = [];
+const debugMeteorTemplates = [];
+const debugRespawnQueue = [];
 const boss = {
   active: false,
   x: 0,
@@ -156,6 +170,7 @@ let bgMusicTrack = null;
 let melodyTimer = null;
 let gamePulse = null;
 let countdownTimer = null;
+let isInCountdown = false; // Track if we're currently in countdown phase
 let waveTimeout = null;
 let waveMessageTimer = null;
 let victoryTimer = null;
@@ -172,6 +187,10 @@ const baseShootVolume = 0.4;
 const baseHitVolume = 0.55;
 let musicVolume = 1;
 let sfxVolume = 1;
+let previousMusicVolume = 1; // Store previous volume when muting
+let previousSfxVolume = 1; // Store previous volume when muting
+let pausedBgMusicVolume = 1; // Store bgMusic volume before pause to restore it
+let pausedGameGainValue = 1; // Store gameGain value before pause to restore it
 let musicSlowFactor = 1;
 let leadOsc = null;
 let melodyStep = 0;
@@ -181,9 +200,12 @@ let debugHoldTimer = null;
 let debugHoldTriggered = false;
 let adminToastTimer = null;
 let moneyToastTimer = null;
+let levelLockedToastTimer = null;
 let adminCreditsTimer = null;
 let adminCreditsTriggered = false;
 let adminCreditFloaterTimer = null;
+let debugModeTimer = null;
+let debugModeTriggered = false;
 const survivalRecordsKey = 'survivalRecords';
 const maxNormalLevels = 3;
 const themeMusic = {
@@ -223,6 +245,7 @@ const themePalette = {
   shockwave: '140, 220, 255'
 };
 const showMeteorHitboxes = false;
+const showShieldHitboxes = false; // Set to true to show shield hitboxes in normal gameplay
 let shootSfx = null;
 let hitSfx = null;
 
@@ -267,10 +290,10 @@ const meteorSpriteData = {
   hitBounds: null,
   manualHitbox: {
     enabled: true,
-    widthScale: 1.2,
+    widthScale: 1.1,
     heightScale: 0.7,
     centerX: 0.6,
-    centerY: 0.5,
+    centerY: 0.52,
     rotation: -(25 * Math.PI) / 180,
     offsetForward: -0.1,
     offsetRight: -0.1
@@ -704,6 +727,28 @@ function setSfxVolume(value) {
   updateVolumeLabel(sfxVolumeValue, sfxVolume);
 }
 
+function toggleMusicMute() {
+  if (musicVolume > 0) {
+    // Mute: save current volume and set to 0
+    previousMusicVolume = musicVolume;
+    setMusicVolume(0);
+  } else {
+    // Unmute: restore previous volume
+    setMusicVolume(previousMusicVolume);
+  }
+}
+
+function toggleSfxMute() {
+  if (sfxVolume > 0) {
+    // Mute: save current volume and set to 0
+    previousSfxVolume = sfxVolume;
+    setSfxVolume(0);
+  } else {
+    // Unmute: restore previous volume
+    setSfxVolume(previousSfxVolume);
+  }
+}
+
 function loadAudioSettings() {
   const storedMusicRaw = localStorage.getItem(audioSettingsKey.music);
   if (storedMusicRaw !== null) {
@@ -733,6 +778,9 @@ function loadAudioSettings() {
   if (sfxVolumeSlider) {
     sfxVolumeSlider.value = String(Math.round(sfxVolume * 100));
   }
+  // Initialize previous volumes for mute toggle
+  previousMusicVolume = musicVolume > 0 ? musicVolume : 1;
+  previousSfxVolume = sfxVolume > 0 ? sfxVolume : 1;
   updateVolumeLabel(musicVolumeValue, musicVolume);
   updateVolumeLabel(sfxVolumeValue, sfxVolume);
   applySfxVolume();
@@ -872,6 +920,8 @@ function rebuildShields() {
 function removeTwinGroup(id) {
   for (let i = missiles.length - 1; i >= 0; i -= 1) {
     if (missiles[i].twinId === id) {
+      const m = missiles[i];
+      scheduleDebugRespawn(m);
       missiles.splice(i, 1);
     }
   }
@@ -883,35 +933,35 @@ function handleTwinTap(m, tapX, tapY) {
   if (!group) return false;
   const payoutX = Number.isFinite(tapX) ? tapX : m.x;
   const payoutY = Number.isFinite(tapY) ? tapY : m.y;
-  const floaterY = payoutY + 12;
+  const floaterY = payoutY - 30;
   const now = performance.now();
   const windowMs = 40;
   if (m.twinPart === 0) {
     if (group.primeB && now - group.primeB <= windowMs) {
       removeTwinGroup(m.twinId);
       playSfx('boom');
-      triggerExplosion(m.x, m.y, '#7fdc7a', 36, 0.22, 8);
+      triggerExplosion(tapX, tapY, '#7fdc7a', 36, 0.22, 8);
       const bounty = getBounty(m.type);
       awardMoney(bounty);
       spawnCashFloater(payoutX, floaterY, bounty);
     } else {
       group.primeA = now;
       playSfx('hitsoft');
-      triggerExplosion(m.x, m.y, '#7fdc7a', 18, 0.14, 4);
+      triggerExplosion(tapX, tapY, '#7fdc7a', 18, 0.14, 4);
     }
     return true;
   }
   if (group.primeA && now - group.primeA <= windowMs) {
     removeTwinGroup(m.twinId);
     playSfx('boom');
-    triggerExplosion(m.x, m.y, '#7fdc7a', 36, 0.22, 8);
+    triggerExplosion(tapX, tapY, '#7fdc7a', 36, 0.22, 8);
     const bounty = getBounty(m.type);
     awardMoney(bounty);
     spawnCashFloater(payoutX, floaterY, bounty);
   } else {
     group.primeB = now;
     playSfx('hitsoft');
-    triggerExplosion(m.x, m.y, '#7fdc7a', 18, 0.14, 4);
+    triggerExplosion(tapX, tapY, '#7fdc7a', 18, 0.14, 4);
   }
   return true;
 }
@@ -922,10 +972,12 @@ function spawnTwinPair(x, y) {
   const distance = Math.hypot(target.x - x, target.y - y);
   const travelTime = 3.6 + Math.random() * 1.2;
   const speed = distance / travelTime;
-  const offset = (22 + Math.random() * 22) * layout.scale;
+  // Minimum offset of 40px scaled for comfortable two-finger tapping, with random variation up to 20px more
+  const offset = (40 + Math.random() * 20) * layout.scale;
   const perpX = -Math.sin(angle);
   const perpY = Math.cos(angle);
-  const r = 10 + Math.random() * 2;
+  // Use same radius as normal meteors
+  const r = 10 + Math.random() * 4;
   const id = twinCounter++;
   const base = {
     vx: Math.cos(angle) * speed,
@@ -1411,6 +1463,7 @@ function resetGame() {
   state.waveTarget = 0;
   state.bossSpawnTimer = 0;
   state.lastTime = 0;
+  state.animationTime = 0;
   state.wave = 1;
   state.betweenLevels = false;
   state.finalLevel = false;
@@ -1419,6 +1472,10 @@ function resetGame() {
   state.bossLevel = false;
   state.bossPhase = false;
   state.paused = false;
+  state.debugMode = false;
+  if (debugPanel) {
+    debugPanel.classList.add('hidden');
+  }
   state.slowTimer = 0;
   state.aegisTimer = 0;
   state.survivalTime = 0;
@@ -1436,6 +1493,7 @@ function resetGame() {
     clearInterval(countdownTimer);
     countdownTimer = null;
   }
+  isInCountdown = false;
   if (waveTimeout) {
     clearTimeout(waveTimeout);
     waveTimeout = null;
@@ -1451,6 +1509,8 @@ function resetGame() {
   twinGroups.clear();
   confetti.length = 0;
   cashFloaters.length = 0;
+  debugMeteorTemplates.length = 0;
+  debugRespawnQueue.length = 0;
   boss.active = false;
   boss.parts = [];
   updateBossBar();
@@ -1459,6 +1519,7 @@ function resetGame() {
   }
   adminToast.classList.add('hidden');
   moneyToast.classList.add('hidden');
+  if (levelLockedToast) levelLockedToast.classList.add('hidden');
   gameoverEl.classList.add('hidden');
   gameoverMenu.classList.add('hidden');
   gameoverRetry.classList.add('hidden');
@@ -1739,10 +1800,209 @@ function spawnMissileFrom(x, y, type) {
   missiles.push(buildMissile(x, y, type));
 }
 
+function spawnDebugMeteors() {
+  missiles.length = 0;
+  twinGroups.clear();
+  debugMeteorTemplates.length = 0;
+  debugRespawnQueue.length = 0;
+  const centerX = width / 2;
+  const centerY = height / 2;
+  const distance = Math.min(width, height) * 0.35;
+  
+  // 8 directions: N, NE, E, SE, S, SW, W, NW
+  const directions = [
+    { angle: -Math.PI / 2, type: 'normal' },    // North
+    { angle: -Math.PI / 4, type: 'fast' },      // Northeast
+    { angle: 0, type: 'tank' },                 // East
+    { angle: Math.PI / 4, type: 'normal' },    // Southeast
+    { angle: Math.PI / 2, type: 'fast' },       // South
+    { angle: 3 * Math.PI / 4, type: 'tank' },   // Southwest
+    { angle: Math.PI, type: 'normal' },         // West
+    { angle: -3 * Math.PI / 4, type: 'fast' }   // Northwest
+  ];
+  
+  directions.forEach((dir, index) => {
+    const x = centerX + Math.cos(dir.angle) * distance;
+    const y = centerY + Math.sin(dir.angle) * distance;
+    
+    let radius = 10 + Math.random() * 4;
+    let hp = 1;
+    
+    if (dir.type === 'fast') {
+      radius = 8 + Math.random() * 3;
+    } else if (dir.type === 'tank') {
+      radius = 18 + Math.random() * 4;
+      hp = 5; // Show a clear HP number
+    }
+    
+    radius *= 1.5;
+    
+    // Set velocity direction so meteor points in the correct direction
+    // (even though it won't move, this determines the rotation)
+    const speed = 100; // Just for direction, not actual movement
+    const vx = Math.cos(dir.angle) * speed;
+    const vy = Math.sin(dir.angle) * speed;
+    
+    // Save template for respawning
+    const template = {
+      x,
+      y,
+      vx,
+      vy,
+      r: radius,
+      type: dir.type,
+      hp,
+      seed: Math.random()
+    };
+    debugMeteorTemplates.push(template);
+    
+    // Create static meteor with direction
+    const meteor = {
+      ...template,
+      debugStatic: true
+    };
+    
+    missiles.push(meteor);
+  });
+  
+  // Add twin pairs in additional positions
+  const twinAngles = [
+    Math.PI / 6,      // 30 degrees
+    Math.PI / 3,      // 60 degrees
+    -Math.PI / 6,     // -30 degrees
+    -Math.PI / 3      // -60 degrees
+  ];
+  
+  twinAngles.forEach((angle) => {
+    const x = centerX + Math.cos(angle) * distance * 0.7;
+    const y = centerY + Math.sin(angle) * distance * 0.7;
+    spawnDebugTwinPair(x, y, angle);
+  });
+}
+
+function spawnDebugTwinPair(x, y, angle) {
+  // Minimum offset of 40px scaled for comfortable two-finger tapping, with random variation up to 20px more
+  const offset = (40 + Math.random() * 20) * layout.scale;
+  const perpX = -Math.sin(angle);
+  const perpY = Math.cos(angle);
+  // Use same radius as normal meteors
+  const r = 10 + Math.random() * 4;
+  const id = twinCounter++;
+  
+  // Set velocity direction so meteors point in the correct direction
+  const speed = 100; // Just for direction, not actual movement
+  const vx = Math.cos(angle) * speed;
+  const vy = Math.sin(angle) * speed;
+  
+  const base = {
+    vx,
+    vy,
+    r,
+    type: 'twin',
+    twinId: id,
+    debugStatic: true,
+    seed: Math.random()
+  };
+  
+  const m1 = {
+    x: x + perpX * offset,
+    y: y + perpY * offset,
+    twinPart: 0,
+    ...base
+  };
+  
+  const m2 = {
+    x: x - perpX * offset,
+    y: y - perpY * offset,
+    twinPart: 1,
+    ...base,
+    seed: Math.random()
+  };
+  
+  // Store templates for respawn
+  debugMeteorTemplates.push({
+    x: m1.x,
+    y: m1.y,
+    vx: m1.vx,
+    vy: m1.vy,
+    r: m1.r,
+    type: 'twin',
+    hp: 1,
+    seed: m1.seed,
+    twinId: id,
+    twinPart: 0
+  });
+  
+  debugMeteorTemplates.push({
+    x: m2.x,
+    y: m2.y,
+    vx: m2.vx,
+    vy: m2.vy,
+    r: m2.r,
+    type: 'twin',
+    hp: 1,
+    seed: m2.seed,
+    twinId: id,
+    twinPart: 1
+  });
+  
+  missiles.push(m1, m2);
+  twinGroups.set(id, { a: m1, b: m2, primeA: 0, primeB: 0 });
+}
+
+function scheduleDebugRespawn(meteor) {
+  if (!state.debugMode || !meteor.debugStatic) return;
+  
+  // Handle twin pairs - respawn both meteors
+  if (meteor.type === 'twin' && meteor.twinId !== undefined) {
+    const templates = debugMeteorTemplates.filter(t => 
+      t.twinId === meteor.twinId
+    );
+    templates.forEach(template => {
+      debugRespawnQueue.push({
+        template: { ...template, seed: Math.random() },
+        timer: 3.0,
+        isTwin: true,
+        twinId: template.twinId
+      });
+    });
+    return;
+  }
+  
+  // Find matching template by position and type
+  const template = debugMeteorTemplates.find(t => 
+    Math.abs(t.x - meteor.x) < 5 && 
+    Math.abs(t.y - meteor.y) < 5 && 
+    t.type === meteor.type &&
+    t.twinId === undefined // Not a twin
+  );
+  if (template) {
+    debugRespawnQueue.push({
+      template: { ...template, seed: Math.random() },
+      timer: 3.0
+    });
+  }
+}
+
+function startDebugMode() {
+  resetGame();
+  state.debugMode = true;
+  state.running = true;
+  startScreen.classList.add('hidden');
+  actionsBar.classList.remove('hidden');
+  if (debugPanel) {
+    debugPanel.classList.remove('hidden');
+  }
+  spawnDebugMeteors();
+  initAudio();
+  stopMusic();
+  updateHud();
+}
+
 function update(dt) {
   updateExplosions(dt);
   updateScreenEffects(dt);
-  if (!state.running || !core.alive || state.paused) return;
+  if (!state.running || !core.alive || state.paused || isInCountdown) return;
   updateCooldowns(dt);
   if (state.survivalLevel) {
     state.survivalTime += dt;
@@ -1759,7 +2019,52 @@ function update(dt) {
     state.aegisTimer = Math.max(0, state.aegisTimer - dt);
   }
 
-  if (state.bossPhase) {
+  if (state.debugMode) {
+    // In debug mode, meteors don't move and don't spawn
+    // Process respawn queue
+    for (let i = debugRespawnQueue.length - 1; i >= 0; i -= 1) {
+      const respawn = debugRespawnQueue[i];
+      respawn.timer -= dt;
+      if (respawn.timer <= 0) {
+        // Handle twin pair respawn
+        if (respawn.isTwin && respawn.twinId !== undefined) {
+          // Find all templates for this twin pair
+          const twinTemplates = debugRespawnQueue
+            .filter(r => r.isTwin && r.twinId === respawn.twinId && r.timer <= 0)
+            .map(r => r.template);
+          
+          if (twinTemplates.length === 2) {
+            const m1 = {
+              ...twinTemplates[0],
+              debugStatic: true,
+              twinPart: twinTemplates[0].twinPart || 0
+            };
+            const m2 = {
+              ...twinTemplates[1],
+              debugStatic: true,
+              twinPart: twinTemplates[1].twinPart || 1
+            };
+            missiles.push(m1, m2);
+            twinGroups.set(respawn.twinId, { a: m1, b: m2, primeA: 0, primeB: 0 });
+            
+            // Remove all twin templates from queue
+            for (let j = debugRespawnQueue.length - 1; j >= 0; j -= 1) {
+              if (debugRespawnQueue[j].twinId === respawn.twinId) {
+                debugRespawnQueue.splice(j, 1);
+              }
+            }
+          }
+        } else {
+          const meteor = {
+            ...respawn.template,
+            debugStatic: true
+          };
+          missiles.push(meteor);
+          debugRespawnQueue.splice(i, 1);
+        }
+      }
+    }
+  } else if (state.bossPhase) {
     state.bossSpawnTimer += dt;
     if (state.bossSpawnTimer >= 2.6) {
       state.bossSpawnTimer = 0;
@@ -1828,8 +2133,11 @@ function update(dt) {
   const hexRotation = Math.PI / 6;
   for (let i = missiles.length - 1; i >= 0; i -= 1) {
     const m = missiles[i];
-    m.x += m.vx * dt * speedFactor;
-    m.y += m.vy * dt * speedFactor;
+    // Skip movement for debug static meteors
+    if (!m.debugStatic) {
+      m.x += m.vx * dt * speedFactor;
+      m.y += m.vy * dt * speedFactor;
+    }
 
     const dx = m.x - target.x;
     const dy = m.y - target.y;
@@ -1839,7 +2147,9 @@ function update(dt) {
     const aegisHitbox = useForgeHex
       ? isMeteorHitboxIntersectingHex(m, target.x, target.y, aegisRadius, meteorSpriteData.manualShieldHitbox, hexRotation)
       : useShieldHitbox
-        ? isMeteorHitboxInRadius(m, target.x, target.y, aegisRadius, meteorSpriteData.manualShieldHitbox)
+        ? isPixelTheme()
+          ? isMeteorHitboxInSquare(m, target.x, target.y, aegisRadius * 2, meteorSpriteData.manualShieldHitbox)
+          : isMeteorHitboxInRadius(m, target.x, target.y, aegisRadius, meteorSpriteData.manualShieldHitbox)
         : null;
     const aegisHit = useShieldHitbox
       ? Boolean(aegisHitbox)
@@ -1848,6 +2158,7 @@ function update(dt) {
       if (m.type === 'twin') {
         removeTwinGroup(m.twinId);
       } else {
+        scheduleDebugRespawn(m);
         missiles.splice(i, 1);
       }
       triggerExplosion(m.x, m.y, '#c9d2dc', 26, 0.2, 6);
@@ -1860,7 +2171,9 @@ function update(dt) {
     const shieldHitbox = useForgeHex
       ? isMeteorHitboxIntersectingHex(m, target.x, target.y, shieldRadius, meteorSpriteData.manualShieldHitbox, hexRotation)
       : useShieldHitbox
-        ? isMeteorHitboxInRadius(m, target.x, target.y, shieldRadius, meteorSpriteData.manualShieldHitbox)
+        ? isPixelTheme()
+          ? isMeteorHitboxInSquare(m, target.x, target.y, shieldRadius * 2, meteorSpriteData.manualShieldHitbox)
+          : isMeteorHitboxInRadius(m, target.x, target.y, shieldRadius, meteorSpriteData.manualShieldHitbox)
         : null;
     const shieldHit = useShieldHitbox
       ? Boolean(shieldHitbox)
@@ -1870,6 +2183,7 @@ function update(dt) {
       if (m.type === 'twin') {
         removeTwinGroup(m.twinId);
       } else {
+        scheduleDebugRespawn(m);
         missiles.splice(i, 1);
       }
       playSfx('shield');
@@ -1881,6 +2195,7 @@ function update(dt) {
       if (m.type === 'twin') {
         removeTwinGroup(m.twinId);
       } else {
+        scheduleDebugRespawn(m);
         missiles.splice(i, 1);
       }
       handleCoreHit();
@@ -2228,7 +2543,7 @@ function hitBossAt(x, y) {
       if (part.hp <= 0) {
         const bounty = part.type === 'main' ? 50 : 10;
         awardMoney(bounty);
-        spawnCashFloater(x, y, bounty);
+        spawnCashFloater(x, y - 30, bounty);
       }
       updateBossBar();
       return true;
@@ -2256,8 +2571,9 @@ function getMeteorBodyDims(m) {
   const isFast = m.type === 'fast';
   const isTank = m.type === 'tank';
   if (isPixelTheme()) {
-    const bodyW = m.r * (isTank ? 2.2 : isFast ? 1.6 : 1.9);
-    const bodyH = m.r * (isTank ? 1.6 : isFast ? 1.2 : 1.4);
+    // Reduced size to match other modes
+    const bodyW = m.r * (isTank ? 1.2 : isFast ? 0.8 : 1.02);
+    const bodyH = m.r * (isTank ? 1.2 : isFast ? 0.8 : 1.02);
     return { bodyW, bodyH };
   }
   const bodyLen = m.r * (isFast ? 1.2 : isTank ? 1.6 : 1.35);
@@ -2315,6 +2631,23 @@ function isCircleIntersectingRect(px, py, rect, radius) {
   const dx = px - clampedX;
   const dy = py - clampedY;
   return dx * dx + dy * dy <= radius * radius;
+}
+
+function isSquareIntersectingRect(px, py, rect, squareSize) {
+  // squareSize is the full width/height of the square, centered at (px, py)
+  const halfSize = squareSize * 0.5;
+  const squareLeft = px - halfSize;
+  const squareRight = px + halfSize;
+  const squareTop = py - halfSize;
+  const squareBottom = py + halfSize;
+  
+  const rectLeft = rect.x;
+  const rectRight = rect.x + rect.w;
+  const rectTop = rect.y;
+  const rectBottom = rect.y + rect.h;
+  
+  // Check if rectangles overlap
+  return !(squareRight < rectLeft || squareLeft > rectRight || squareBottom < rectTop || squareTop > rectBottom);
 }
 
 function getRegularPolygonPoints(x, y, radius, sides, rotation = 0) {
@@ -2382,6 +2715,13 @@ function isMeteorHitboxInRadius(m, centerX, centerY, radius, config = meteorSpri
   if (!spriteRect) return null;
   const local = toHitboxSpace(m, centerX, centerY, config);
   return isCircleIntersectingRect(local.x, local.y, spriteRect, radius);
+}
+
+function isMeteorHitboxInSquare(m, centerX, centerY, squareSize, config = meteorSpriteData.manualHitbox) {
+  const spriteRect = getSpriteHitboxRect(m, config);
+  if (!spriteRect) return null;
+  const local = toHitboxSpace(m, centerX, centerY, config);
+  return isSquareIntersectingRect(local.x, local.y, spriteRect, squareSize);
 }
 
 function isMeteorHitboxIntersectingHex(m, centerX, centerY, radius, config, rotation) {
@@ -2467,7 +2807,7 @@ function getSpriteFrame(m) {
   if (!meteorSpriteData.ready) return null;
   const row = meteorSpriteData.rowByType[m.type];
   if (row === undefined) return null;
-  const frame = Math.floor((state.lastTime / meteorSpriteData.frameTime) + (m.seed ?? 0.5) * meteorSpriteData.frameCount)
+  const frame = Math.floor((state.animationTime / meteorSpriteData.frameTime) + (m.seed ?? 0.5) * meteorSpriteData.frameCount)
     % meteorSpriteData.frameCount;
   const sx = frame * meteorSpriteData.frameW;
   const sy = row * meteorSpriteData.frameH;
@@ -2650,34 +2990,42 @@ function drawMeteorShieldHitbox(m) {
 }
 
 function drawMeteorHitboxes(m, angle) {
-  if (!showMeteorHitboxes) return;
-  drawMeteorKillHitbox(m, angle);
-  const shieldRect = getSpriteHitboxRect(m, meteorSpriteData.manualShieldHitbox);
-  if (shieldRect) {
-    ctx.save();
-    ctx.translate(m.x, m.y);
-    ctx.rotate(angle);
-    const manual = meteorSpriteData.manualShieldHitbox;
-    if (manual?.enabled && manual.rotation) {
-      ctx.rotate(manual.rotation);
-    }
-    ctx.strokeStyle = 'rgba(120, 220, 255, 0.6)';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(shieldRect.x, shieldRect.y, shieldRect.w, shieldRect.h);
-    ctx.restore();
+  // Show kill hitboxes in debug mode, or if showMeteorHitboxes is enabled
+  if (state.debugMode || showMeteorHitboxes) {
+    drawMeteorKillHitbox(m, angle);
   }
-  if (m.type !== 'twin') {
-    drawMeteorShieldHitbox(m);
+  
+  // Always show shield hitboxes if enabled, or in debug mode
+  if (showShieldHitboxes || state.debugMode) {
+    const shieldRect = getSpriteHitboxRect(m, meteorSpriteData.manualShieldHitbox);
+    if (shieldRect) {
+      ctx.save();
+      ctx.translate(m.x, m.y);
+      ctx.rotate(angle);
+      const manual = meteorSpriteData.manualShieldHitbox;
+      if (manual?.enabled && manual.rotation) {
+        ctx.rotate(manual.rotation);
+      }
+      ctx.strokeStyle = 'rgba(120, 220, 255, 0.6)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+      ctx.strokeRect(shieldRect.x, shieldRect.y, shieldRect.w, shieldRect.h);
+      ctx.restore();
+    } else if (m.type !== 'twin') {
+      drawMeteorShieldHitbox(m);
+    }
   }
 }
 
 function drawPixelMeteor(m, angle, colors, tailScale) {
   const isFast = m.type === 'fast';
   const isTank = m.type === 'tank';
-  const bodyW = Math.round(m.r * (isTank ? 2.2 : isFast ? 1.6 : 1.9));
-  const bodyH = Math.round(m.r * (isTank ? 1.6 : isFast ? 1.2 : 1.4));
+  // Use getMeteorBodyDims to ensure consistent sizing with other modes
+  const { bodyW: bodyWBase, bodyH: bodyHBase } = getMeteorBodyDims(m);
+  const bodyW = Math.round(bodyWBase);
+  const bodyH = Math.round(bodyHBase);
   const segments = isFast ? 4 : 3;
-  const flicker = 0.95 + 0.08 * Math.sin(state.lastTime * 0.006 + (m.seed ?? 0.5) * 12);
+  const flicker = 0.95 + 0.08 * Math.sin(state.animationTime * 0.006 + (m.seed ?? 0.5) * 12);
   const tailStep = Math.max(2, Math.round(m.r * (0.9 * tailScale) * flicker));
   const tailAlpha = Math.max(0.35, Math.min(0.85, 0.55 + (flicker - 0.9) * 0.6));
 
@@ -2713,7 +3061,7 @@ function drawMeteor(m) {
   const colors = getMissileColors(m);
   const tailScale = isTwin ? 0.7 : 1;
   const seed = m.seed ?? 0.5;
-  const flicker = 0.95 + 0.08 * Math.sin(state.lastTime * 0.006 + seed * 12);
+  const flicker = 0.95 + 0.08 * Math.sin(state.animationTime * 0.006 + seed * 12);
   const dents = getMeteorDents(seed, isTank, isFast);
 
   if (drawSpriteMeteor(m, angle)) {
@@ -2853,7 +3201,7 @@ function drawMissiles() {
         }
         ctx.stroke();
         ctx.shadowBlur = 0;
-        if (showMeteorHitboxes) {
+        if (state.debugMode || showMeteorHitboxes) {
           ctx.save();
           ctx.strokeStyle = 'rgba(180, 180, 180, 0.4)';
           ctx.lineWidth = 1;
@@ -2877,29 +3225,82 @@ function drawMissiles() {
     }
 
     const isTank = m.type === 'tank';
-    const angle = getMeteorRotation(m, Math.atan2(m.vy, m.vx));
+    const baseAngle = Math.atan2(m.vy, m.vx);
+    const angle = getMeteorRotation(m, baseAngle);
     drawMeteor(m);
     drawMeteorHitboxes(m, angle);
 
+    let textX = 0;
+    let textY = 0;
+    let distance = 0;
+    
     if (isTank) {
       ctx.fillStyle = '#eaffdf';
-      ctx.font = getHudFont(Math.max(12, m.r * 0.9));
+      const fontSize = Math.max(10, m.r * 0.75);
+      ctx.font = getHudFont(fontSize);
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      const center = getMeteorHitboxCenter(m);
-      const speed = Math.hypot(m.vx, m.vy) || 1;
-      const dirX = m.vx / speed;
-      const dirY = m.vy / speed;
-      const sideX = -dirY;
-      const sideY = dirX;
-      const forwardOffset = m.r * 0.2;
-      const lateralOffset = m.r * 0.45;
-      const textX = center.x + dirX * forwardOffset + sideX * lateralOffset;
-      const textY = center.y + dirY * forwardOffset + sideY * lateralOffset;
-      ctx.lineWidth = Math.max(2, Math.round(m.r * 0.08));
-      ctx.strokeStyle = 'rgba(0, 0, 0, 0.75)';
+      
+      // Calculate position on the head (circle) of the meteorite
+      // Use the same logic that works in retro for all modes
+      let headAngle;
+      const angleOffset = (state.debugMode && debugAngleOffsetInput) ? parseFloat(debugAngleOffsetInput.value) || -0.3 : -0.3;
+      if (state.debugMode && debugUseBaseAngleInput && debugUseBaseAngleInput.checked) {
+        headAngle = baseAngle + angleOffset;
+      } else {
+        // Same calculation as retro - this works correctly
+        headAngle = baseAngle + meteorSpriteData.rotationOffset + angleOffset;
+      }
+      const distanceMultiplier = (state.debugMode && debugDistanceInput) ? parseFloat(debugDistanceInput.value) || -3.2 : -3.2;
+      distance = m.r * distanceMultiplier;
+      textX = m.x + Math.cos(headAngle) * distance;
+      textY = m.y + Math.sin(headAngle) * distance;
+      
+      ctx.lineWidth = Math.max(2, Math.round(fontSize * 0.15));
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)';
       ctx.strokeText(String(m.hp), textX, textY);
       ctx.fillText(String(m.hp), textX, textY);
+    }
+
+    // Debug mode: show variable values around meteorite (only if enabled)
+    if (state.debugMode && debugShowVariablesInput && debugShowVariablesInput.checked) {
+      ctx.fillStyle = '#ffffff';
+      ctx.font = getHudFont(10);
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      const baseAngle = Math.atan2(m.vy, m.vx);
+      const debugY = m.y - m.r * 2;
+      let lineY = debugY;
+      const lineHeight = 12;
+      
+      ctx.fillText(`angle: ${angle.toFixed(2)}`, m.x - 60, lineY);
+      lineY += lineHeight;
+      ctx.fillText(`baseAngle: ${baseAngle.toFixed(2)}`, m.x - 60, lineY);
+      lineY += lineHeight;
+      ctx.fillText(`vx: ${m.vx.toFixed(1)}`, m.x - 60, lineY);
+      lineY += lineHeight;
+      ctx.fillText(`vy: ${m.vy.toFixed(1)}`, m.x - 60, lineY);
+      lineY += lineHeight;
+      ctx.fillText(`r: ${m.r.toFixed(1)}`, m.x - 60, lineY);
+      lineY += lineHeight;
+      ctx.fillText(`x: ${m.x.toFixed(1)}`, m.x - 60, lineY);
+      lineY += lineHeight;
+      ctx.fillText(`y: ${m.y.toFixed(1)}`, m.x - 60, lineY);
+      lineY += lineHeight;
+      if (isTank) {
+        ctx.fillText(`hp: ${m.hp}`, m.x - 60, lineY);
+        lineY += lineHeight;
+        ctx.fillText(`textX: ${textX.toFixed(1)}`, m.x - 60, lineY);
+        lineY += lineHeight;
+        ctx.fillText(`textY: ${textY.toFixed(1)}`, m.x - 60, lineY);
+        lineY += lineHeight;
+        ctx.fillText(`distance: ${distance.toFixed(1)}`, m.x - 60, lineY);
+        lineY += lineHeight;
+        const currentHeadAngle = state.debugMode && debugUseBaseAngleInput && debugUseBaseAngleInput.checked
+          ? baseAngle + (debugAngleOffsetInput ? parseFloat(debugAngleOffsetInput.value) || 0 : 0)
+          : baseAngle + meteorSpriteData.rotationOffset + (debugAngleOffsetInput ? parseFloat(debugAngleOffsetInput.value) || 0 : 0);
+        ctx.fillText(`headAngle: ${currentHeadAngle.toFixed(2)}`, m.x - 60, lineY);
+      }
     }
   }
 }
@@ -3092,6 +3493,11 @@ function drawScreenEffects() {
 function render(timestamp) {
   const dt = Math.min(0.033, (timestamp - state.lastTime) / 1000 || 0);
   state.lastTime = timestamp;
+  
+  // Only update animation time when game is running, not paused, not in countdown, and core is alive
+  if (state.running && !state.paused && !isInCountdown && core.alive) {
+    state.animationTime = timestamp;
+  }
 
   update(dt);
 
@@ -3105,9 +3511,12 @@ function render(timestamp) {
   requestAnimationFrame(render);
 }
 
-function startCountdown() {
+function startCountdown(resetSkills = true) {
   stopMusic();
-  resetSkillCooldowns();
+  if (resetSkills) {
+    resetSkillCooldowns();
+  }
+  isInCountdown = true;
   countdownEl.textContent = state.countdown;
   countdownEl.classList.remove('hidden');
   if (state.hardcoreLevel) {
@@ -3121,9 +3530,14 @@ function startCountdown() {
   }
   playSfx('tick');
   const timer = setInterval(() => {
+    // Don't countdown if paused
+    if (state.paused) return;
+    
     state.countdown -= 1;
     if (state.countdown <= 0) {
       clearInterval(timer);
+      countdownTimer = null;
+      isInCountdown = false;
       countdownEl.classList.add('hidden');
       setMusicMode('game');
       if (state.survivalLevel) {
@@ -3142,7 +3556,10 @@ function startCountdown() {
 }
 
 function updateHud() {
-  if (state.survivalLevel) {
+  if (state.debugMode) {
+    hudLevel.textContent = 'Debug Mode';
+    hudWave.textContent = 'Meteor Viewer';
+  } else if (state.survivalLevel) {
     hudLevel.textContent = 'Survival';
     hudWave.textContent = '';
   } else {
@@ -3212,6 +3629,17 @@ function showMoneyToast() {
   moneyToastTimer = setTimeout(() => {
     moneyToast.classList.add('hidden');
   }, 1200);
+}
+
+function showLevelLockedToast() {
+  if (!levelLockedToast) return;
+  levelLockedToast.classList.remove('hidden');
+  if (levelLockedToastTimer) {
+    clearTimeout(levelLockedToastTimer);
+  }
+  levelLockedToastTimer = setTimeout(() => {
+    levelLockedToast.classList.add('hidden');
+  }, 1500);
 }
 
 function getBounty(type) {
@@ -3341,9 +3769,19 @@ function renderSurvivalRecords(records = null) {
     list.appendChild(item);
     return;
   }
-  data.forEach(value => {
+  const medals = ['🥇', '🥈', '🥉'];
+  data.forEach((value, index) => {
     const item = document.createElement('li');
-    item.textContent = `${value.toFixed(1)}s`;
+    if (index < 3) {
+      // For top 3, use medal instead of number
+      item.classList.add('has-medal');
+      const medal = document.createElement('span');
+      medal.className = 'record-medal';
+      medal.textContent = medals[index];
+      medal.setAttribute('aria-label', index === 0 ? 'Gold medal' : index === 1 ? 'Silver medal' : 'Bronze medal');
+      item.appendChild(medal);
+    }
+    item.appendChild(document.createTextNode(`${value.toFixed(1)}s`));
     list.appendChild(item);
   });
 }
@@ -3367,8 +3805,7 @@ function getSkillCooldown(skill) {
 canvas.addEventListener('pointerdown', e => {
   if (!state.running) return;
   if (state.paused) {
-    state.paused = false;
-    pauseOverlay.classList.add('hidden');
+    handleUnpause();
     return;
   }
   const x = e.clientX;
@@ -3381,23 +3818,25 @@ canvas.addEventListener('pointerdown', e => {
       } else if (m.type === 'tank') {
         m.hp -= 1;
         if (m.hp <= 0) {
+          scheduleDebugRespawn(m);
           missiles.splice(i, 1);
           playSfx('boom');
-          triggerExplosion(m.x, m.y, '#b8ff9b', 46, 0.26);
+          triggerExplosion(x, y, '#b8ff9b', 46, 0.26);
           const bounty = getBounty(m.type);
           awardMoney(bounty);
-          spawnCashFloater(x, y + 12, bounty);
+          spawnCashFloater(x, y - 30, bounty);
         } else {
           playSfx('hitsoft');
-          triggerExplosion(m.x, m.y, '#b8ff9b', 22, 0.16, 4);
+          triggerExplosion(x, y, '#b8ff9b', 22, 0.16, 4);
         }
       } else {
+        scheduleDebugRespawn(m);
         missiles.splice(i, 1);
         playSfx('boom');
-        triggerExplosion(m.x, m.y, '#ff9b6b', 40, 0.22);
+        triggerExplosion(x, y, '#ff9b6b', 40, 0.22);
         const bounty = getBounty(m.type);
         awardMoney(bounty);
-        spawnCashFloater(x, y + 12, bounty);
+        spawnCashFloater(x, y - 30, bounty);
       }
       break;
     }
@@ -3424,7 +3863,7 @@ skillButtons.forEach(button => {
         missiles.forEach(missile => {
           reward += getBounty(missile.type);
           const center = getMeteorHitboxCenter(missile);
-          spawnCashFloater(center.x, center.y, getBounty(missile.type));
+          spawnCashFloater(center.x, center.y - 30, getBounty(missile.type));
         });
         awardMoney(reward);
       }
@@ -3632,11 +4071,23 @@ gameoverRetry.addEventListener('click', () => {
 });
 
 pauseButton.addEventListener('click', () => {
-  if (!state.running || startScreen.classList.contains('hidden') === false) return;
+  // Allow pause during countdown or when game is running
+  if (startScreen.classList.contains('hidden') === false) return;
+  if (!isInCountdown && !state.running) return;
   if (state.paused) return;
-  state.paused = !state.paused;
-  pauseOverlay.classList.toggle('hidden', !state.paused);
-  pauseButton.disabled = state.paused;
+  state.paused = true;
+  pauseOverlay.classList.remove('hidden');
+  pauseButton.disabled = true;
+  
+  // Lower music volume when pausing (save current volume first, then reduce to 15%)
+  if (bgMusic && bgMusic.volume > 0) {
+    pausedBgMusicVolume = bgMusic.volume; // Store the current absolute volume
+    bgMusic.volume = bgMusic.volume * 0.15; // Reduce to 15% of current volume
+  }
+  if (gameGain && gameGain.gain.value > 0) {
+    pausedGameGainValue = gameGain.gain.value; // Store the current absolute volume
+    gameGain.gain.value = gameGain.gain.value * 0.15; // Reduce to 15% of current volume
+  }
 });
 
 pauseMenu.addEventListener('pointerdown', e => {
@@ -3652,32 +4103,62 @@ pauseMenu.addEventListener('click', e => {
 pauseOverlay.addEventListener('pointerdown', e => {
   if (e.target !== pauseOverlay) return;
   if (!state.paused) return;
-  state.paused = false;
-  pauseOverlay.classList.add('hidden');
-  pauseButton.disabled = false;
+  handleUnpause();
 });
 
 pauseResume.addEventListener('click', e => {
   e.stopPropagation();
   if (!state.paused) return;
+  handleUnpause();
+});
+
+function handleUnpause() {
   state.paused = false;
   pauseOverlay.classList.add('hidden');
   pauseButton.disabled = false;
-});
+  
+  // Restore music volume to previous level
+  if (bgMusic && pausedBgMusicVolume > 0) {
+    bgMusic.volume = pausedBgMusicVolume; // Restore to the volume before pause
+  }
+  if (gameGain && pausedGameGainValue > 0) {
+    gameGain.gain.value = pausedGameGainValue; // Restore to the volume before pause
+  }
+  
+  // Always start a new countdown when unpausing (if game is running)
+  // Don't reset skills when unpausing
+  if (state.running) {
+    if (countdownTimer) {
+      clearInterval(countdownTimer);
+      countdownTimer = null;
+    }
+    state.countdown = 3; // Reset to 3
+    startCountdown(false); // Don't reset skills when unpausing
+  }
+}
 
 pauseConfirmYes.addEventListener('click', () => {
   pauseConfirm.classList.add('hidden');
   if (!state.paused) return;
   stopMusic();
   state.paused = false;
-  state.money = state.runStartMoney;
-  localStorage.setItem('money', String(state.money));
-  resetGame();
-  updateHud();
-  startScreen.classList.remove('hidden');
-  state.betweenLevels = false;
-  setMenuView('home');
-  updateUpgradeVisibility();
+  if (state.debugMode) {
+    state.debugMode = false;
+    resetGame();
+    updateHud();
+    startScreen.classList.remove('hidden');
+    setMenuView('home');
+    updateUpgradeVisibility();
+  } else {
+    state.money = state.runStartMoney;
+    localStorage.setItem('money', String(state.money));
+    resetGame();
+    updateHud();
+    startScreen.classList.remove('hidden');
+    state.betweenLevels = false;
+    setMenuView('home');
+    updateUpgradeVisibility();
+  }
 });
 
 pauseConfirmNo.addEventListener('click', () => {
@@ -3695,6 +4176,13 @@ function clearAdminCreditsHold() {
   if (adminCreditsTimer) {
     clearTimeout(adminCreditsTimer);
     adminCreditsTimer = null;
+  }
+}
+
+function clearDebugModeHold() {
+  if (debugModeTimer) {
+    clearTimeout(debugModeTimer);
+    debugModeTimer = null;
   }
 }
 
@@ -3758,6 +4246,37 @@ if (adminCreditsButton) {
   });
 }
 
+if (debugModeButton) {
+  debugModeButton.addEventListener('pointerdown', () => {
+    if (!startScreen || startScreen.classList.contains('hidden')) return;
+    if (menuHomePanel && menuHomePanel.classList.contains('hidden')) return;
+    debugModeTriggered = false;
+    clearDebugModeHold();
+    debugModeTimer = setTimeout(() => {
+      debugModeTriggered = true;
+      startDebugMode();
+    }, 1000);
+  });
+
+  debugModeButton.addEventListener('pointerup', () => {
+    if (!startScreen || startScreen.classList.contains('hidden')) return;
+    clearDebugModeHold();
+    if (!debugModeTriggered) {
+      showAdminToast();
+    }
+  });
+
+  debugModeButton.addEventListener('pointerleave', () => {
+    if (!startScreen || startScreen.classList.contains('hidden')) return;
+    clearDebugModeHold();
+  });
+
+  debugModeButton.addEventListener('pointercancel', () => {
+    if (!startScreen || startScreen.classList.contains('hidden')) return;
+    clearDebugModeHold();
+  });
+}
+
 styleButtons.forEach(button => {
   button.addEventListener('click', () => {
     const style = button.dataset.style;
@@ -3772,6 +4291,13 @@ levelButtons.forEach(button => {
     const level = Number(button.dataset.level);
     const isNormal = button.classList.contains('normal-level');
     if (Number.isNaN(level)) return;
+    
+    // Check if it's a locked level 4-9
+    if (isNormal && level >= 4 && level <= 9 && button.disabled) {
+      showLevelLockedToast();
+      return;
+    }
+    
     if (isNormal && level > maxNormalLevels) return;
     if (level !== 5 && !isNormal && level > state.unlockedLevel) return;
     state.selectedLevel = level;
@@ -3866,6 +4392,26 @@ upgradeButtons.forEach(button => {
 
 window.addEventListener('resize', resize);
 resize();
+
+// Keyboard shortcuts for muting
+document.addEventListener('keydown', (e) => {
+  // Ignore if typing in an input field
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+    return;
+  }
+  
+  // M key: toggle music mute
+  if (e.key === 'm' || e.key === 'M') {
+    e.preventDefault();
+    toggleMusicMute();
+  }
+  
+  // S key: toggle sound effects mute
+  if (e.key === 's' || e.key === 'S') {
+    e.preventDefault();
+    toggleSfxMute();
+  }
+});
 document.querySelectorAll('.skill').forEach(button => {
   const label = button.querySelector('.label');
   if (label) {
@@ -3884,8 +4430,10 @@ const savedTheme = localStorage.getItem('theme') || 'default';
 applyTheme(savedTheme);
 loadAudioSettings();
 loadProgress();
+
 updateHud();
 updateUpgradeVisibility();
+updateDebugButtonsVisibility();
 renderSurvivalRecords();
 setMenuView('home');
 
@@ -4105,6 +4653,29 @@ function updateUpgradeVisibility() {
   upgradesRow.classList.toggle('hidden', !showUpgrades);
 }
 
+// Function to update debug buttons visibility
+function updateDebugButtonsVisibility() {
+  if (!SHOW_DEBUG_BUTTONS) {
+    if (adminCreditsButton) {
+      adminCreditsButton.classList.add('hidden');
+      adminCreditsButton.style.display = 'none';
+    }
+    if (debugModeButton) {
+      debugModeButton.classList.add('hidden');
+      debugModeButton.style.display = 'none';
+    }
+  } else {
+    if (adminCreditsButton) {
+      adminCreditsButton.classList.remove('hidden');
+      adminCreditsButton.style.display = '';
+    }
+    if (debugModeButton) {
+      debugModeButton.classList.remove('hidden');
+      debugModeButton.style.display = '';
+    }
+  }
+}
+
 function loadProgress() {
   const unlocked = Number(localStorage.getItem('unlockedLevel')) || 1;
   state.unlockedLevel = Math.min(Math.max(1, unlocked), levels.length);
@@ -4194,5 +4765,6 @@ function setMenuView(view) {
     menuHomePanel.classList.toggle('hidden', view !== 'home');
   }
   updateUpgradeVisibility();
+  updateDebugButtonsVisibility();
   updateResetVisibility();
 }

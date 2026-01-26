@@ -301,7 +301,7 @@ body[data-theme="forge"] .level-button.survival:not(:disabled):focus-visible {
   box-shadow: 0 0 18px rgba(255, 180, 120, 0.8);
 }
 
-button, .skill, #hud, #start-screen, #victory, #confirm-reset, #admin-toast, #money-toast {
+button, .skill, #hud, #start-screen, #victory, #confirm-reset, #admin-toast, #money-toast, #level-locked-toast {
   user-select: none;
 }
 
@@ -312,6 +312,7 @@ button,
 #confirm-reset,
 #admin-toast,
 #money-toast,
+#level-locked-toast,
 .skill,
 .row-title,
 .level-button,
@@ -447,7 +448,8 @@ body[data-theme="forge"] .boss-fill {
   }
 }
 
-#money-toast {
+#money-toast,
+#level-locked-toast {
   position: absolute;
   top: 56px;
   left: 50%;
@@ -876,10 +878,20 @@ body[data-theme="retro"] .style-card.active {
   color: var(--accent);
 }
 
-.confirm-text {
+.confirm-text,
+.modes-description {
   font-size: 12px;
+  line-height: 1.6;
   letter-spacing: 0.05em;
   color: var(--text-main);
+  text-align: center;
+  max-width: 280px;
+  margin: 0 auto;
+}
+
+#menu-hardcore-panel .confirm-text,
+#menu-survival-panel .modes-description {
+  max-width: 280px;
 }
 
 .confirm-actions {
@@ -976,17 +988,45 @@ body[data-theme="retro"] .style-card.active {
 }
 
 #survival-records .records-list {
-  list-style: decimal;
-  margin: 0;
+  list-style: none;
+  margin: 0 auto;
   padding: 0;
   display: grid;
   gap: 4px;
   font-size: 12px;
   letter-spacing: 0.06em;
+  counter-reset: record-counter;
+  width: fit-content;
 }
 
 #survival-records .records-list li {
-  list-style-position: inside;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  text-align: center;
+  gap: 6px;
+  counter-increment: record-counter;
+}
+
+#survival-records .records-list li::before {
+  content: counter(record-counter) '.';
+  margin-right: 4px;
+  flex-shrink: 0;
+}
+
+/* Hide the number for top 3 entries that have medals */
+#survival-records .records-list li.has-medal::before {
+  content: '';
+  margin-right: 0;
+}
+
+#survival-records .records-list li .record-medal {
+  font-size: 16px;
+  line-height: 1;
+  flex-shrink: 0;
+  order: -1;
+  margin-right: 0;
 }
 
 .level-button.final {
@@ -1044,6 +1084,46 @@ body[data-theme="retro"] .style-card.active {
 .level-button:disabled {
   opacity: 0.35;
   cursor: not-allowed;
+}
+
+/* Special styling for locked levels 4-9 */
+.level-button.normal-level:disabled[data-level="4"],
+.level-button.normal-level:disabled[data-level="5"],
+.level-button.normal-level:disabled[data-level="6"],
+.level-button.normal-level:disabled[data-level="7"],
+.level-button.normal-level:disabled[data-level="8"],
+.level-button.normal-level:disabled[data-level="9"] {
+  opacity: 0.5;
+  position: relative;
+  background: rgba(40, 40, 40, 0.6);
+  border-color: rgba(120, 120, 120, 0.4);
+  color: rgba(180, 180, 180, 0.6);
+}
+
+.level-button.normal-level:disabled[data-level="4"]::after,
+.level-button.normal-level:disabled[data-level="5"]::after,
+.level-button.normal-level:disabled[data-level="6"]::after,
+.level-button.normal-level:disabled[data-level="7"]::after,
+.level-button.normal-level:disabled[data-level="8"]::after,
+.level-button.normal-level:disabled[data-level="9"]::after {
+  content: '🔒';
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 12px;
+  opacity: 0.7;
+  margin-left: 4px;
+}
+
+/* Add padding to the right of the text to prevent overlap */
+.level-button.normal-level:disabled[data-level="4"],
+.level-button.normal-level:disabled[data-level="5"],
+.level-button.normal-level:disabled[data-level="6"],
+.level-button.normal-level:disabled[data-level="7"],
+.level-button.normal-level:disabled[data-level="8"],
+.level-button.normal-level:disabled[data-level="9"] {
+  padding-right: 28px;
 }
 
 .level-button:not(:disabled):hover,
@@ -1327,4 +1407,64 @@ body[data-theme="retro"] .style-card.active {
 }
 #debug-skip {
   display: none;
+}
+
+#debug-panel {
+  position: absolute;
+  top: 80px;
+  right: 16px;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  padding: 12px;
+  z-index: 10;
+  min-width: 200px;
+  font-family: var(--font-main);
+  font-size: 12px;
+}
+
+#debug-panel.hidden {
+  display: none;
+}
+
+.debug-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.debug-controls {
+  display: grid;
+  gap: 8px;
+}
+
+.debug-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  align-items: center;
+}
+
+.debug-row label {
+  color: var(--text-soft);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+}
+
+.debug-row input[type="number"] {
+  background: var(--button-bg);
+  border: 1px solid var(--button-border);
+  color: var(--button-text);
+  padding: 4px 6px;
+  font-size: 11px;
+  font-family: var(--font-main);
+  width: 100%;
+}
+
+.debug-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent-strong);
 }
