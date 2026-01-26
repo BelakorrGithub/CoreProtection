@@ -1772,12 +1772,12 @@ function getWaveLabel() {
 }
 
 function getSurvivalDifficulty(time) {
-  // Escala mucho más rápido: alcanza máximo a los 15 segundos en lugar de 30
-  // Y sigue escalando más allá para dificultad extrema
-  const baseFactor = Math.max(0, Math.min(1, time / 15));
-  // Añadir escalado adicional después de 15s para dificultad extrema
-  const extraFactor = time > 15 ? Math.min(0.5, (time - 15) / 30) : 0;
-  return Math.min(1.5, baseFactor + extraFactor);
+  // Escala gradualmente y uniformemente de 0 a 1.5 en 60 segundos
+  // Usa una curva suave para que el aumento sea más constante
+  const maxTime = 60;
+  const maxDifficulty = 1.5;
+  // Escala lineal más gradual: 0.025 por segundo (1.5 / 60)
+  return Math.min(maxDifficulty, (time / maxTime) * maxDifficulty);
 }
 
 function getSurvivalSpawnInterval(time) {
