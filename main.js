@@ -286,7 +286,11 @@ function playShootSfx() {
         const source = audioCtx.createBufferSource();
         const gain = audioCtx.createGain();
         source.buffer = shootSfxBuffer;
-        gain.gain.value = baseShootVolume * sfxVolume;
+        // Compensar por masterGain para que el volumen sea equivalente al HTML Audio
+        // HTML Audio: volume = baseShootVolume * sfxVolume
+        // AudioBuffer: necesita dividir por masterGain para obtener el mismo volumen final
+        const masterGainValue = masterGain ? masterGain.gain.value : baseSfxGain * sfxVolume;
+        gain.gain.value = (baseShootVolume * sfxVolume) / Math.max(0.001, masterGainValue);
         source.connect(gain);
         gain.connect(masterGain);
         source.start(0);
@@ -297,7 +301,9 @@ function playShootSfx() {
     const source = audioCtx.createBufferSource();
     const gain = audioCtx.createGain();
     source.buffer = shootSfxBuffer;
-    gain.gain.value = baseShootVolume * sfxVolume;
+    // Compensar por masterGain para que el volumen sea equivalente al HTML Audio
+    const masterGainValue = masterGain ? masterGain.gain.value : baseSfxGain * sfxVolume;
+    gain.gain.value = (baseShootVolume * sfxVolume) / Math.max(0.001, masterGainValue);
     source.connect(gain);
     gain.connect(masterGain);
     source.start(0);
@@ -329,7 +335,9 @@ function playHitSfx() {
         const source = audioCtx.createBufferSource();
         const gain = audioCtx.createGain();
         source.buffer = hitSfxBuffer;
-        gain.gain.value = baseHitVolume * sfxVolume;
+        // Compensar por masterGain para que el volumen sea equivalente al HTML Audio
+        const masterGainValue = masterGain ? masterGain.gain.value : baseSfxGain * sfxVolume;
+        gain.gain.value = (baseHitVolume * sfxVolume) / Math.max(0.001, masterGainValue);
         source.connect(gain);
         gain.connect(masterGain);
         source.start(0);
@@ -340,7 +348,9 @@ function playHitSfx() {
     const source = audioCtx.createBufferSource();
     const gain = audioCtx.createGain();
     source.buffer = hitSfxBuffer;
-    gain.gain.value = baseHitVolume * sfxVolume;
+    // Compensar por masterGain para que el volumen sea equivalente al HTML Audio
+    const masterGainValue = masterGain ? masterGain.gain.value : baseSfxGain * sfxVolume;
+    gain.gain.value = (baseHitVolume * sfxVolume) / Math.max(0.001, masterGainValue);
     source.connect(gain);
     gain.connect(masterGain);
     source.start(0);
