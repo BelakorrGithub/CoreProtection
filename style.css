@@ -1086,45 +1086,6 @@ body[data-theme="retro"] .style-card.active {
   cursor: not-allowed;
 }
 
-/* Special styling for locked levels 4-9 */
-.level-button.normal-level:disabled[data-level="4"],
-.level-button.normal-level:disabled[data-level="5"],
-.level-button.normal-level:disabled[data-level="6"],
-.level-button.normal-level:disabled[data-level="7"],
-.level-button.normal-level:disabled[data-level="8"],
-.level-button.normal-level:disabled[data-level="9"] {
-  opacity: 0.5;
-  position: relative;
-  background: rgba(40, 40, 40, 0.6);
-  border-color: rgba(120, 120, 120, 0.4);
-  color: rgba(180, 180, 180, 0.6);
-}
-
-.level-button.normal-level:disabled[data-level="4"]::after,
-.level-button.normal-level:disabled[data-level="5"]::after,
-.level-button.normal-level:disabled[data-level="6"]::after,
-.level-button.normal-level:disabled[data-level="7"]::after,
-.level-button.normal-level:disabled[data-level="8"]::after,
-.level-button.normal-level:disabled[data-level="9"]::after {
-  content: '🔒';
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 12px;
-  opacity: 0.7;
-  margin-left: 4px;
-}
-
-/* Add padding to the right of the text to prevent overlap */
-.level-button.normal-level:disabled[data-level="4"],
-.level-button.normal-level:disabled[data-level="5"],
-.level-button.normal-level:disabled[data-level="6"],
-.level-button.normal-level:disabled[data-level="7"],
-.level-button.normal-level:disabled[data-level="8"],
-.level-button.normal-level:disabled[data-level="9"] {
-  padding-right: 28px;
-}
 
 .level-button:not(:disabled):hover,
 .level-button:not(:disabled):focus-visible {

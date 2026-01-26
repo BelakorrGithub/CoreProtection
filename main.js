@@ -1,5 +1,5 @@
 // Debug buttons visibility - set to true to show admin debug buttons
-const SHOW_DEBUG_BUTTONS = true;
+const SHOW_DEBUG_BUTTONS = false;
 
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
@@ -4788,12 +4788,6 @@ levelButtons.forEach(button => {
     const level = Number(button.dataset.level);
     const isNormal = button.classList.contains('normal-level');
     if (Number.isNaN(level)) return;
-    
-    // Check if it's a locked level 4-9
-    if (isNormal && level >= 4 && level <= 9 && button.disabled) {
-      showLevelLockedToast();
-      return;
-    }
     
     if (isNormal && level > maxNormalLevels) return;
     if (level !== 5 && !isNormal && level > state.unlockedLevel) return;
