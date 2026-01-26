@@ -1643,12 +1643,19 @@ function getWaveLabel() {
 }
 
 function getSurvivalDifficulty(time) {
-  return Math.max(0, Math.min(1, time / 30));
+  // Escala mucho más rápido: alcanza máximo a los 15 segundos en lugar de 30
+  // Y sigue escalando más allá para dificultad extrema
+  const baseFactor = Math.max(0, Math.min(1, time / 15));
+  // Añadir escalado adicional después de 15s para dificultad extrema
+  const extraFactor = time > 15 ? Math.min(0.5, (time - 15) / 30) : 0;
+  return Math.min(1.5, baseFactor + extraFactor);
 }
 
 function getSurvivalSpawnInterval(time) {
   const factor = getSurvivalDifficulty(time);
-  return 1.4 - factor * 0.9;
+  // Intervalo mucho más agresivo: de 1.4s a 0.15s (casi instantáneo)
+  // A los 60s debería estar spawneando muy rápido
+  return Math.max(0.15, 1.4 - factor * 1.25);
 }
 
 function applyLevelConfig(level) {
@@ -1798,14 +1805,18 @@ function buildMissile(x, y, forcedType = null) {
     const roll = Math.random();
     if (state.survivalLevel) {
       const t = state.survivalTime;
-      if (t < 8) {
+      // Escala mucho más rápido: más meteoritos difíciles aparecen antes
+      if (t < 5) {
         type = 'normal';
-      } else if (t < 20) {
-        type = roll > 0.82 ? 'fast' : 'normal';
-      } else if (t < 30) {
-        type = roll > 0.85 ? 'tank' : roll > 0.6 ? 'fast' : 'normal';
+      } else if (t < 12) {
+        type = roll > 0.75 ? 'fast' : 'normal';
+      } else if (t < 25) {
+        type = roll > 0.7 ? 'tank' : roll > 0.4 ? 'fast' : 'normal';
+      } else if (t < 40) {
+        type = roll > 0.6 ? 'tank' : roll > 0.25 ? 'fast' : 'normal';
       } else {
-        type = roll > 0.75 ? 'tank' : roll > 0.45 ? 'fast' : 'normal';
+        // Después de 40s, mayoría son tanks y fast, muy pocos normales
+        type = roll > 0.5 ? 'tank' : roll > 0.15 ? 'fast' : 'normal';
       }
     } else if (state.level === 1) {
       type = 'normal';
@@ -1845,7 +1856,8 @@ function buildMissile(x, y, forcedType = null) {
   }
   if (state.survivalLevel) {
     const factor = getSurvivalDifficulty(state.survivalTime);
-    travelTime *= 1 - factor * 0.35;
+    // Los meteoritos se mueven mucho más rápido: hasta 60% más rápido
+    travelTime *= 1 - factor * 0.6;
   }
   radius *= 1.5;
   const speed = distance / travelTime;
@@ -1861,8 +1873,7 @@ function buildMissile(x, y, forcedType = null) {
   };
 }
 
-function spawnMissile() {
-  const edge = Math.floor(Math.random() * 4);
+function getEdgeSpawnPoint(edge) {
   const offset = 40;
   let x = 0;
   let y = 0;
@@ -1879,6 +1890,12 @@ function spawnMissile() {
     x = -offset;
     y = Math.random() * height;
   }
+  return { x, y };
+}
+
+function spawnMissile() {
+  const edge = Math.floor(Math.random() * 4);
+  const { x, y } = getEdgeSpawnPoint(edge);
   if (!state.bossLevel && state.level > 1 && Math.random() > 0.92) {
     spawnTwinPair(x, y);
     return;
@@ -2167,6 +2184,27 @@ function update(dt) {
     if (state.spawnTimer >= interval) {
       state.spawnTimer = 0;
       spawnMissile();
+      
+      // A partir de 20s, ocasionalmente spawnear múltiples meteoritos o twins
+      const t = state.survivalTime;
+      if (t > 20) {
+        const extraRoll = Math.random();
+        const difficultyFactor = Math.min(1, getSurvivalDifficulty(t));
+        
+        // A partir de 25s, spawnear twins ocasionalmente (más frecuente)
+        if (t > 25 && extraRoll < 0.2 * difficultyFactor) {
+          const edge = Math.floor(Math.random() * 4);
+          const { x, y } = getEdgeSpawnPoint(edge);
+          spawnTwinPair(x, y);
+        }
+        
+        // A partir de 35s, spawnear múltiples meteoritos a la vez
+        if (t > 35 && extraRoll < 0.25 * difficultyFactor && extraRoll >= 0.2 * difficultyFactor) {
+          const edge = Math.floor(Math.random() * 4);
+          const { x, y } = getEdgeSpawnPoint(edge);
+          spawnMissileFrom(x, y, null);
+        }
+      }
     }
   } else {
     state.spawnTimer += dt;
@@ -3598,8 +3636,8 @@ function render(timestamp) {
   drawExplosions();
   drawScreenEffects();
   
-  // Draw God's Finger attack radius in debug mode
-  if (state.debugMode && godsFingerUnlocked) {
+  // Draw God's Finger attack radius in debug mode (not in hardcore)
+  if (state.debugMode && godsFingerUnlocked && !state.hardcoreLevel) {
     drawGodsFingerRadius();
   }
 
@@ -3658,6 +3696,9 @@ function updateHud() {
   } else if (state.survivalLevel) {
     hudLevel.textContent = 'Survival';
     hudWave.textContent = '';
+  } else if (state.hardcoreLevel) {
+    hudLevel.textContent = 'Hardcore';
+    hudWave.textContent = state.bossPhase ? 'Boss' : `Wave ${state.wave} of ${state.wavesTotal}`;
   } else {
     hudLevel.textContent = `Level ${state.level}`;
     hudWave.textContent = state.bossPhase ? 'Boss' : `Wave ${state.wave} of ${state.wavesTotal}`;
@@ -3745,7 +3786,7 @@ function getBounty(type) {
   return 1;
 }
 
-const GODS_FINGER_RADIUS = 120; // Radio de ataque de God's Finger
+const GODS_FINGER_RADIUS = 96; // Radio de ataque de God's Finger (reducido 20% desde 120)
 
 function drawGodsFingerRadius() {
   // Draw a circle showing the attack radius following the mouse cursor
@@ -3777,6 +3818,87 @@ function activateGodsFinger(x, y) {
   let totalReward = 0;
   const killedMeteors = [];
   const processedTwinIds = new Set();
+  const target = center();
+  
+  // Verificar colisión con el núcleo PRIMERO (antes de destruir escudos)
+  const distToCore = Math.hypot(target.x - x, target.y - y);
+  let coreHit = false;
+  if (isPixelTheme()) {
+    // En pixel theme, el núcleo es un cuadrado
+    const halfCoreSize = core.radius * layout.scale;
+    const coreRect = {
+      x: target.x - halfCoreSize,
+      y: target.y - halfCoreSize,
+      w: halfCoreSize * 2,
+      h: halfCoreSize * 2
+    };
+    coreHit = isCircleIntersectingRect(x, y, coreRect, radius);
+  } else {
+    // En otros temas, el núcleo es un círculo
+    const coreRadiusScaled = core.radius * layout.scale;
+    coreHit = distToCore <= coreRadiusScaled + radius;
+  }
+  
+  // Verificar si hay escudos activos ANTES de hacer cualquier cosa
+  const hasActiveShields = getActiveShield() !== null;
+  
+  // Si el núcleo fue tocado
+  if (coreHit && core.alive) {
+    if (hasActiveShields) {
+      // Si hay escudos activos, solo destruir el más externo, NO matar
+      for (let i = shieldLayers.length - 1; i >= 0; i -= 1) {
+        const layer = shieldLayers[i];
+        if (layer.hp > 0) {
+          layer.hp = 0;
+          playSfx('shield');
+          triggerExplosion(target.x, target.y, '#6ecbff', 28, 0.18);
+          break; // Solo destruir una capa
+        }
+      }
+      // No procesar más, solo destruir el escudo
+      // Continuar para procesar meteoritos
+    } else {
+      // Si NO hay escudos activos, el jugador muere
+      handleCoreHit("The wrath of God is out of control...\nYou killed yourself!");
+      return; // No procesar meteoritos si el jugador ya murió
+    }
+  } else {
+    // Si el núcleo NO fue tocado, verificar colisión con escudos
+    for (let i = shieldLayers.length - 1; i >= 0; i -= 1) {
+      const layer = shieldLayers[i];
+      if (layer.hp <= 0) continue; // Skip destroyed shields
+      
+      const shieldRadius = layer.radius * layout.scale;
+      const distToShield = Math.hypot(target.x - x, target.y - y);
+      
+      // Para pixel theme, verificar intersección de cuadrado con círculo
+      // Para otros temas, verificar intersección de círculo con círculo
+      let shieldHit = false;
+      if (isPixelTheme()) {
+        // En pixel theme, el escudo es un cuadrado
+        // Verificar si el círculo de explosión intersecta con el cuadrado del escudo
+        const halfShieldSize = shieldRadius;
+        const shieldRect = {
+          x: target.x - halfShieldSize,
+          y: target.y - halfShieldSize,
+          w: halfShieldSize * 2,
+          h: halfShieldSize * 2
+        };
+        shieldHit = isCircleIntersectingRect(x, y, shieldRect, radius);
+      } else {
+        // En otros temas, el escudo es un círculo (o hexágono, pero aproximamos como círculo)
+        shieldHit = distToShield <= shieldRadius + radius;
+      }
+      
+      if (shieldHit) {
+        // Solo destruir la capa más externa que intersecta (la primera que encontramos al iterar desde el final)
+        layer.hp = 0;
+        playSfx('shield');
+        triggerExplosion(target.x, target.y, '#6ecbff', 28, 0.18);
+        break; // Solo destruir una capa
+      }
+    }
+  }
   
   // Encontrar todos los meteoritos en el radio (si los hay)
   // Usar la hitbox completa, no solo el punto central
@@ -3905,14 +4027,18 @@ function segmentIntersectsSquare(ax, ay, bx, by, cx, cy, half) {
   return true;
 }
 
-function handleCoreHit() {
+function handleCoreHit(customMessage = null) {
   if (!core.alive) return;
   const target = center();
   core.alive = false;
   state.running = false;
   playSfx('core');
   triggerExplosion(target.x, target.y, '#ffb347', 140, 0.7, 18);
-  if (state.survivalLevel) {
+  
+  // Si hay un mensaje personalizado (por ejemplo, de God's Finger), usarlo
+  if (customMessage) {
+    gameoverEl.textContent = customMessage;
+  } else if (state.survivalLevel) {
     const isRecord = saveSurvivalRecord(state.survivalTime);
     const timeText = `${state.survivalTime.toFixed(1)}s`;
     gameoverEl.textContent = isRecord ? `Survival: ${timeText}\nNew Record!` : `Survival: ${timeText}`;
@@ -4015,6 +4141,8 @@ canvas.addEventListener('pointerdown', e => {
     handleUnpause();
     return;
   }
+  // Block all attacks and interactions during countdown
+  if (isInCountdown) return;
   const x = e.clientX;
   const y = e.clientY;
   // Update mouse position
@@ -4023,7 +4151,8 @@ canvas.addEventListener('pointerdown', e => {
   
   // Check if God's Finger is unlocked - if so, use it instead of normal tap
   // Always activate if unlocked, even if no meteors nearby (will show visual effect)
-  if (godsFingerUnlocked) {
+  // Disable in hardcore mode (no skills allowed)
+  if (godsFingerUnlocked && !state.hardcoreLevel) {
     activateGodsFinger(x, y);
     return;
   }
@@ -4069,6 +4198,7 @@ skillButtons.forEach(button => {
     const skill = button.dataset.skill;
     if (!state.running || !core.alive) return;
     if (state.hardcoreLevel) return;
+    if (isInCountdown) return; // Block abilities during countdown
     if (!skill) return;
     if (skill === 'nova' && novaLevel === 0) return;
     if (skill === 'regen' && regenLevel === 0) return;
