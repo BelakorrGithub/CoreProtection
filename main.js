@@ -1075,7 +1075,15 @@ function initBoss(options = {}) {
 }
 
 function initAudio() {
-  if (audioCtx) return;
+  if (audioCtx) {
+    // Si el contexto existe pero está suspendido, resumirlo
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume().catch(() => {
+        // Si falla, continuar de todas formas
+      });
+    }
+    return;
+  }
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   masterGain = audioCtx.createGain();
   masterGain.gain.value = baseSfxGain * sfxVolume;
@@ -1087,6 +1095,14 @@ function initAudio() {
   }
   ensureThemeMusic();
   applySfxVolume();
+  
+  // En móviles, el AudioContext puede iniciarse suspendido
+  // Intentar resumirlo inmediatamente si es posible
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume().catch(() => {
+      // Si falla (por ejemplo, por política de autoplay), se resumirá en la primera interacción
+    });
+  }
 }
 
 function setMusicMode(mode) {
@@ -1159,6 +1175,15 @@ function playSfx(type) {
   }
 
   if (!audioCtx) return;
+  
+  // En móviles, el AudioContext puede estar suspendido y necesita ser resumido
+  // Esto reduce significativamente la latencia de audio
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume().catch(() => {
+      // Si falla, continuar de todas formas
+    });
+  }
+  
   const now = audioCtx.currentTime;
 
   if (type === 'theme-default') {
@@ -4143,6 +4168,15 @@ canvas.addEventListener('pointerdown', e => {
   }
   // Block all attacks and interactions during countdown
   if (isInCountdown) return;
+  
+  // En móviles, asegurar que el AudioContext esté activo antes de reproducir sonidos
+  // Esto reduce significativamente la latencia de audio
+  if (audioCtx && audioCtx.state === 'suspended') {
+    audioCtx.resume().catch(() => {
+      // Si falla, continuar de todas formas
+    });
+  }
+  
   const x = e.clientX;
   const y = e.clientY;
   // Update mouse position
