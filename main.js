@@ -1,5 +1,5 @@
 // Debug buttons visibility - set to true to show admin debug buttons
-const SHOW_DEBUG_BUTTONS = false;
+const SHOW_DEBUG_BUTTONS = true;
 
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
@@ -78,6 +78,8 @@ const survivalTimeEl = document.getElementById('survival-time');
 let width = window.innerWidth;
 let height = window.innerHeight;
 let dpr = window.devicePixelRatio || 1;
+let mouseX = width / 2;
+let mouseY = height / 2;
 
 const state = {
   running: false,
@@ -327,7 +329,17 @@ meteorSprite.onload = () => {
   canvas.width = meteorSprite.width;
   canvas.height = meteorSprite.height;
   spriteCtx.drawImage(meteorSprite, 0, 0);
-  const imageData = spriteCtx.getImageData(0, 0, canvas.width, canvas.height);
+  
+  let imageData;
+  try {
+    imageData = spriteCtx.getImageData(0, 0, canvas.width, canvas.height);
+  } catch (e) {
+    // Si falla por CORS, usar solo hitboxes manuales en lugar de calcular desde la imagen
+    console.warn('Cannot read image data due to CORS, using manual hitboxes only');
+    meteorSpriteData.hitBounds = null;
+    return;
+  }
+  
   const { data, width, height } = imageData;
   const hitBounds = Array.from({ length: meteorSpriteData.rows }, () =>
     Array.from({ length: meteorSpriteData.cols }, () => null)
@@ -411,6 +423,10 @@ meteorSprite.onload = () => {
   }
   meteorSpriteData.hitBounds = hitBounds;
 };
+// Solo establecer crossOrigin si no estamos en file:// (para evitar errores CORS en desarrollo local)
+if (window.location.protocol !== 'file:') {
+  meteorSprite.crossOrigin = 'anonymous';
+}
 meteorSprite.src = 'img/meteorSprite.png';
 
 function isPixelTheme() {
@@ -444,6 +460,7 @@ const skillState = {
   regen: 0,
   slow: 0,
   aegis: 0
+  // godsFinger no tiene cooldown, es permanente
 };
 
 const upgradeCosts = {
@@ -451,7 +468,8 @@ const upgradeCosts = {
   nova: [0, 30, 60, 90],
   regen: [0, 24, 48, 72],
   slow: [0, 20, 40, 70],
-  aegis: [0, 28, 56, 84]
+  aegis: [0, 28, 56, 84],
+  godsFinger: [0, 1000] // Solo un nivel, mejora permanente
 };
 
 let shieldUpgrades = 0;
@@ -459,6 +477,8 @@ let novaLevel = 0;
 let regenLevel = 0;
 let slowLevel = 0;
 let aegisLevel = 0;
+let godsFingerUnlocked = false; // Solo desbloqueado/no desbloqueado, sin niveles
+let godsFingerPurchased = false; // Indica si ya se pagó por God's Finger
 
 function resize() {
   width = window.innerWidth;
@@ -1120,6 +1140,13 @@ function stopMusic() {
   bgMusic.pause();
 }
 
+function resetMusic() {
+  stopProceduralMusic();
+  if (!bgMusic) return;
+  bgMusic.pause();
+  bgMusic.currentTime = 0; // Reiniciar desde el principio
+}
+
 function playSfx(type) {
   if (type === 'boom') {
     playShootSfx();
@@ -1287,6 +1314,69 @@ function playSfx(type) {
     osc1.stop(now + 0.75);
     osc2.stop(now + 0.75);
     noise.stop(now + 0.75);
+    return;
+  }
+
+  if (type === 'godsFinger') {
+    // Sonido más poderoso para God's Finger: múltiples osciladores, más volumen, frecuencias más bajas
+    const osc1 = audioCtx.createOscillator();
+    const osc2 = audioCtx.createOscillator();
+    const osc3 = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    
+    // Oscilador principal: sawtooth con frecuencia más baja para más impacto
+    osc1.type = 'sawtooth';
+    osc1.frequency.setValueAtTime(200, now);
+    osc1.frequency.exponentialRampToValueAtTime(30, now + 0.8);
+    
+    // Oscilador medio: square para textura más rica
+    osc2.type = 'square';
+    osc2.frequency.setValueAtTime(100, now);
+    osc2.frequency.exponentialRampToValueAtTime(20, now + 0.8);
+    
+    // Oscilador bajo: triangle para profundidad
+    osc3.type = 'triangle';
+    osc3.frequency.setValueAtTime(80, now);
+    osc3.frequency.exponentialRampToValueAtTime(15, now + 0.8);
+    
+    // Ganancia más alta para más poder (más que nova)
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(1.0, now + 0.02); // Más volumen que nova (0.9)
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.8);
+    
+    osc1.connect(gain);
+    osc2.connect(gain);
+    osc3.connect(gain);
+    gain.connect(masterGain);
+    
+    // Añadir ruido para más impacto
+    const noiseBuffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.8, audioCtx.sampleRate);
+    const data = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < data.length; i += 1) {
+      data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
+    }
+    const noise = audioCtx.createBufferSource();
+    noise.buffer = noiseBuffer;
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(1500, now);
+    filter.frequency.exponentialRampToValueAtTime(150, now + 0.8);
+    const noiseGain = audioCtx.createGain();
+    noiseGain.gain.setValueAtTime(0.0001, now);
+    noiseGain.gain.exponentialRampToValueAtTime(0.6, now + 0.03); // Más ruido que nova
+    noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.8);
+    noise.connect(filter);
+    filter.connect(noiseGain);
+    noiseGain.connect(masterGain);
+    
+    osc1.start(now);
+    osc2.start(now);
+    osc3.start(now);
+    noise.start(now);
+    osc1.stop(now + 0.82);
+    osc2.stop(now + 0.82);
+    osc3.stop(now + 0.82);
+    noise.stop(now + 0.82);
     return;
   }
 
@@ -1995,7 +2085,7 @@ function startDebugMode() {
   }
   spawnDebugMeteors();
   initAudio();
-  stopMusic();
+  resetMusic(); // Reiniciar música desde el principio para nueva partida
   updateHud();
 }
 
@@ -3507,11 +3597,17 @@ function render(timestamp) {
   drawMissiles();
   drawExplosions();
   drawScreenEffects();
+  
+  // Draw God's Finger attack radius in debug mode
+  if (state.debugMode && godsFingerUnlocked) {
+    drawGodsFingerRadius();
+  }
 
   requestAnimationFrame(render);
 }
 
 function startCountdown(resetSkills = true) {
+  // No reiniciar música aquí, solo pausar (para mantener posición en pause/unpause)
   stopMusic();
   if (resetSkills) {
     resetSkillCooldowns();
@@ -3647,6 +3743,110 @@ function getBounty(type) {
   if (type === 'fast') return 3;
   if (type === 'tank') return 5;
   return 1;
+}
+
+const GODS_FINGER_RADIUS = 120; // Radio de ataque de God's Finger
+
+function drawGodsFingerRadius() {
+  // Draw a circle showing the attack radius following the mouse cursor
+  // This helps visualize the range in debug mode
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255, 215, 0, 0.6)'; // Dorado semitransparente
+  ctx.lineWidth = 2;
+  ctx.setLineDash([8, 4]);
+  
+  // Draw circle at mouse position
+  ctx.beginPath();
+  ctx.arc(mouseX, mouseY, GODS_FINGER_RADIUS, 0, Math.PI * 2);
+  ctx.stroke();
+  
+  ctx.restore();
+  
+  // Draw label above the circle
+  ctx.save();
+  ctx.fillStyle = 'rgba(255, 215, 0, 0.9)';
+  ctx.font = getHudFont(12);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(`God's Finger Radius: ${GODS_FINGER_RADIUS}px`, mouseX, mouseY - GODS_FINGER_RADIUS - 20);
+  ctx.restore();
+}
+
+function activateGodsFinger(x, y) {
+  const radius = GODS_FINGER_RADIUS; // Radio razonable para la explosión
+  let totalReward = 0;
+  const killedMeteors = [];
+  const processedTwinIds = new Set();
+  
+  // Encontrar todos los meteoritos en el radio (si los hay)
+  // Usar la hitbox completa, no solo el punto central
+  for (let i = missiles.length - 1; i >= 0; i -= 1) {
+    const m = missiles[i];
+    
+    // Verificar si la hitbox del meteorito intersecta con el círculo de ataque
+    let isInRange = false;
+    
+    // Para sprites, usar la función de intersección de hitbox
+    if (meteorSpriteData.manualHitbox?.enabled && meteorSpriteData.ready) {
+      if (isPixelTheme()) {
+        // Para pixel theme, usar verificación de cuadrado
+        isInRange = isMeteorHitboxInSquare(m, x, y, radius * 2, meteorSpriteData.manualHitbox) === true;
+      } else {
+        // Para otros temas, usar verificación de círculo
+        isInRange = isMeteorHitboxInRadius(m, x, y, radius, meteorSpriteData.manualHitbox) === true;
+      }
+    } else {
+      // Fallback: verificar distancia desde el centro (para compatibilidad)
+      const center = getMeteorHitboxCenter(m);
+      const dx = center.x - x;
+      const dy = center.y - y;
+      const dist = Math.hypot(dx, dy);
+      // Añadir un margen basado en el tamaño del meteorito para compensar
+      const margin = m.r * 0.5;
+      isInRange = dist <= radius + margin;
+    }
+    
+    if (isInRange) {
+      // Para twins, solo procesar una vez por grupo
+      if (m.type === 'twin' && m.twinId !== undefined) {
+        if (processedTwinIds.has(m.twinId)) {
+          continue; // Ya procesamos este grupo twin
+        }
+        processedTwinIds.add(m.twinId);
+      }
+      const center = getMeteorHitboxCenter(m);
+      killedMeteors.push({ meteor: m, center, bounty: getBounty(m.type) });
+    }
+  }
+  
+  // Matar todos los meteoritos encontrados (si los hay)
+  for (const { meteor: m, center, bounty } of killedMeteors) {
+    if (m.type === 'twin' && m.twinId !== undefined) {
+      // Remover el grupo twin completo
+      removeTwinGroup(m.twinId);
+    } else {
+      // Remover meteorito normal
+      const index = missiles.indexOf(m);
+      if (index !== -1) {
+        scheduleDebugRespawn(m);
+        missiles.splice(index, 1);
+      }
+    }
+    totalReward += bounty;
+    spawnCashFloater(center.x, center.y - 30, bounty);
+  }
+  
+  // Crear explosión visual grande (siempre, incluso si no hay meteoritos)
+  // El tamaño visual coincide con el radio de ataque
+  triggerExplosion(x, y, '#ffd700', radius, 0.4, 24);
+  playSfx('godsFinger');
+  
+  // Otorgar recompensa total (si hay meteoritos muertos)
+  if (totalReward > 0) {
+    awardMoney(totalReward);
+  }
+  
+  // No hay cooldown, es permanente
 }
 
 function getActiveShield() {
@@ -3797,10 +3997,17 @@ function getSkillCooldown(skill) {
   } else if (skill === 'aegis') {
     level = aegisLevel;
   }
+  // godsFinger no tiene cooldown
   if (level <= 0) return 0;
   const index = Math.min(skillCooldownLevels.length - 1, level - 1);
   return skillCooldownLevels[index];
 }
+
+canvas.addEventListener('pointermove', e => {
+  // Update mouse position for debug visualization
+  mouseX = e.clientX;
+  mouseY = e.clientY;
+});
 
 canvas.addEventListener('pointerdown', e => {
   if (!state.running) return;
@@ -3810,6 +4017,17 @@ canvas.addEventListener('pointerdown', e => {
   }
   const x = e.clientX;
   const y = e.clientY;
+  // Update mouse position
+  mouseX = x;
+  mouseY = y;
+  
+  // Check if God's Finger is unlocked - if so, use it instead of normal tap
+  // Always activate if unlocked, even if no meteors nearby (will show visual effect)
+  if (godsFingerUnlocked) {
+    activateGodsFinger(x, y);
+    return;
+  }
+  
   for (let i = missiles.length - 1; i >= 0; i -= 1) {
     const m = missiles[i];
     if (isPointOnMeteor(m, x, y)) {
@@ -3856,6 +4074,7 @@ skillButtons.forEach(button => {
     if (skill === 'regen' && regenLevel === 0) return;
     if (skill === 'slow' && slowLevel === 0) return;
     if (skill === 'aegis' && aegisLevel === 0) return;
+    // godsFinger no se activa desde el botón, es automático en cada tap
     if (skillState[skill] > 0) return;
     if (skill === 'nova') {
       if (missiles.length > 0) {
@@ -3898,7 +4117,7 @@ skillButtons.forEach(button => {
 
 function startSelectedLevel(level) {
   initAudio();
-  stopMusic();
+  resetMusic(); // Reiniciar música desde el principio para nueva partida
   state.selectedLevel = level;
   resetGame();
   applyLevelConfig(state.selectedLevel);
@@ -4057,7 +4276,7 @@ gameoverMenu.addEventListener('click', () => {
 });
 
 gameoverRetry.addEventListener('click', () => {
-  stopMusic();
+  resetMusic(); // Reiniciar música desde el principio para nueva partida
   resetGame();
   applyLevelConfig(state.selectedLevel);
   rebuildShields();
@@ -4387,6 +4606,34 @@ upgradeButtons.forEach(button => {
       updateSkillLocks();
       return;
     }
+    if (upgrade === 'godsFinger') {
+      // Toggle: si está desbloqueado, desbloquearlo; si no, desbloquearlo
+      if (godsFingerUnlocked) {
+        // Desbloquear (no devolver dinero, pero se mantiene la compra)
+        godsFingerUnlocked = false;
+        localStorage.setItem('godsFingerUnlocked', 'false');
+        updateUpgrades();
+        updateSkillLocks();
+        return;
+      }
+      // Bloquear: requiere pago solo si no se ha comprado antes
+      if (!godsFingerPurchased) {
+        const cost = upgradeCosts.godsFinger[1]; // Solo hay un costo
+        if (state.money < cost) {
+          showMoneyToast();
+          return;
+        }
+        godsFingerPurchased = true;
+        localStorage.setItem('godsFingerPurchased', 'true');
+        awardMoney(-cost);
+      }
+      // Si ya se pagó, activar sin costo
+      godsFingerUnlocked = true;
+      localStorage.setItem('godsFingerUnlocked', 'true');
+      updateUpgrades();
+      updateSkillLocks();
+      return;
+    }
   });
 });
 
@@ -4576,6 +4823,28 @@ function updateUpgrades() {
         const cooldown = skillCooldownLevels[nextLevel - 1];
         status.textContent = aegisLevel >= 3 ? 'Max' : `Cooldown ${cooldown}s`;
       }
+    } else if (upgrade === 'godsFinger') {
+      owned = false; // Nunca se marca como "owned" porque se puede desbloquear
+      // Solo mostrar costo si no se ha comprado antes
+      cost = (godsFingerUnlocked || godsFingerPurchased) ? null : upgradeCosts.godsFinger[1];
+      if (label) {
+        if (godsFingerUnlocked) {
+          label.textContent = 'Disable God\'s Finger';
+        } else if (godsFingerPurchased) {
+          label.textContent = 'Enable God\'s Finger';
+        } else {
+          label.textContent = 'Unlock God\'s Finger';
+        }
+      }
+      if (status) {
+        if (godsFingerUnlocked) {
+          status.textContent = 'Click to disable';
+        } else if (godsFingerPurchased) {
+          status.textContent = 'Click to enable (free)';
+        } else {
+          status.textContent = 'Permanent upgrade';
+        }
+      }
     }
 
     if (owned) {
@@ -4635,6 +4904,8 @@ function updateSkillLocks() {
       unlocked = slowLevel > 0;
     } else if (skill === 'aegis') {
       unlocked = aegisLevel > 0;
+    } else if (skill === 'godsFinger') {
+      unlocked = godsFingerUnlocked;
     }
     button.disabled = !unlocked;
     button.classList.toggle('unlocked', unlocked);
@@ -4688,6 +4959,8 @@ function loadProgress() {
   regenLevel = Math.min(Math.max(0, Number(localStorage.getItem('regenLevel')) || 0), 3);
   slowLevel = Math.min(Math.max(0, Number(localStorage.getItem('slowLevel')) || 0), 3);
   aegisLevel = Math.min(Math.max(0, Number(localStorage.getItem('aegisLevel')) || 0), 3);
+  godsFingerUnlocked = localStorage.getItem('godsFingerUnlocked') === 'true';
+  godsFingerPurchased = localStorage.getItem('godsFingerPurchased') === 'true';
   rebuildShields();
   updateLevelButtons();
   updateUpgrades();
@@ -4704,6 +4977,8 @@ function resetProgress() {
   localStorage.removeItem('regenLevel');
   localStorage.removeItem('slowLevel');
   localStorage.removeItem('aegisLevel');
+  localStorage.removeItem('godsFingerUnlocked');
+  localStorage.removeItem('godsFingerPurchased');
   state.unlockedLevel = 1;
   state.selectedLevel = 1;
   state.money = 0;
@@ -4712,6 +4987,8 @@ function resetProgress() {
   regenLevel = 0;
   slowLevel = 0;
   aegisLevel = 0;
+  godsFingerUnlocked = false;
+  godsFingerPurchased = false;
   state.betweenLevels = false;
   rebuildShields();
   updateLevelButtons();
@@ -4733,7 +5010,8 @@ function updateResetVisibility() {
     Number(localStorage.getItem('novaLevel')) > 0 ||
     Number(localStorage.getItem('regenLevel')) > 0 ||
     Number(localStorage.getItem('slowLevel')) > 0 ||
-    Number(localStorage.getItem('aegisLevel')) > 0
+    Number(localStorage.getItem('aegisLevel')) > 0 ||
+    localStorage.getItem('godsFingerUnlocked') === 'true'
   );
   const showOptions = !startScreen.classList.contains('hidden') && menuOptionsPanel && !menuOptionsPanel.classList.contains('hidden');
   resetProgressButton.classList.toggle('hidden', !hasProgress || !showOptions);
