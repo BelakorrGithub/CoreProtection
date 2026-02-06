@@ -221,6 +221,20 @@ body[data-theme="retro"] .style-card {
 
 body[data-theme="retro"] .skill {
   line-height: 1.8;
+  font-size: 7px;
+  letter-spacing: 0;
+  padding: 6px 3px 8px;
+  word-break: break-word;
+}
+
+body[data-theme="retro"] .skill .status {
+  font-size: 7px;
+  letter-spacing: 0;
+}
+
+body[data-theme="retro"] .skill .cost {
+  font-size: 7px;
+  letter-spacing: 0;
 }
 
 body[data-theme="retro"] .level-button.hardcore {
