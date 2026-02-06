@@ -654,7 +654,9 @@ const state = {
   musicTempo: 140,
   lastTime: 0,
   animationTime: 0, // Time used for animations, only updates when game is running and not paused
-  debugMode: false
+  debugMode: false,
+  bossTestMode: false,
+  bossTestEntry: 'top'
 };
 
 const levels = [
@@ -701,10 +703,120 @@ const boss = {
   targetX: 0,
   targetY: 0,
   speed: 90,
-  mainHp: 20,
+  hp: 20,
   maxHp: 20,
+  bodyFlash: 0,
+  driftSpeed: 0,
+  driftDir: 1,
+  settled: false,
   parts: []
 };
+
+// ── Boss spaceship image & hitbox ────────────────────────
+const bossImage = new Image();
+bossImage.src = 'img/spaceship.png';
+const bossImageLeftDestroyed = new Image();
+bossImageLeftDestroyed.src = 'img/spaceship_left_destroyed.png';
+const bossImageRightDestroyed = new Image();
+bossImageRightDestroyed.src = 'img/spaceship_right_destroyed.png';
+const bossImageBothDestroyed = new Image();
+bossImageBothDestroyed.src = 'img/spaceship_both_destroyed.png';
+
+function getBossCurrentImage() {
+  const left = boss.parts.find(p => p.id === 'front-left');
+  const right = boss.parts.find(p => p.id === 'front-right');
+  const leftDead = left && left.hp <= 0;
+  const rightDead = right && right.hp <= 0;
+  if (leftDead && rightDead) return bossImageBothDestroyed;
+  if (leftDead) return bossImageLeftDestroyed;
+  if (rightDead) return bossImageRightDestroyed;
+  return bossImage;
+}
+
+// Polygon hitbox for the spaceship silhouette (normalized 0-1 in image/ship space)
+const bossHitboxPoly = [
+  { x: 0.12, y: 0.03 },
+  { x: 0.35, y: 0.03 },
+  { x: 0.35, y: 0.12 },
+  { x: 0.42, y: 0.07 },
+  { x: 0.58, y: 0.07 },
+  { x: 0.65, y: 0.12 },
+  { x: 0.65, y: 0.03 },
+  { x: 0.88, y: 0.03 },
+  { x: 0.97, y: 0.20 },
+  { x: 0.99, y: 0.34 },
+  { x: 0.99, y: 0.52 },
+  { x: 0.90, y: 0.58 },
+  { x: 0.73, y: 0.63 },
+  { x: 0.62, y: 0.76 },
+  { x: 0.55, y: 0.90 },
+  { x: 0.50, y: 0.97 },
+  { x: 0.45, y: 0.90 },
+  { x: 0.38, y: 0.76 },
+  { x: 0.27, y: 0.63 },
+  { x: 0.10, y: 0.58 },
+  { x: 0.01, y: 0.52 },
+  { x: 0.01, y: 0.34 },
+  { x: 0.03, y: 0.20 },
+];
+
+function getBossRotation() {
+  if (boss.entry === 'left') return -Math.PI / 2;
+  if (boss.entry === 'right') return Math.PI / 2;
+  return 0;
+}
+
+function getBossImageDims() {
+  if (boss.entry === 'left' || boss.entry === 'right') {
+    return { imgW: boss.height, imgH: boss.width };
+  }
+  return { imgW: boss.width, imgH: boss.height };
+}
+
+function shipToScreen(normX, normY) {
+  const cx = boss.x + boss.width / 2;
+  const cy = boss.y + boss.height / 2;
+  const rotation = getBossRotation();
+  const { imgW, imgH } = getBossImageDims();
+  const localX = normX * imgW - imgW / 2;
+  const localY = normY * imgH - imgH / 2;
+  const cos = Math.cos(rotation);
+  const sin = Math.sin(rotation);
+  return {
+    x: cx + localX * cos - localY * sin,
+    y: cy + localX * sin + localY * cos
+  };
+}
+
+function screenToShip(sx, sy) {
+  const cx = boss.x + boss.width / 2;
+  const cy = boss.y + boss.height / 2;
+  const rotation = getBossRotation();
+  const dx = sx - cx;
+  const dy = sy - cy;
+  const cos = Math.cos(-rotation);
+  const sin = Math.sin(-rotation);
+  const localX = dx * cos - dy * sin;
+  const localY = dx * sin + dy * cos;
+  const { imgW, imgH } = getBossImageDims();
+  return {
+    x: (localX + imgW / 2) / imgW,
+    y: (localY + imgH / 2) / imgH
+  };
+}
+
+function pointInPolygon(px, py, poly) {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const xi = poly[i].x, yi = poly[i].y;
+    const xj = poly[j].x, yj = poly[j].y;
+    if ((yi > py) !== (yj > py) && px < (xj - xi) * (py - yi) / (yj - yi) + xi) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
 let stars = [];
 let screenFlash = 0;
 let shockwave = 0;
@@ -1653,21 +1765,17 @@ function spawnTwinPair(x, y) {
   twinGroups.set(id, { a: m1, b: m2, primeA: 0, primeB: 0 });
 }
 
-function buildBossParts(mainHp, launchers) {
-  const hpScale = Math.max(0.5, mainHp / 20);
-  const parts = [
-    { id: 'main', x: 0.2, y: 0.25, w: 0.6, h: 0.5, hp: mainHp, type: 'main', flash: 0 }
-  ];
+function buildBossParts(launchers) {
+  const parts = [];
   if (!launchers) return parts;
   launchers.forEach((launcher, index) => {
-    const baseHp = launcher.baseHp || (launcher.type === 'tank' ? 8 : launcher.type === 'fast' ? 6 : 4);
     parts.push({
       id: launcher.id || `launcher-${index}`,
       x: launcher.x,
       y: launcher.y,
       w: launcher.w,
       h: launcher.h,
-      hp: Math.max(2, Math.round(baseHp * hpScale)),
+      hp: launcher.hp || launcher.baseHp || 8,
       type: launcher.type || 'standard',
       flash: 0,
       cooldown: 0,
@@ -1682,15 +1790,18 @@ function initBoss(options = {}) {
   const scale = layout.scale;
   const baseSize = Math.min(width, height) * 0.42;
   const entry = options.entry || 'top';
-  const mainHp = options.mainHp || 20;
+  const bossHp = options.bossHp || 20;
   const launchers = options.launchers || [
-    { id: 'front-left', x: 0.05, y: 0.15, w: 0.18, h: 0.18, type: 'standard', rate: 2.4, baseHp: 4 },
-    { id: 'front-right', x: 0.77, y: 0.15, w: 0.18, h: 0.18, type: 'standard', rate: 2.4, baseHp: 4 },
-    { id: 'rear-left', x: 0.12, y: 0.7, w: 0.2, h: 0.18, type: 'fast', rate: 3.2, baseHp: 6 },
-    { id: 'rear-right', x: 0.68, y: 0.7, w: 0.2, h: 0.18, type: 'tank', rate: 4.2, baseHp: 8 }
+    { id: 'front-left', x: 0.01, y: 0.02, w: 0.31, h: 0.56, hp: 10, type: 'standard', rate: 2.4 },
+    { id: 'front-right', x: 0.68, y: 0.02, w: 0.31, h: 0.56, hp: 10, type: 'standard', rate: 2.4 }
   ];
   boss.active = true;
   boss.entry = entry;
+  boss.deathTimer = 0;
+  boss.bodyFlash = 0;
+  boss.driftSpeed = options.driftSpeed || 40;
+  boss.driftDir = 1;
+  boss.settled = false;
   boss.width = baseSize;
   boss.height = baseSize * 0.72;
   if (entry === 'left') {
@@ -1709,9 +1820,9 @@ function initBoss(options = {}) {
     boss.targetX = boss.x;
     boss.targetY = 20 * scale;
   }
-  boss.mainHp = mainHp;
-  boss.parts = buildBossParts(mainHp, launchers);
-  boss.maxHp = boss.mainHp;
+  boss.parts = buildBossParts(launchers);
+  boss.hp = bossHp;
+  boss.maxHp = bossHp;
   updateBossBar();
 }
 
@@ -2236,6 +2347,7 @@ function resetGame() {
   state.bossPhase = false;
   state.paused = false;
   state.debugMode = false;
+  state.bossTestMode = false;
   if (debugPanel) {
     debugPanel.classList.add('hidden');
   }
@@ -2275,6 +2387,11 @@ function resetGame() {
   debugMeteorTemplates.length = 0;
   debugRespawnQueue.length = 0;
   boss.active = false;
+  boss.hp = 0;
+  boss.bodyFlash = 0;
+  boss.deathTimer = 0;
+  boss.settled = false;
+  boss.driftDir = 1;
   boss.parts = [];
   updateBossBar();
   if (survivalTimeEl) {
@@ -2365,32 +2482,32 @@ function getBossConfig(level) {
   if (level === 1) {
     return {
       entry: 'left',
-      mainHp: 12,
+      bossHp: 20,
+      driftSpeed: 30,
       launchers: [
-        { id: 'front-left', x: 0.1, y: 0.18, w: 0.18, h: 0.18, type: 'standard', rate: 3.4, baseHp: 3 },
-        { id: 'front-right', x: 0.72, y: 0.18, w: 0.18, h: 0.18, type: 'standard', rate: 3.4, baseHp: 3 }
+        { id: 'front-left', x: 0.01, y: 0.02, w: 0.31, h: 0.56, hp: 6, type: 'standard', rate: 3.4 },
+        { id: 'front-right', x: 0.68, y: 0.02, w: 0.31, h: 0.56, hp: 6, type: 'standard', rate: 3.4 }
       ]
     };
   }
   if (level === 2) {
     return {
       entry: 'right',
-      mainHp: 16,
+      bossHp: 30,
+      driftSpeed: 50,
       launchers: [
-        { id: 'front-left', x: 0.06, y: 0.16, w: 0.18, h: 0.18, type: 'standard', rate: 2.9, baseHp: 4 },
-        { id: 'front-right', x: 0.76, y: 0.16, w: 0.18, h: 0.18, type: 'standard', rate: 2.9, baseHp: 4 },
-        { id: 'rear-center', x: 0.4, y: 0.68, w: 0.2, h: 0.18, type: 'fast', rate: 3.1, baseHp: 5 }
+        { id: 'front-left', x: 0.01, y: 0.02, w: 0.31, h: 0.56, hp: 8, type: 'standard', rate: 2.9 },
+        { id: 'front-right', x: 0.68, y: 0.02, w: 0.31, h: 0.56, hp: 8, type: 'standard', rate: 2.9 }
       ]
     };
   }
   return {
     entry: 'top',
-    mainHp: 20,
+    bossHp: 40,
+    driftSpeed: 70,
     launchers: [
-      { id: 'front-left', x: 0.05, y: 0.15, w: 0.18, h: 0.18, type: 'standard', rate: 2.2, baseHp: 4 },
-      { id: 'front-right', x: 0.77, y: 0.15, w: 0.18, h: 0.18, type: 'standard', rate: 2.2, baseHp: 4 },
-      { id: 'rear-left', x: 0.12, y: 0.7, w: 0.2, h: 0.18, type: 'fast', rate: 2.8, baseHp: 6 },
-      { id: 'rear-right', x: 0.68, y: 0.7, w: 0.2, h: 0.18, type: 'tank', rate: 3.6, baseHp: 8 }
+      { id: 'front-left', x: 0.01, y: 0.02, w: 0.31, h: 0.56, hp: 10, type: 'standard', rate: 2.2 },
+      { id: 'front-right', x: 0.68, y: 0.02, w: 0.31, h: 0.56, hp: 10, type: 'standard', rate: 2.2 }
     ]
   };
 }
@@ -2408,6 +2525,38 @@ function startBossLevel(showMessage = true) {
   }
 }
 
+function startBossTest(entry) {
+  resetGame();
+  state.bossTestMode = true;
+  state.bossTestEntry = entry || 'top';
+  state.running = true;
+  state.bossPhase = true;
+  state.bossSpawnTimer = 0;
+  core.alive = true;
+  // Hide menus
+  const startScreen = document.getElementById('start-screen');
+  if (startScreen) startScreen.classList.add('hidden');
+  countdownEl.classList.add('hidden');
+  // Init boss with given entry
+  initBoss({
+    entry: state.bossTestEntry,
+    bossHp: 25,
+    driftSpeed: 50,
+    launchers: [
+      { id: 'front-left', x: 0.01, y: 0.02, w: 0.31, h: 0.56, hp: 8, type: 'standard', rate: 3.0 },
+      { id: 'front-right', x: 0.68, y: 0.02, w: 0.31, h: 0.56, hp: 8, type: 'standard', rate: 3.0 }
+    ]
+  });
+  updateHud();
+  updateUpgradeVisibility();
+  showWaveMessage('BOSS TEST (' + entry.toUpperCase() + ') - INVINCIBLE', 2.0);
+}
+
+// Keyboard shortcut: B key cycles boss test (top → left → right → off)
+// Only works from the menu screen
+window._bossTestCycle = 0;
+const _bossTestEntries = ['top', 'left', 'right'];
+
 function startSurvival() {
   state.running = true;
   state.betweenLevels = false;
@@ -2423,6 +2572,11 @@ function startSurvival() {
 
 function completeLevel() {
   state.running = false;
+  // In boss test mode, just respawn the boss with next entry direction
+  if (state.bossTestMode) {
+    showWaveMessage('BOSS DEFEATED! Press B for next entry', 2.5);
+    return;
+  }
   if (state.level >= levels.length) {
     stopMusic();
     playSfx('victory');
@@ -3235,7 +3389,8 @@ function drawCore() {
 
 function updateBoss(dt) {
   if (!boss.active) return;
-  if (boss.x !== boss.targetX || boss.y !== boss.targetY) {
+  // Move boss to initial target position
+  if (!boss.settled) {
     const dx = boss.targetX - boss.x;
     const dy = boss.targetY - boss.y;
     const dist = Math.hypot(dx, dy);
@@ -3247,16 +3402,38 @@ function updateBoss(dt) {
     } else {
       boss.x = boss.targetX;
       boss.y = boss.targetY;
+      boss.settled = true;
+    }
+  }
+
+  // Lateral drift movement once settled (skip during death)
+  if (boss.settled && boss.hp > 0 && boss.driftSpeed > 0) {
+    const scale = layout.scale;
+    const margin = 20 * scale;
+    if (boss.entry === 'top') {
+      // Horizontal drift
+      boss.x += boss.driftSpeed * boss.driftDir * dt;
+      const minX = margin;
+      const maxX = width - boss.width - margin;
+      if (boss.x >= maxX) { boss.x = maxX; boss.driftDir = -1; }
+      if (boss.x <= minX) { boss.x = minX; boss.driftDir = 1; }
+    } else {
+      // Vertical drift (for left/right entry)
+      boss.y += boss.driftSpeed * boss.driftDir * dt;
+      const minY = margin;
+      const maxY = layout.y - boss.height / 2 + boss.height * 0.4;
+      if (boss.y >= maxY) { boss.y = maxY; boss.driftDir = -1; }
+      if (boss.y <= minY) { boss.y = minY; boss.driftDir = 1; }
     }
   }
   boss.parts.forEach(part => {
-    if (part.hp <= 0 || part.type === 'main') return;
+    if (part.hp <= 0) return;
     part.cooldown += dt;
     if (part.cooldown >= part.rate) {
       part.cooldown = 0;
-      const partX = boss.x + part.x * boss.width + part.w * boss.width * 0.5;
-      const partY = boss.y + part.y * boss.height + part.h * boss.height * 0.5;
-      spawnMissileFrom(partX, partY, part.type);
+      // Transform part center from ship-space to screen-space
+      const spawnPos = shipToScreen(part.x + part.w * 0.5, part.y + part.h * 0.5);
+      spawnMissileFrom(spawnPos.x, spawnPos.y, part.type);
     }
   });
 
@@ -3265,16 +3442,53 @@ function updateBoss(dt) {
       part.flash = Math.max(0, part.flash - dt * 2.5);
     }
   });
+  if (boss.bodyFlash > 0) {
+    boss.bodyFlash = Math.max(0, boss.bodyFlash - dt * 2.5);
+  }
 
-  const main = boss.parts.find(part => part.id === 'main');
-  if (main && main.hp <= 0) {
-    boss.active = false;
-    state.bossPhase = false;
-    missiles.length = 0;
-    twinGroups.clear();
-    updateBossBar();
-    completeLevel();
-    return;
+  // Boss dies when general HP reaches 0 (with death animation delay)
+  if (boss.hp <= 0) {
+    if (!boss.deathTimer) {
+      boss.deathTimer = 2.0; // Show destroyed state before boss dies
+      boss.deathExplosionTimer = 0;
+      missiles.length = 0;
+      twinGroups.clear();
+      // Force all launchers destroyed for the "both destroyed" image
+      boss.parts.forEach(p => { if (p.hp > 0) p.hp = 0; });
+      // Initial big explosion + sound
+      const cx = boss.x + boss.width / 2;
+      const cy = boss.y + boss.height / 2;
+      playSfx('boom');
+      triggerExplosion(cx, cy, '#ff6b3b', 80, 0.6, 16);
+      screenFlash = 0.4;
+    }
+    // Chain explosions during death animation
+    boss.deathExplosionTimer = (boss.deathExplosionTimer || 0) + dt;
+    if (boss.deathExplosionTimer >= 0.25) {
+      boss.deathExplosionTimer = 0;
+      const { imgW, imgH } = getBossImageDims();
+      const rx = (0.15 + Math.random() * 0.7);
+      const ry = (0.1 + Math.random() * 0.6);
+      const pos = shipToScreen(rx, ry);
+      const colors = ['#ff6b3b', '#ffb347', '#ff4444', '#ffa500', '#ff7700'];
+      triggerExplosion(pos.x, pos.y, colors[Math.floor(Math.random() * colors.length)], 30 + Math.random() * 40, 0.4, 6 + Math.floor(Math.random() * 6));
+    }
+    boss.deathTimer -= dt;
+    if (boss.deathTimer <= 0) {
+      boss.deathTimer = 0;
+      boss.active = false;
+      state.bossPhase = false;
+      // Final big explosion
+      const cx = boss.x + boss.width / 2;
+      const cy = boss.y + boss.height / 2;
+      triggerExplosion(cx, cy, '#ffb347', 120, 0.8, 24);
+      screenFlash = 0.6;
+      shockwave = 1;
+      playSfx('success');
+      updateBossBar();
+      completeLevel();
+      return;
+    }
   }
   updateBossBar();
 }
@@ -3282,104 +3496,126 @@ function updateBoss(dt) {
 function drawBoss() {
   if (!boss.active) return;
   ctx.save();
-  const x = boss.x;
-  const y = boss.y;
-  const w = boss.width;
-  const h = boss.height;
-  const bevel = Math.min(w, h) * 0.08;
-  const hullGradient = ctx.createLinearGradient(x, y, x, y + h);
-  hullGradient.addColorStop(0, 'rgba(10, 20, 35, 0.95)');
-  hullGradient.addColorStop(1, 'rgba(25, 45, 70, 0.95)');
-  ctx.fillStyle = hullGradient;
-  ctx.strokeStyle = 'rgba(90, 140, 190, 0.5)';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(x + bevel, y);
-  ctx.lineTo(x + w - bevel, y);
-  ctx.lineTo(x + w, y + bevel);
-  ctx.lineTo(x + w, y + h - bevel);
-  ctx.lineTo(x + w - bevel, y + h);
-  ctx.lineTo(x + bevel, y + h);
-  ctx.lineTo(x, y + h - bevel);
-  ctx.lineTo(x, y + bevel);
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
+  const cx = boss.x + boss.width / 2;
+  const cy = boss.y + boss.height / 2;
+  const rotation = getBossRotation();
+  const { imgW, imgH } = getBossImageDims();
 
-  ctx.fillStyle = 'rgba(15, 30, 50, 0.9)';
-  ctx.beginPath();
-  ctx.moveTo(x + w * 0.1, y + h * 0.3);
-  ctx.lineTo(x + w * 0.3, y + h * 0.15);
-  ctx.lineTo(x + w * 0.7, y + h * 0.15);
-  ctx.lineTo(x + w * 0.9, y + h * 0.3);
-  ctx.lineTo(x + w * 0.75, y + h * 0.4);
-  ctx.lineTo(x + w * 0.25, y + h * 0.4);
-  ctx.closePath();
-  ctx.fill();
+  ctx.translate(cx, cy);
+  ctx.rotate(rotation);
 
-  const panelW = w * 0.5;
-  const panelH = h * 0.08;
-  const panelX = x + w * 0.25;
-  const panelY = y + h * 0.16;
-  const panelGradient = ctx.createLinearGradient(panelX, panelY, panelX + panelW, panelY);
-  panelGradient.addColorStop(0, 'rgba(20, 40, 60, 0.8)');
-  panelGradient.addColorStop(1, 'rgba(40, 80, 120, 0.9)');
-  ctx.fillStyle = panelGradient;
-  ctx.beginPath();
-  ctx.roundRect(panelX, panelY, panelW, panelH, 4);
-  ctx.fill();
+  // Draw the correct spaceship image based on launcher state
+  const currentImg = getBossCurrentImage();
+  if (currentImg.complete && currentImg.naturalWidth > 0) {
+    ctx.drawImage(currentImg, -imgW / 2, -imgH / 2, imgW, imgH);
+  } else if (bossImage.complete && bossImage.naturalWidth > 0) {
+    ctx.drawImage(bossImage, -imgW / 2, -imgH / 2, imgW, imgH);
+  } else {
+    // Fallback rectangle if no image loaded
+    ctx.fillStyle = 'rgba(10, 20, 35, 0.95)';
+    ctx.fillRect(-imgW / 2, -imgH / 2, imgW, imgH);
+  }
 
-  ctx.strokeStyle = 'rgba(80, 140, 200, 0.4)';
-  ctx.beginPath();
-  ctx.moveTo(x + w * 0.2, y + h * 0.55);
-  ctx.lineTo(x + w * 0.8, y + h * 0.55);
-  ctx.stroke();
-
-  ctx.beginPath();
-  ctx.moveTo(x + w * 0.2, y + h * 0.65);
-  ctx.lineTo(x + w * 0.8, y + h * 0.65);
-  ctx.stroke();
-
-  boss.parts.forEach(part => {
-    if (part.hp <= 0) return;
-    const x = boss.x + part.x * boss.width;
-    const y = boss.y + part.y * boss.height;
-    const w = part.w * boss.width;
-    const h = part.h * boss.height;
-    const baseColor = part.type === 'main' ? '#8fb6ff' : part.type === 'tank' ? '#7fdc7a' : part.type === 'fast' ? '#6ce3ff' : '#ffb347';
-    ctx.fillStyle = baseColor;
-    ctx.globalAlpha = part.flash > 0 ? 0.6 + part.flash * 0.4 : 0.85;
-    ctx.fillRect(x, y, w, h);
+  // Draw body flash overlay when hit directly
+  if (boss.bodyFlash > 0) {
+    ctx.fillStyle = '#9cd3ff';
+    ctx.globalAlpha = boss.bodyFlash * 0.35;
+    ctx.beginPath();
+    for (let i = 0; i < bossHitboxPoly.length; i++) {
+      const p = bossHitboxPoly[i];
+      const px = p.x * imgW - imgW / 2;
+      const py = p.y * imgH - imgH / 2;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fill();
     ctx.globalAlpha = 1;
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
-    ctx.strokeRect(x, y, w, h);
+  }
+
+  // Draw flash overlays on damaged launcher parts (in ship-local space)
+  boss.parts.forEach(part => {
+    if (part.hp <= 0 || part.flash <= 0) return;
+    const px = part.x * imgW - imgW / 2;
+    const py = part.y * imgH - imgH / 2;
+    const pw = part.w * imgW;
+    const ph = part.h * imgH;
+    ctx.fillStyle = '#ffb347';
+    ctx.globalAlpha = part.flash * 0.45;
+    ctx.fillRect(px, py, pw, ph);
+    ctx.globalAlpha = 1;
   });
+
+  // Debug: draw hitbox polygon outline (only in debug mode)
+  if (state.debugMode) {
+    ctx.strokeStyle = 'rgba(0, 255, 0, 0.6)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let i = 0; i < bossHitboxPoly.length; i++) {
+      const p = bossHitboxPoly[i];
+      const px = p.x * imgW - imgW / 2;
+      const py = p.y * imgH - imgH / 2;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.stroke();
+
+    // Draw part rectangles in debug
+    boss.parts.forEach(part => {
+      if (part.hp <= 0) return;
+      const px = part.x * imgW - imgW / 2;
+      const py = part.y * imgH - imgH / 2;
+      const pw = part.w * imgW;
+      const ph = part.h * imgH;
+      ctx.fillStyle = 'rgba(255,180,70,0.3)';
+      ctx.fillRect(px, py, pw, ph);
+      ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+      ctx.strokeRect(px, py, pw, ph);
+    });
+  }
+
   ctx.restore();
 }
 
 function hitBossAt(x, y) {
-  if (!boss.active) return false;
+  if (!boss.active || boss.hp <= 0) return false;
+  // Transform screen point to ship-normalized space
+  const ship = screenToShip(x, y);
+
+  // Priority 1: Check alive launcher hitboxes (half damage to boss HP)
   for (let i = boss.parts.length - 1; i >= 0; i -= 1) {
     const part = boss.parts[i];
     if (part.hp <= 0) continue;
-    const px = boss.x + part.x * boss.width;
-    const py = boss.y + part.y * boss.height;
-    const pw = part.w * boss.width;
-    const ph = part.h * boss.height;
-    if (x >= px && x <= px + pw && y >= py && y <= py + ph) {
+    if (ship.x >= part.x && ship.x <= part.x + part.w &&
+        ship.y >= part.y && ship.y <= part.y + part.h) {
+      // Launcher hit: half damage to general HP + full damage to launcher HP
       part.hp -= 1;
+      boss.hp = Math.max(0, boss.hp - 0.5);
       part.flash = 0.6;
       playSfx(part.hp <= 0 ? 'boom' : 'hitsoft');
-      triggerExplosion(x, y, '#9cd3ff', 32, 0.2, 6);
+      triggerExplosion(x, y, '#ffb347', 32, 0.2, 6);
       if (part.hp <= 0) {
-        const bounty = part.type === 'main' ? 50 : 10;
-        awardMoney(bounty);
-        spawnCashFloater(x, y - 30, bounty);
+        awardMoney(25);
+        spawnCashFloater(x, y - 30, 25);
+        // Trigger big explosion for destroyed launcher
+        triggerExplosion(x, y, '#ff6b3b', 60, 0.5, 12);
       }
       updateBossBar();
       return true;
     }
   }
+
+  // Priority 2: Check body (polygon hitbox) - full damage to boss HP
+  if (pointInPolygon(ship.x, ship.y, bossHitboxPoly)) {
+    boss.hp = Math.max(0, boss.hp - 1);
+    boss.bodyFlash = 0.5;
+    playSfx('hitsoft');
+    triggerExplosion(x, y, '#9cd3ff', 28, 0.15, 5);
+    updateBossBar();
+    return true;
+  }
+
   return false;
 }
 
@@ -4427,9 +4663,8 @@ function updateBossBar() {
     bossBar.classList.add('hidden');
     return;
   }
-  const main = boss.parts.find(part => part.id === 'main');
-  const total = boss.maxHp || (main ? main.hp : 1);
-  const current = main ? Math.max(0, main.hp) : 0;
+  const total = boss.maxHp || 1;
+  const current = Math.max(0, boss.hp);
   const ratio = Math.max(0, Math.min(1, current / total));
   bossBarFill.style.width = `${ratio * 100}%`;
   bossBar.classList.remove('hidden');
@@ -4732,6 +4967,8 @@ function segmentIntersectsSquare(ax, ay, bx, by, cx, cy, half) {
 
 function handleCoreHit(customMessage = null) {
   if (!core.alive) return;
+  // Boss test mode: invincible
+  if (state.bossTestMode) return;
   const target = center();
   core.alive = false;
   state.running = false;
@@ -5567,6 +5804,36 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 's' || e.key === 'S') {
     e.preventDefault();
     toggleSfxMute();
+  }
+
+  // B key: start/cycle boss test mode
+  if (e.key === 'b' || e.key === 'B') {
+    e.preventDefault();
+    if (state.bossTestMode) {
+      // Cycle to next entry direction
+      window._bossTestCycle = (window._bossTestCycle + 1) % _bossTestEntries.length;
+      startBossTest(_bossTestEntries[window._bossTestCycle]);
+    } else {
+      window._bossTestCycle = 0;
+      startBossTest(_bossTestEntries[0]);
+    }
+  }
+
+  // 1 key: destroy left launcher (boss test only)
+  if (e.key === '1' && state.bossTestMode && boss.active) {
+    const left = boss.parts.find(p => p.id === 'front-left');
+    if (left && left.hp > 0) { left.hp = 0; updateBossBar(); }
+  }
+  // 2 key: destroy right launcher (boss test only)
+  if (e.key === '2' && state.bossTestMode && boss.active) {
+    const right = boss.parts.find(p => p.id === 'front-right');
+    if (right && right.hp > 0) { right.hp = 0; updateBossBar(); }
+  }
+  // 3 key: reduce boss HP by 5 (boss test only)
+  if (e.key === '3' && state.bossTestMode && boss.active) {
+    boss.hp = Math.max(0, boss.hp - 5);
+    boss.bodyFlash = 0.5;
+    updateBossBar();
   }
 });
 document.querySelectorAll('.skill').forEach(button => {
