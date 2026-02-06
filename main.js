@@ -3787,8 +3787,37 @@ function isMeteorHitboxInRadius(m, centerX, centerY, radius, config = meteorSpri
 function isMeteorHitboxInSquare(m, centerX, centerY, squareSize, config = meteorSpriteData.manualHitbox) {
   const spriteRect = getSpriteHitboxRect(m, config);
   if (!spriteRect) return null;
-  const local = toHitboxSpace(m, centerX, centerY, config);
-  return isSquareIntersectingRect(local.x, local.y, spriteRect, squareSize);
+  // Compute meteor hitbox corners in world space so the shield square
+  // stays axis-aligned with the screen (important for pixel theme).
+  const angle = getMeteorRotation(m, Math.atan2(m.vy, m.vx));
+  let totalAngle = angle;
+  if (config?.enabled && config.rotation) {
+    totalAngle += config.rotation;
+  }
+  const cos = Math.cos(totalAngle);
+  const sin = Math.sin(totalAngle);
+  const corners = [
+    { x: spriteRect.x,              y: spriteRect.y },
+    { x: spriteRect.x + spriteRect.w, y: spriteRect.y },
+    { x: spriteRect.x + spriteRect.w, y: spriteRect.y + spriteRect.h },
+    { x: spriteRect.x,              y: spriteRect.y + spriteRect.h }
+  ];
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const c of corners) {
+    const wx = m.x + c.x * cos - c.y * sin;
+    const wy = m.y + c.x * sin + c.y * cos;
+    if (wx < minX) minX = wx;
+    if (wx > maxX) maxX = wx;
+    if (wy < minY) minY = wy;
+    if (wy > maxY) maxY = wy;
+  }
+  // Shield square in world space (axis-aligned)
+  const half = squareSize * 0.5;
+  const sqL = centerX - half;
+  const sqR = centerX + half;
+  const sqT = centerY - half;
+  const sqB = centerY + half;
+  return !(maxX < sqL || minX > sqR || maxY < sqT || minY > sqB);
 }
 
 function isMeteorHitboxIntersectingHex(m, centerX, centerY, radius, config, rotation) {
@@ -4976,14 +5005,14 @@ function handleCoreHit(customMessage = null) {
   triggerExplosion(target.x, target.y, '#ffb347', 140, 0.7, 18);
   
   let message;
-  if (customMessage) {
-    message = customMessage;
-  } else if (state.survivalLevel) {
+  // Always save and show survival record, even on self-kill
+  if (state.survivalLevel) {
     const isRecord = saveSurvivalRecord(state.survivalTime);
     const timeText = `${state.survivalTime.toFixed(1)}s`;
-    message = isRecord ? t('survivalNewRecord', timeText) : t('survivalTime', timeText);
+    const survivalLine = isRecord ? t('survivalNewRecord', timeText) : t('survivalTime', timeText);
+    message = customMessage ? customMessage + '\n' + survivalLine : survivalLine;
   } else {
-    message = t('gameOver');
+    message = customMessage || t('gameOver');
   }
   stopMusic();
   if (waveTimeout) {

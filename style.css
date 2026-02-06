@@ -1507,6 +1507,8 @@ body[data-theme="retro"] .style-card.active {
   color: var(--title-color);
   text-shadow: var(--title-shadow);
   font-family: var(--font-title);
+  white-space: pre-line;
+  line-height: 1.4;
 }
 
 .result-title.defeat {
