@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
   <meta charset="UTF-8" />
   <title>Core Protection</title>
@@ -71,6 +71,52 @@
   <div id="gameover" class="hidden">Game Over</div>
   <button id="gameover-menu" class="hidden">Return to Menu</button>
   <button id="gameover-retry" class="hidden">Retry Level</button>
+  <div id="result-screen" class="hidden">
+    <div class="result-header">
+      <div class="result-title" id="result-title">Game Over</div>
+      <div class="result-credits" id="result-credits"><span class="icon icon-coin" aria-hidden="true"></span><span class="label">Credits: 0</span></div>
+    </div>
+    <div class="result-upgrades action-row" id="result-upgrades">
+      <div class="row-title">Upgrades</div>
+      <button class="skill upgrade" data-upgrade="shield">
+        <span class="icon icon-shield" aria-hidden="true"></span>
+        <span class="label">Shield level 1</span>
+        <span class="status"></span>
+      </button>
+      <button class="skill upgrade" data-upgrade="nova">
+        <span class="icon icon-explosion" aria-hidden="true"></span>
+        <span class="label">Unlock Nova</span>
+        <span class="status"></span>
+      </button>
+      <button class="skill upgrade" data-upgrade="regen">
+        <span class="icon icon-plus" aria-hidden="true"></span>
+        <span class="label">Unlock Regen</span>
+        <span class="status"></span>
+      </button>
+      <button class="skill upgrade" data-upgrade="slow">
+        <span class="icon icon-hourglass" aria-hidden="true"></span>
+        <span class="label">Unlock Slow</span>
+        <span class="status"></span>
+      </button>
+      <button class="skill upgrade" data-upgrade="aegis">
+        <span class="icon icon-aegis" aria-hidden="true"></span>
+        <span class="label">Unlock Aegis</span>
+        <span class="status"></span>
+      </button>
+      <button class="skill upgrade" data-upgrade="godsFinger">
+        <span class="icon icon-explosion" aria-hidden="true"></span>
+        <span class="label">Unlock God's Finger</span>
+        <span class="status"></span>
+      </button>
+    </div>
+    <div class="result-actions">
+      <button id="result-retry">Retry Level</button>
+      <button id="result-next" class="hidden">Next Level</button>
+      <button id="result-hardcore" class="hidden">Play Hardcore</button>
+      <button id="result-survival" class="hidden">Play Survival</button>
+      <button id="result-menu">Return to Menu</button>
+    </div>
+  </div>
   <div id="victory" class="hidden">
     <div class="title">Congratulations</div>
     <div class="subtitle">You completed all levels</div>
@@ -205,8 +251,23 @@
           <span class="style-desc">Molten steel defense</span>
         </button>
       </div>
-      <button id="reset-progress" class="level-button">Reset Progress</button>
-      <button id="options-back"><span aria-hidden="true">&lt;</span> Back to Menu</button>
+      <div class="language-title">Idioma</div>
+      <div class="language-grid">
+        <button class="lang-card" data-lang="es">
+          <span class="lang-flag">🇪🇸</span>
+          <span class="lang-name">Español</span>
+        </button>
+        <button class="lang-card" data-lang="en">
+          <span class="lang-flag">🇬🇧</span>
+          <span class="lang-name">English</span>
+        </button>
+        <button class="lang-card" data-lang="fr">
+          <span class="lang-flag">🇫🇷</span>
+          <span class="lang-name">Français</span>
+        </button>
+      </div>
+      <button id="reset-progress" class="level-button">Reiniciar Progreso</button>
+      <button id="options-back"><span aria-hidden="true">&lt;</span> Volver al Menú</button>
     </div>
   </div>
   <div id="confirm-reset" class="hidden">

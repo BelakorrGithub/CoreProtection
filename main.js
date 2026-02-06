@@ -1,6 +1,542 @@
 // Debug buttons visibility - set to true to show admin debug buttons
 const SHOW_DEBUG_BUTTONS = false;
 
+// ── i18n ──────────────────────────────────────────────────
+const i18n = {
+  es: {
+    // HUD
+    level: n => `Nivel ${n}`,
+    waveOf: (w, t) => `Oleada ${w} de ${t}`,
+    wave: w => `Oleada ${w}`,
+    boss: 'Jefe',
+    credits: n => `Créditos: ${n}`,
+    time: t => `Tiempo ${t}s`,
+    survival: 'Supervivencia',
+    hardcore: 'Extremo',
+    debugMode: 'Modo Depuración',
+    meteorViewer: 'Visor de Meteoritos',
+
+    // Menu
+    gameTitle: 'Core Protection',
+    play: 'Jugar',
+    upgrades: 'Mejoras',
+    options: 'Opciones',
+    start: 'Iniciar',
+    backToMenu: 'Volver al Menú',
+    backToModes: 'Volver a Modos',
+    modes: 'Modos',
+    normalMode: 'Modo Normal',
+    hardcoreMode: 'Modo Extremo',
+    survivalMode: 'Modo Supervivencia',
+    normalLevels: 'Niveles Normales',
+    levelN: n => `Nivel ${n}`,
+    hardcoreDesc: 'No habrá habilidades ni mejoras disponibles en este modo.',
+    survivalDesc: 'Oleadas infinitas con puntuación basada en tiempo de supervivencia.',
+    highScores: 'Mejores Puntuaciones',
+    noRecords: 'Sin registros aún',
+
+    // Options
+    music: 'Música',
+    sounds: 'Sonidos',
+    styles: 'Estilos',
+    language: 'Idioma',
+    defaultStyle: 'Predeterminado',
+    defaultDesc: 'Defensa espacial clásica',
+    retroStyle: 'Retro',
+    retroDesc: 'Arcade retro con cuadrícula',
+    neonStyle: 'Neón',
+    neonDesc: 'Ciencia ficción con brillo',
+    forgeStyle: 'Forja',
+    forgeDesc: 'Defensa de acero fundido',
+    resetProgress: 'Reiniciar Progreso',
+    resetTitle: 'Reiniciar Progreso?',
+    resetText: 'Esto borrará niveles, créditos y mejoras.',
+    yes: 'Sí',
+    cancel: 'Cancelar',
+
+    // Pause
+    paused: 'Pausado',
+    tapResume: 'Toca para continuar',
+    returnToMenu: 'Volver al Menú',
+    returnToMenuQ: 'Volver al Menú?',
+    pauseLoseCredits: 'Perderás todos los créditos ganados en esta partida.',
+
+    // Game messages
+    bossIncoming: 'Jefe Entrante',
+    levelComplete: 'Nivel Completado',
+    gameOver: 'Fin del Juego',
+    hardcoreModeMsg: 'Modo Extremo',
+    survivalModeMsg: 'Modo Supervivencia',
+    survivalTime: t => `Supervivencia: ${t}`,
+    survivalNewRecord: t => `Supervivencia: ${t} — ¡Nuevo Récord!`,
+    godsFingerDeath: 'La ira de Dios está fuera de control...\n¡Te has matado a ti mismo!',
+
+    // Victory / Result
+    congratulations: 'Felicidades',
+    completedAll: 'Has completado todos los niveles',
+    hardcoreUnlocked: 'MODO EXTREMO DESBLOQUEADO',
+    continue_: 'Continuar',
+    retryLevel: 'Reintentar Nivel',
+    nextLevel: 'Siguiente Nivel',
+    playHardcore: 'Jugar Extremo',
+    playSurvival: 'Jugar Supervivencia',
+
+    // Abilities
+    abilities: 'Habilidades',
+    pause: 'Pausa',
+    debug: 'Depurar',
+    locked: 'Bloqueado',
+    max: 'Máx',
+    cooldownS: s => `Enfriamiento ${s}s`,
+    shieldLevel: n => `Escudo nivel ${n}`,
+    unlockNova: 'Desbloquear Nova',
+    novaLevel: n => `Nova Nivel ${n}`,
+    unlockRegen: 'Desbloquear Regen',
+    regenLevel: n => `Regen Nivel ${n}`,
+    unlockSlow: 'Desbloquear Lento',
+    slowLevel: n => `Lento Nivel ${n}`,
+    unlockAegis: 'Desbloquear Aegis',
+    aegisLevel: n => `Aegis Nivel ${n}`,
+    unlockGodsFinger: 'Desbloquear Dedo de Dios',
+    disableGodsFinger: 'Desactivar Dedo de Dios',
+    enableGodsFinger: 'Activar Dedo de Dios',
+    clickToDisable: 'Clic para desactivar',
+    clickToEnable: 'Clic para activar (gratis)',
+    permanentUpgrade: 'Mejora permanente',
+    adminCreditsLabel: '+1000 Créditos',
+    admin: 'Admin',
+    notAdmin: 'No eres administrador',
+    notEnoughCredits: 'Créditos insuficientes',
+    levelNotAvailable: 'Este nivel aún no está disponible',
+
+    // Hardcore confirm
+    hardcoreConfirmTitle: 'Modo Extremo',
+    hardcoreConfirmPlay: 'Jugar Extremo',
+
+    // Medal aria
+    goldMedal: 'Medalla de oro',
+    silverMedal: 'Medalla de plata',
+    bronzeMedal: 'Medalla de bronce',
+  },
+  en: {
+    level: n => `Level ${n}`,
+    waveOf: (w, t) => `Wave ${w} of ${t}`,
+    wave: w => `Wave ${w}`,
+    boss: 'Boss',
+    credits: n => `Credits: ${n}`,
+    time: t => `Time ${t}s`,
+    survival: 'Survival',
+    hardcore: 'Hardcore',
+    debugMode: 'Debug Mode',
+    meteorViewer: 'Meteor Viewer',
+
+    gameTitle: 'Core Protection',
+    play: 'Play',
+    upgrades: 'Upgrades',
+    options: 'Options',
+    start: 'Start',
+    backToMenu: 'Back to Menu',
+    backToModes: 'Back to Modes',
+    modes: 'Modes',
+    normalMode: 'Normal Mode',
+    hardcoreMode: 'Hardcore Mode',
+    survivalMode: 'Survival Mode',
+    normalLevels: 'Normal Levels',
+    levelN: n => `Level ${n}`,
+    hardcoreDesc: 'No skills or upgrades will be available in this mode.',
+    survivalDesc: 'Endless waves with scores tracked by time survived.',
+    highScores: 'High Scores',
+    noRecords: 'No records yet',
+
+    music: 'Music',
+    sounds: 'Sounds',
+    styles: 'Styles',
+    language: 'Language',
+    defaultStyle: 'Default',
+    defaultDesc: 'Classic space defense',
+    retroStyle: 'Retro',
+    retroDesc: 'Retro arcade grid',
+    neonStyle: 'Neon',
+    neonDesc: 'Hyper glow sci-fi',
+    forgeStyle: 'Forge',
+    forgeDesc: 'Molten steel defense',
+    resetProgress: 'Reset Progress',
+    resetTitle: 'Reset Progress?',
+    resetText: 'This will clear levels, credits, and upgrades.',
+    yes: 'Yes',
+    cancel: 'Cancel',
+
+    paused: 'Paused',
+    tapResume: 'Tap to resume',
+    returnToMenu: 'Return to Menu',
+    returnToMenuQ: 'Return to Menu?',
+    pauseLoseCredits: 'You will lose all credits earned this run.',
+
+    bossIncoming: 'Boss Incoming',
+    levelComplete: 'Level Complete',
+    gameOver: 'Game Over',
+    hardcoreModeMsg: 'Hardcore Mode',
+    survivalModeMsg: 'Survival Mode',
+    survivalTime: t => `Survival: ${t}`,
+    survivalNewRecord: t => `Survival: ${t} — New Record!`,
+    godsFingerDeath: 'The wrath of God is out of control...\nYou killed yourself!',
+
+    congratulations: 'Congratulations',
+    completedAll: 'You completed all levels',
+    hardcoreUnlocked: 'HARDCORE MODE UNLOCKED',
+    continue_: 'Continue',
+    retryLevel: 'Retry Level',
+    nextLevel: 'Next Level',
+    playHardcore: 'Play Hardcore',
+    playSurvival: 'Play Survival',
+
+    abilities: 'Abilities',
+    pause: 'Pause',
+    debug: 'Debug',
+    locked: 'Locked',
+    max: 'Max',
+    cooldownS: s => `Cooldown ${s}s`,
+    shieldLevel: n => `Shield level ${n}`,
+    unlockNova: 'Unlock Nova',
+    novaLevel: n => `Nova Level ${n}`,
+    unlockRegen: 'Unlock Regen',
+    regenLevel: n => `Regen Level ${n}`,
+    unlockSlow: 'Unlock Slow',
+    slowLevel: n => `Slow Level ${n}`,
+    unlockAegis: 'Unlock Aegis',
+    aegisLevel: n => `Aegis Level ${n}`,
+    unlockGodsFinger: "Unlock God's Finger",
+    disableGodsFinger: "Disable God's Finger",
+    enableGodsFinger: "Enable God's Finger",
+    clickToDisable: 'Click to disable',
+    clickToEnable: 'Click to enable (free)',
+    permanentUpgrade: 'Permanent upgrade',
+    adminCreditsLabel: '+1000 Credits',
+    admin: 'Admin',
+    notAdmin: 'You are not an admin',
+    notEnoughCredits: 'Not enough credits',
+    levelNotAvailable: 'This level is not available yet',
+
+    hardcoreConfirmTitle: 'Hardcore Mode',
+    hardcoreConfirmPlay: 'Play Hardcore',
+
+    goldMedal: 'Gold medal',
+    silverMedal: 'Silver medal',
+    bronzeMedal: 'Bronze medal',
+  },
+  fr: {
+    level: n => `Niveau ${n}`,
+    waveOf: (w, t) => `Vague ${w} sur ${t}`,
+    wave: w => `Vague ${w}`,
+    boss: 'Boss',
+    credits: n => `Crédits : ${n}`,
+    time: t => `Temps ${t}s`,
+    survival: 'Survie',
+    hardcore: 'Extrême',
+    debugMode: 'Mode Débogage',
+    meteorViewer: 'Visionneur de Météores',
+
+    gameTitle: 'Core Protection',
+    play: 'Jouer',
+    upgrades: 'Améliorations',
+    options: 'Options',
+    start: 'Lancer',
+    backToMenu: 'Retour au Menu',
+    backToModes: 'Retour aux Modes',
+    modes: 'Modes',
+    normalMode: 'Mode Normal',
+    hardcoreMode: 'Mode Extrême',
+    survivalMode: 'Mode Survie',
+    normalLevels: 'Niveaux Normaux',
+    levelN: n => `Niveau ${n}`,
+    hardcoreDesc: 'Aucune compétence ni amélioration ne sera disponible dans ce mode.',
+    survivalDesc: 'Vagues infinies avec scores basés sur le temps de survie.',
+    highScores: 'Meilleurs Scores',
+    noRecords: 'Aucun record',
+
+    music: 'Musique',
+    sounds: 'Sons',
+    styles: 'Styles',
+    language: 'Langue',
+    defaultStyle: 'Défaut',
+    defaultDesc: 'Défense spatiale classique',
+    retroStyle: 'Rétro',
+    retroDesc: 'Arcade rétro avec grille',
+    neonStyle: 'Néon',
+    neonDesc: 'Sci-fi lumineux',
+    forgeStyle: 'Forge',
+    forgeDesc: 'Défense d\'acier fondu',
+    resetProgress: 'Réinitialiser la Progression',
+    resetTitle: 'Réinitialiser la Progression ?',
+    resetText: 'Cela effacera les niveaux, crédits et améliorations.',
+    yes: 'Oui',
+    cancel: 'Annuler',
+
+    paused: 'En Pause',
+    tapResume: 'Touchez pour reprendre',
+    returnToMenu: 'Retour au Menu',
+    returnToMenuQ: 'Retour au Menu ?',
+    pauseLoseCredits: 'Vous perdrez tous les crédits gagnés durant cette partie.',
+
+    bossIncoming: 'Boss en Approche',
+    levelComplete: 'Niveau Terminé',
+    gameOver: 'Fin de Partie',
+    hardcoreModeMsg: 'Mode Extrême',
+    survivalModeMsg: 'Mode Survie',
+    survivalTime: t => `Survie : ${t}`,
+    survivalNewRecord: t => `Survie : ${t} — Nouveau Record !`,
+    godsFingerDeath: 'La colère de Dieu est hors de contrôle...\nVous vous êtes tué !',
+
+    congratulations: 'Félicitations',
+    completedAll: 'Vous avez terminé tous les niveaux',
+    hardcoreUnlocked: 'MODE EXTRÊME DÉBLOQUÉ',
+    continue_: 'Continuer',
+    retryLevel: 'Réessayer le Niveau',
+    nextLevel: 'Niveau Suivant',
+    playHardcore: 'Jouer Extrême',
+    playSurvival: 'Jouer Survie',
+
+    abilities: 'Compétences',
+    pause: 'Pause',
+    debug: 'Débogage',
+    locked: 'Verrouillé',
+    max: 'Max',
+    cooldownS: s => `Recharge ${s}s`,
+    shieldLevel: n => `Bouclier niveau ${n}`,
+    unlockNova: 'Débloquer Nova',
+    novaLevel: n => `Nova Niveau ${n}`,
+    unlockRegen: 'Débloquer Regen',
+    regenLevel: n => `Regen Niveau ${n}`,
+    unlockSlow: 'Débloquer Lent',
+    slowLevel: n => `Lent Niveau ${n}`,
+    unlockAegis: 'Débloquer Aegis',
+    aegisLevel: n => `Aegis Niveau ${n}`,
+    unlockGodsFinger: 'Débloquer Doigt de Dieu',
+    disableGodsFinger: 'Désactiver Doigt de Dieu',
+    enableGodsFinger: 'Activer Doigt de Dieu',
+    clickToDisable: 'Cliquer pour désactiver',
+    clickToEnable: 'Cliquer pour activer (gratuit)',
+    permanentUpgrade: 'Amélioration permanente',
+    adminCreditsLabel: '+1000 Crédits',
+    admin: 'Admin',
+    notAdmin: 'Vous n\'êtes pas administrateur',
+    notEnoughCredits: 'Crédits insuffisants',
+    levelNotAvailable: 'Ce niveau n\'est pas encore disponible',
+
+    hardcoreConfirmTitle: 'Mode Extrême',
+    hardcoreConfirmPlay: 'Jouer Extrême',
+
+    goldMedal: 'Médaille d\'or',
+    silverMedal: 'Médaille d\'argent',
+    bronzeMedal: 'Médaille de bronze',
+  }
+};
+
+let currentLang = localStorage.getItem('language') || 'es';
+
+function t(key, ...args) {
+  const val = i18n[currentLang]?.[key] ?? i18n.es[key];
+  return typeof val === 'function' ? val(...args) : val;
+}
+
+function applyLanguage() {
+  document.documentElement.lang = currentLang === 'es' ? 'es' : currentLang === 'fr' ? 'fr' : 'en';
+
+  // Toasts
+  if (adminToast) adminToast.textContent = t('notAdmin');
+  if (moneyToast) moneyToast.textContent = t('notEnoughCredits');
+  if (levelLockedToast) levelLockedToast.textContent = t('levelNotAvailable');
+
+  // Boss bar
+  const bossLabel = document.querySelector('.boss-label');
+  if (bossLabel) bossLabel.textContent = t('boss');
+
+  // Pause overlay
+  const pauseTitle = document.querySelector('.pause-title');
+  if (pauseTitle) pauseTitle.textContent = t('paused');
+  const pauseResEl = document.getElementById('pause-resume');
+  if (pauseResEl) pauseResEl.textContent = t('tapResume');
+  const pauseMenuBtn = document.getElementById('pause-menu');
+  if (pauseMenuBtn) pauseMenuBtn.textContent = t('returnToMenu');
+
+  // Pause confirm
+  const pcTitle = document.querySelector('#pause-confirm .confirm-title');
+  if (pcTitle) pcTitle.textContent = t('returnToMenuQ');
+  const pcText = document.querySelector('#pause-confirm .confirm-text');
+  if (pcText) pcText.textContent = t('pauseLoseCredits');
+  const pcYes = document.getElementById('pause-confirm-yes');
+  if (pcYes) pcYes.textContent = t('yes');
+  const pcNo = document.getElementById('pause-confirm-no');
+  if (pcNo) pcNo.textContent = t('cancel');
+
+  // Result screen
+  const resultRetryEl = document.getElementById('result-retry');
+  if (resultRetryEl) resultRetryEl.textContent = t('retryLevel');
+  const resultNextEl = document.getElementById('result-next');
+  if (resultNextEl) resultNextEl.textContent = t('nextLevel');
+  const resultHardcoreEl = document.getElementById('result-hardcore');
+  if (resultHardcoreEl) resultHardcoreEl.textContent = t('playHardcore');
+  const resultSurvivalEl = document.getElementById('result-survival');
+  if (resultSurvivalEl) resultSurvivalEl.textContent = t('playSurvival');
+  const resultMenuEl = document.getElementById('result-menu');
+  if (resultMenuEl) resultMenuEl.textContent = t('returnToMenu');
+  // Row titles in result upgrades
+  const resultUpgRowTitle = document.querySelector('#result-upgrades .row-title');
+  if (resultUpgRowTitle) resultUpgRowTitle.textContent = t('upgrades');
+
+  // Victory
+  const vicTitle = document.querySelector('#victory .title');
+  if (vicTitle) vicTitle.textContent = t('congratulations');
+  const vicSubtitle = document.querySelector('#victory .subtitle:not(#hardcore-unlocked)');
+  if (vicSubtitle) vicSubtitle.textContent = t('completedAll');
+  const hcUnlocked = document.getElementById('hardcore-unlocked');
+  if (hcUnlocked) hcUnlocked.textContent = t('hardcoreUnlocked');
+  const vicClose = document.getElementById('victory-close');
+  if (vicClose) vicClose.textContent = t('continue_');
+
+  // Start screen - Home
+  const homeTitle = document.querySelector('#menu-home-panel .title');
+  if (homeTitle) homeTitle.textContent = t('gameTitle');
+  const menuPlayBtn = document.getElementById('menu-play');
+  if (menuPlayBtn) menuPlayBtn.textContent = t('play');
+  const menuUpgBtn = document.getElementById('menu-upgrades-button');
+  if (menuUpgBtn) menuUpgBtn.textContent = t('upgrades');
+  const menuOptBtn = document.getElementById('menu-options-button');
+  if (menuOptBtn) menuOptBtn.textContent = t('options');
+  const debugLabel = document.querySelector('#debug-mode-button .label');
+  if (debugLabel) debugLabel.textContent = t('debugMode');
+  const debugStatus = document.querySelector('#debug-mode-button .status');
+  if (debugStatus) debugStatus.textContent = t('admin');
+
+  // Play panel
+  const playBackBtn = document.getElementById('play-back');
+  if (playBackBtn) { playBackBtn.innerHTML = '<span aria-hidden="true">&lt;</span> ' + t('backToMenu'); }
+  const modesTitle = document.querySelector('#menu-play-panel .modes-title');
+  if (modesTitle) modesTitle.textContent = t('modes');
+  const normalToggle = document.getElementById('normal-mode-toggle');
+  if (normalToggle) normalToggle.textContent = t('normalMode');
+  const hardcoreToggle = document.getElementById('hardcore-mode-toggle');
+  if (hardcoreToggle) hardcoreToggle.textContent = t('hardcoreMode');
+  const survivalToggle = document.getElementById('survival-mode-toggle');
+  if (survivalToggle) survivalToggle.textContent = t('survivalMode');
+
+  // Normal panel
+  const normalBackBtn = document.getElementById('normal-back');
+  if (normalBackBtn) { normalBackBtn.innerHTML = '<span aria-hidden="true">&lt;</span> ' + t('backToModes'); }
+  const normalTitle = document.querySelector('#menu-normal-panel .modes-title');
+  if (normalTitle) normalTitle.textContent = t('normalLevels');
+  document.querySelectorAll('.normal-level').forEach(btn => {
+    const lv = Number(btn.dataset.level);
+    if (!Number.isNaN(lv)) btn.textContent = t('levelN', lv);
+  });
+  const normalStartBtn = document.getElementById('normal-start');
+  if (normalStartBtn) normalStartBtn.textContent = t('start');
+
+  // Hardcore panel
+  const hcBackBtn = document.getElementById('hardcore-back');
+  if (hcBackBtn) { hcBackBtn.innerHTML = '<span aria-hidden="true">&lt;</span> ' + t('backToModes'); }
+  const hcTitle = document.querySelector('#menu-hardcore-panel .modes-title');
+  if (hcTitle) hcTitle.textContent = t('hardcoreMode');
+  const hcDesc = document.querySelector('#menu-hardcore-panel .confirm-text');
+  if (hcDesc) hcDesc.textContent = t('hardcoreDesc');
+  const hcStartBtn = document.getElementById('hardcore-start');
+  if (hcStartBtn) hcStartBtn.textContent = t('start');
+
+  // Survival panel
+  const svBackBtn = document.getElementById('survival-back');
+  if (svBackBtn) { svBackBtn.innerHTML = '<span aria-hidden="true">&lt;</span> ' + t('backToModes'); }
+  const svTitle = document.querySelector('#menu-survival-panel .modes-title');
+  if (svTitle) svTitle.textContent = t('survivalMode');
+  const svDesc = document.querySelector('#menu-survival-panel .modes-description');
+  if (svDesc) svDesc.textContent = t('survivalDesc');
+  const svRecTitle = document.querySelector('#survival-records .records-title');
+  if (svRecTitle) svRecTitle.textContent = t('highScores');
+  const svStartBtn = document.getElementById('survival-start');
+  if (svStartBtn) svStartBtn.textContent = t('start');
+
+  // Upgrades panel
+  const upgRowTitle = document.querySelector('#menu-upgrades .row-title');
+  if (upgRowTitle) upgRowTitle.textContent = t('upgrades');
+  const upgBackBtn = document.getElementById('upgrades-back');
+  if (upgBackBtn) { upgBackBtn.innerHTML = '<span aria-hidden="true">&lt;</span> ' + t('backToMenu'); }
+  const admCredLabel = document.querySelector('#admin-credits .label');
+  if (admCredLabel) admCredLabel.textContent = t('adminCreditsLabel');
+  const admCredStatus = document.querySelector('#admin-credits .status');
+  if (admCredStatus) admCredStatus.textContent = t('admin');
+
+  // Options panel
+  const optTitle = document.querySelector('.options-title');
+  if (optTitle) optTitle.textContent = t('options');
+  const musicLabel = document.querySelector('label[for="music-volume"]');
+  if (musicLabel) musicLabel.textContent = t('music');
+  const sfxLabel = document.querySelector('label[for="sfx-volume"]');
+  if (sfxLabel) sfxLabel.textContent = t('sounds');
+  const stylesTitle = document.querySelector('.styles-title');
+  if (stylesTitle) stylesTitle.textContent = t('styles');
+  const styleCards = { default: ['defaultStyle','defaultDesc'], retro: ['retroStyle','retroDesc'], neon: ['neonStyle','neonDesc'], forge: ['forgeStyle','forgeDesc'] };
+  Object.entries(styleCards).forEach(([key, [nameKey, descKey]]) => {
+    const card = document.querySelector(`.style-card[data-style="${key}"]`);
+    if (card) {
+      const nm = card.querySelector('.style-name');
+      if (nm) nm.textContent = t(nameKey);
+      const ds = card.querySelector('.style-desc');
+      if (ds) ds.textContent = t(descKey);
+    }
+  });
+  const resetBtn = document.getElementById('reset-progress');
+  if (resetBtn) resetBtn.textContent = t('resetProgress');
+  const optBackBtn = document.getElementById('options-back');
+  if (optBackBtn) { optBackBtn.innerHTML = '<span aria-hidden="true">&lt;</span> ' + t('backToMenu'); }
+
+  // Language selector
+  const langTitle = document.querySelector('.language-title');
+  if (langTitle) langTitle.textContent = t('language');
+
+  // Reset confirm
+  const rcTitle = document.querySelector('#confirm-reset .confirm-title');
+  if (rcTitle) rcTitle.textContent = t('resetTitle');
+  const rcText = document.querySelector('#confirm-reset .confirm-text');
+  if (rcText) rcText.textContent = t('resetText');
+  const rcYes = document.getElementById('confirm-reset-yes');
+  if (rcYes) rcYes.textContent = t('yes');
+  const rcNo = document.getElementById('confirm-reset-no');
+  if (rcNo) rcNo.textContent = t('cancel');
+
+  // Hardcore confirm
+  const hccTitle = document.querySelector('#hardcore-confirm .confirm-title');
+  if (hccTitle) hccTitle.textContent = t('hardcoreConfirmTitle');
+  const hccText = document.querySelector('#hardcore-confirm .confirm-text');
+  if (hccText) hccText.textContent = t('hardcoreDesc');
+  const hccYes = document.getElementById('hardcore-confirm-yes');
+  if (hccYes) hccYes.textContent = t('hardcoreConfirmPlay');
+  const hccNo = document.getElementById('hardcore-confirm-no');
+  if (hccNo) hccNo.textContent = t('cancel');
+
+  // Gameover buttons (old, still in DOM)
+  if (gameoverMenu) gameoverMenu.textContent = t('returnToMenu');
+  if (gameoverRetry) gameoverRetry.textContent = t('retryLevel');
+
+  // Skills bar
+  const skillsRowTitle = document.querySelector('#skills .row-title');
+  if (skillsRowTitle) skillsRowTitle.textContent = t('abilities');
+  const pauseBtnLabel = document.querySelector('#pause-button .label');
+  if (pauseBtnLabel) pauseBtnLabel.textContent = t('pause');
+  const debugSkipLabel = document.querySelector('#debug-skip .label');
+  if (debugSkipLabel) debugSkipLabel.textContent = t('debug');
+
+  // Re-capture skill dataset.label after language change
+  document.querySelectorAll('.skill').forEach(button => {
+    const lbl = button.querySelector('.label');
+    if (lbl) button.dataset.label = lbl.textContent;
+  });
+
+  // Refresh dynamic content
+  updateHud();
+  updateUpgrades();
+  updateSkillLocks();
+  renderSurvivalRecords();
+}
+
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 const hudLevel = document.getElementById('level');
@@ -65,6 +601,14 @@ const debugDistanceInput = document.getElementById('debug-distance');
 const debugAngleOffsetInput = document.getElementById('debug-angle-offset');
 const debugUseBaseAngleInput = document.getElementById('debug-use-base-angle');
 const debugShowVariablesInput = document.getElementById('debug-show-variables');
+const resultScreen = document.getElementById('result-screen');
+const resultTitle = document.getElementById('result-title');
+const resultCredits = document.getElementById('result-credits');
+const resultRetry = document.getElementById('result-retry');
+const resultNext = document.getElementById('result-next');
+const resultHardcore = document.getElementById('result-hardcore');
+const resultSurvival = document.getElementById('result-survival');
+const resultMenu = document.getElementById('result-menu');
 const confirmReset = document.getElementById('confirm-reset');
 const confirmResetYes = document.getElementById('confirm-reset-yes');
 const confirmResetNo = document.getElementById('confirm-reset-no');
@@ -1742,6 +2286,7 @@ function resetGame() {
   gameoverEl.classList.add('hidden');
   gameoverMenu.classList.add('hidden');
   gameoverRetry.classList.add('hidden');
+  hideResultScreen();
   waveMessageEl.classList.add('hidden');
   pauseOverlay.classList.add('hidden');
   pauseButton.disabled = false;
@@ -1768,7 +2313,7 @@ function getWaveTarget(level, wave) {
 }
 
 function getWaveLabel() {
-  return `Wave ${state.wave}`;
+  return t('wave', state.wave);
 }
 
 function getSurvivalDifficulty(time) {
@@ -1859,7 +2404,7 @@ function startBossLevel(showMessage = true) {
   updateHud();
   updateUpgradeVisibility();
   if (showMessage) {
-    showWaveMessage('Boss Incoming', 1.6);
+    showWaveMessage(t('bossIncoming'), 1.6);
   }
 }
 
@@ -1870,7 +2415,7 @@ function startSurvival() {
   state.spawnTimer = 0;
   if (survivalTimeEl) {
     survivalTimeEl.classList.remove('hidden');
-    survivalTimeEl.textContent = 'Time 0.0s';
+    survivalTimeEl.textContent = t('time', '0.0');
   }
   updateHud();
   updateUpgradeVisibility();
@@ -1889,7 +2434,7 @@ function completeLevel() {
     return;
   }
 
-  showWaveMessage('Level complete', 2.2);
+  showWaveMessage(t('levelComplete'), 2.2);
   playSfx('success');
   if (state.level >= state.unlockedLevel && state.level < levels.length) {
     state.unlockedLevel = state.level + 1;
@@ -1899,10 +2444,7 @@ function completeLevel() {
   }
   stopMusic();
   setTimeout(() => {
-    state.betweenLevels = true;
-    startScreen.classList.remove('hidden');
-    setMenuView('home');
-    updateUpgradeVisibility();
+    showResultScreen('victory', t('levelComplete'));
   }, 2200);
 }
 
@@ -1916,7 +2458,7 @@ function endWave() {
       startWave(false);
     }, 1200);
   } else if (state.bossLevel) {
-    showWaveMessage('Boss Incoming', 1.6);
+    showWaveMessage(t('bossIncoming'), 1.6);
     waveTimeout = setTimeout(() => {
       startBossLevel(false);
     }, 1200);
@@ -1930,6 +2472,8 @@ function buildMissile(x, y, forcedType = null) {
   const angle = Math.atan2(target.y - y, target.x - x);
   const distance = Math.hypot(target.x - x, target.y - y);
   let type = forcedType || 'normal';
+  // Boss launchers use 'standard' which must map to 'normal' for collision/rendering
+  if (type === 'standard') type = 'normal';
   if (!forcedType) {
     const roll = Math.random();
     if (state.survivalLevel) {
@@ -2448,7 +2992,17 @@ function update(dt) {
       continue;
     }
 
-    if (dist <= core.radius || (isPixelTheme() && squareDist <= core.radius)) {
+    const coreHitbox = useForgeHex
+      ? isMeteorHitboxIntersectingHex(m, target.x, target.y, core.radius, meteorSpriteData.manualShieldHitbox, hexRotation)
+      : useShieldHitbox
+        ? isPixelTheme()
+          ? isMeteorHitboxInSquare(m, target.x, target.y, core.radius * 2, meteorSpriteData.manualShieldHitbox)
+          : isMeteorHitboxInRadius(m, target.x, target.y, core.radius, meteorSpriteData.manualShieldHitbox)
+        : null;
+    const coreHit = useShieldHitbox
+      ? Boolean(coreHitbox)
+      : (dist <= core.radius || (isPixelTheme() && squareDist <= core.radius));
+    if (coreHit) {
       if (m.type === 'twin') {
         removeTwinGroup(m.twinId);
       } else {
@@ -2657,6 +3211,26 @@ function drawCore() {
   }
   ctx.fillStyle = themePalette.coreInner;
   ctx.fill();
+
+  // Draw core hitbox visualization
+  if (showMeteorHitboxes || state.debugMode) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255, 80, 80, 0.7)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([6, 4]);
+    if (isPixelTheme()) {
+      const coreSize = Math.round(core.radius * 2);
+      ctx.strokeRect(Math.round(x - coreSize / 2), Math.round(y - coreSize / 2), coreSize, coreSize);
+    } else if (useHex) {
+      drawPolygonPath(x, y, core.radius, 6, hexRotation);
+      ctx.stroke();
+    } else {
+      ctx.beginPath();
+      ctx.arc(x, y, core.radius, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
 }
 
 function updateBoss(dt) {
@@ -3783,11 +4357,11 @@ function startCountdown(resetSkills = true) {
   countdownEl.textContent = state.countdown;
   countdownEl.classList.remove('hidden');
   if (state.hardcoreLevel) {
-    showWaveMessage('Hardcore Mode', 2.2);
+    showWaveMessage(t('hardcoreModeMsg'), 2.2);
   } else if (state.survivalLevel) {
-    showWaveMessage('Survival Mode', 2.2);
+    showWaveMessage(t('survivalModeMsg'), 2.2);
   } else if (state.bossPhase) {
-    showWaveMessage('Boss Incoming', 2.2);
+    showWaveMessage(t('bossIncoming'), 2.2);
   } else {
     showWaveMessage(getWaveLabel(), 2.2);
   }
@@ -3820,29 +4394,29 @@ function startCountdown(resetSkills = true) {
 
 function updateHud() {
   if (state.debugMode) {
-    hudLevel.textContent = 'Debug Mode';
-    hudWave.textContent = 'Meteor Viewer';
+    hudLevel.textContent = t('debugMode');
+    hudWave.textContent = t('meteorViewer');
   } else if (state.survivalLevel) {
-    hudLevel.textContent = 'Survival';
+    hudLevel.textContent = t('survival');
     hudWave.textContent = '';
   } else if (state.hardcoreLevel) {
-    hudLevel.textContent = 'Hardcore';
-    hudWave.textContent = state.bossPhase ? 'Boss' : `Wave ${state.wave} of ${state.wavesTotal}`;
+    hudLevel.textContent = t('hardcore');
+    hudWave.textContent = state.bossPhase ? t('boss') : t('waveOf', state.wave, state.wavesTotal);
   } else {
-    hudLevel.textContent = `Level ${state.level}`;
-    hudWave.textContent = state.bossPhase ? 'Boss' : `Wave ${state.wave} of ${state.wavesTotal}`;
+    hudLevel.textContent = t('level', state.level);
+    hudWave.textContent = state.bossPhase ? t('boss') : t('waveOf', state.wave, state.wavesTotal);
   }
-  moneyEl.lastChild.textContent = `Credits: ${state.money}`;
+  moneyEl.lastChild.textContent = t('credits', state.money);
   if (menuCredits) {
     const label = menuCredits.querySelector('.label');
     if (label) {
-      label.textContent = `Credits: ${state.money}`;
+      label.textContent = t('credits', state.money);
     }
   }
   if (survivalTimeEl) {
     survivalTimeEl.classList.toggle('hidden', !state.survivalLevel);
     if (state.survivalLevel) {
-      survivalTimeEl.textContent = `Time ${state.survivalTime.toFixed(1)}s`;
+      survivalTimeEl.textContent = t('time', state.survivalTime.toFixed(1));
     }
   }
 }
@@ -3988,7 +4562,7 @@ function activateGodsFinger(x, y) {
       // Continuar para procesar meteoritos
     } else {
       // Si NO hay escudos activos, el jugador muere
-      handleCoreHit("The wrath of God is out of control...\nYou killed yourself!");
+      handleCoreHit(t('godsFingerDeath'));
       return; // No procesar meteoritos si el jugador ya murió
     }
   } else {
@@ -4164,24 +4738,22 @@ function handleCoreHit(customMessage = null) {
   playSfx('core');
   triggerExplosion(target.x, target.y, '#ffb347', 140, 0.7, 18);
   
-  // Si hay un mensaje personalizado (por ejemplo, de God's Finger), usarlo
+  let message;
   if (customMessage) {
-    gameoverEl.textContent = customMessage;
+    message = customMessage;
   } else if (state.survivalLevel) {
     const isRecord = saveSurvivalRecord(state.survivalTime);
     const timeText = `${state.survivalTime.toFixed(1)}s`;
-    gameoverEl.textContent = isRecord ? `Survival: ${timeText}\nNew Record!` : `Survival: ${timeText}`;
+    message = isRecord ? t('survivalNewRecord', timeText) : t('survivalTime', timeText);
   } else {
-    gameoverEl.textContent = 'Game Over';
+    message = t('gameOver');
   }
-      gameoverEl.classList.remove('hidden');
-      gameoverMenu.classList.remove('hidden');
-      gameoverRetry.classList.remove('hidden');
-      stopMusic();
+  stopMusic();
   if (waveTimeout) {
     clearTimeout(waveTimeout);
     waveTimeout = null;
   }
+  showResultScreen('defeat', message);
 }
 
 function awardMoney(amount) {
@@ -4190,6 +4762,7 @@ function awardMoney(amount) {
   updateHud();
   updateUpgrades();
   updateUpgradeVisibility();
+  updateResultCredits();
 }
 
 function loadSurvivalRecords() {
@@ -4220,11 +4793,12 @@ function renderSurvivalRecords(records = null) {
   list.innerHTML = '';
   if (data.length === 0) {
     const item = document.createElement('li');
-    item.textContent = 'No records yet';
+    item.textContent = t('noRecords');
     list.appendChild(item);
     return;
   }
   const medals = ['🥇', '🥈', '🥉'];
+  const medalLabels = [t('goldMedal'), t('silverMedal'), t('bronzeMedal')];
   data.forEach((value, index) => {
     const item = document.createElement('li');
     if (index < 3) {
@@ -4233,7 +4807,7 @@ function renderSurvivalRecords(records = null) {
       const medal = document.createElement('span');
       medal.className = 'record-medal';
       medal.textContent = medals[index];
-      medal.setAttribute('aria-label', index === 0 ? 'Gold medal' : index === 1 ? 'Silver medal' : 'Bronze medal');
+      medal.setAttribute('aria-label', medalLabels[index]);
       item.appendChild(medal);
     }
     item.appendChild(document.createTextNode(`${value.toFixed(1)}s`));
@@ -4567,6 +5141,56 @@ gameoverRetry.addEventListener('click', () => {
   startCountdown();
 });
 
+if (resultRetry) {
+  resultRetry.addEventListener('click', () => {
+    hideResultScreen();
+    resetMusic();
+    resetGame();
+    applyLevelConfig(state.selectedLevel);
+    rebuildShields();
+    state.runStartMoney = state.money;
+    updateHud();
+    startScreen.classList.add('hidden');
+    state.betweenLevels = false;
+    updateUpgradeVisibility();
+    updateSkillLocks();
+    startCountdown();
+  });
+}
+
+if (resultNext) {
+  resultNext.addEventListener('click', () => {
+    hideResultScreen();
+    const nextLevel = state.level + 1;
+    startSelectedLevel(nextLevel);
+  });
+}
+
+if (resultHardcore) {
+  resultHardcore.addEventListener('click', () => {
+    hideResultScreen();
+    startSelectedLevel(4);
+  });
+}
+
+if (resultSurvival) {
+  resultSurvival.addEventListener('click', () => {
+    hideResultScreen();
+    startSelectedLevel(5);
+  });
+}
+
+if (resultMenu) {
+  resultMenu.addEventListener('click', () => {
+    hideResultScreen();
+    stopMusic();
+    startScreen.classList.remove('hidden');
+    state.betweenLevels = false;
+    setMenuView('home');
+    updateUpgradeVisibility();
+  });
+}
+
 pauseButton.addEventListener('click', () => {
   // Allow pause during countdown or when game is running
   if (startScreen.classList.contains('hidden') === false) return;
@@ -4783,6 +5407,18 @@ styleButtons.forEach(button => {
   });
 });
 
+const langButtons = document.querySelectorAll('[data-lang]');
+langButtons.forEach(button => {
+  button.addEventListener('click', () => {
+    const lang = button.dataset.lang;
+    if (!lang || !i18n[lang]) return;
+    currentLang = lang;
+    localStorage.setItem('language', lang);
+    langButtons.forEach(b => b.classList.toggle('active', b.dataset.lang === lang));
+    applyLanguage();
+  });
+});
+
 levelButtons.forEach(button => {
   button.addEventListener('click', () => {
     const level = Number(button.dataset.level);
@@ -4798,7 +5434,9 @@ levelButtons.forEach(button => {
 
 upgradeButtons.forEach(button => {
   button.addEventListener('click', () => {
-    if (!startScreen || startScreen.classList.contains('hidden')) return;
+    const menuVisible = startScreen && !startScreen.classList.contains('hidden');
+    const resultVisible = resultScreen && !resultScreen.classList.contains('hidden');
+    if (!menuVisible && !resultVisible) return;
     const upgrade = button.dataset.upgrade;
     if (!upgrade) return;
     if (upgrade === 'shield') {
@@ -4950,10 +5588,12 @@ applyTheme(savedTheme);
 loadAudioSettings();
 loadProgress();
 
-updateHud();
+// Set active language button
+langButtons.forEach(b => b.classList.toggle('active', b.dataset.lang === currentLang));
+applyLanguage();
+
 updateUpgradeVisibility();
 updateDebugButtonsVisibility();
-renderSurvivalRecords();
 setMenuView('home');
 
 requestAnimationFrame(render);
@@ -5036,16 +5676,16 @@ function updateUpgrades() {
       if (shieldUpgrades >= maxLayers) {
         owned = true;
         if (label) {
-          label.textContent = 'Shield level 3';
+          label.textContent = t('shieldLevel', 3);
         }
         if (status) {
-          status.textContent = 'Max';
+          status.textContent = t('max');
         }
       } else {
         const nextLevel = shieldUpgrades + 1;
         cost = upgradeCosts.shield[nextLevel];
         if (label) {
-          label.textContent = `Shield level ${nextLevel}`;
+          label.textContent = t('shieldLevel', nextLevel);
         }
         if (status) {
           status.textContent = '';
@@ -5056,44 +5696,44 @@ function updateUpgrades() {
       const nextLevel = Math.min(3, novaLevel + 1);
       cost = upgradeCosts.nova[nextLevel];
       if (label) {
-        label.textContent = novaLevel === 0 ? 'Unlock Nova' : `Nova Level ${nextLevel}`;
+        label.textContent = novaLevel === 0 ? t('unlockNova') : t('novaLevel', nextLevel);
       }
       if (status) {
         const cooldown = skillCooldownLevels[nextLevel - 1];
-        status.textContent = novaLevel >= 3 ? 'Max' : `Cooldown ${cooldown}s`;
+        status.textContent = novaLevel >= 3 ? t('max') : t('cooldownS', cooldown);
       }
     } else if (upgrade === 'regen') {
       owned = regenLevel >= 3;
       const nextLevel = Math.min(3, regenLevel + 1);
       cost = upgradeCosts.regen[nextLevel];
       if (label) {
-        label.textContent = regenLevel === 0 ? 'Unlock Regen' : `Regen Level ${nextLevel}`;
+        label.textContent = regenLevel === 0 ? t('unlockRegen') : t('regenLevel', nextLevel);
       }
       if (status) {
         const cooldown = skillCooldownLevels[nextLevel - 1];
-        status.textContent = regenLevel >= 3 ? 'Max' : `Cooldown ${cooldown}s`;
+        status.textContent = regenLevel >= 3 ? t('max') : t('cooldownS', cooldown);
       }
     } else if (upgrade === 'slow') {
       owned = slowLevel >= 3;
       const nextLevel = Math.min(3, slowLevel + 1);
       cost = upgradeCosts.slow[nextLevel];
       if (label) {
-        label.textContent = slowLevel === 0 ? 'Unlock Slow' : `Slow Level ${nextLevel}`;
+        label.textContent = slowLevel === 0 ? t('unlockSlow') : t('slowLevel', nextLevel);
       }
       if (status) {
         const cooldown = skillCooldownLevels[nextLevel - 1];
-        status.textContent = slowLevel >= 3 ? 'Max' : `Cooldown ${cooldown}s`;
+        status.textContent = slowLevel >= 3 ? t('max') : t('cooldownS', cooldown);
       }
     } else if (upgrade === 'aegis') {
       owned = aegisLevel >= 3;
       const nextLevel = Math.min(3, aegisLevel + 1);
       cost = upgradeCosts.aegis[nextLevel];
       if (label) {
-        label.textContent = aegisLevel === 0 ? 'Unlock Aegis' : `Aegis Level ${nextLevel}`;
+        label.textContent = aegisLevel === 0 ? t('unlockAegis') : t('aegisLevel', nextLevel);
       }
       if (status) {
         const cooldown = skillCooldownLevels[nextLevel - 1];
-        status.textContent = aegisLevel >= 3 ? 'Max' : `Cooldown ${cooldown}s`;
+        status.textContent = aegisLevel >= 3 ? t('max') : t('cooldownS', cooldown);
       }
     } else if (upgrade === 'godsFinger') {
       owned = false; // Nunca se marca como "owned" porque se puede desbloquear
@@ -5101,20 +5741,20 @@ function updateUpgrades() {
       cost = (godsFingerUnlocked || godsFingerPurchased) ? null : upgradeCosts.godsFinger[1];
       if (label) {
         if (godsFingerUnlocked) {
-          label.textContent = 'Disable God\'s Finger';
+          label.textContent = t('disableGodsFinger');
         } else if (godsFingerPurchased) {
-          label.textContent = 'Enable God\'s Finger';
+          label.textContent = t('enableGodsFinger');
         } else {
-          label.textContent = 'Unlock God\'s Finger';
+          label.textContent = t('unlockGodsFinger');
         }
       }
       if (status) {
         if (godsFingerUnlocked) {
-          status.textContent = 'Click to disable';
+          status.textContent = t('clickToDisable');
         } else if (godsFingerPurchased) {
-          status.textContent = 'Click to enable (free)';
+          status.textContent = t('clickToEnable');
         } else {
-          status.textContent = 'Permanent upgrade';
+          status.textContent = t('permanentUpgrade');
         }
       }
     }
@@ -5164,7 +5804,7 @@ function updateSkillLocks() {
       button.classList.add('locked');
       const status = button.querySelector('.status');
       if (status) {
-        status.textContent = 'Locked';
+        status.textContent = t('locked');
       }
       return;
     }
@@ -5184,7 +5824,7 @@ function updateSkillLocks() {
     button.classList.toggle('locked', !unlocked);
     const status = button.querySelector('.status');
     if (status) {
-      status.textContent = unlocked ? '' : 'Locked';
+      status.textContent = unlocked ? '' : t('locked');
     }
   });
 }
@@ -5194,6 +5834,48 @@ function updateUpgradeVisibility() {
   if (!upgradesRow) return;
   const showUpgrades = !startScreen.classList.contains('hidden') && menuUpgradesPanel && !menuUpgradesPanel.classList.contains('hidden');
   upgradesRow.classList.toggle('hidden', !showUpgrades);
+}
+
+function updateResultCredits() {
+  if (!resultCredits) return;
+  const label = resultCredits.querySelector('.label');
+  if (label) label.textContent = t('credits', state.money);
+}
+
+function showResultScreen(type, message) {
+  if (!resultScreen) return;
+  // Hide the old gameover elements
+  gameoverEl.classList.add('hidden');
+  gameoverMenu.classList.add('hidden');
+  gameoverRetry.classList.add('hidden');
+
+  // Set title text and style
+  if (resultTitle) {
+    resultTitle.textContent = message || (type === 'defeat' ? t('gameOver') : t('levelComplete'));
+    resultTitle.classList.remove('defeat', 'victory');
+    resultTitle.classList.add(type === 'defeat' ? 'defeat' : 'victory');
+  }
+
+  // Configure action buttons based on context
+  const isVictory = type === 'victory';
+  const hasNextNormal = isVictory && state.level < maxNormalLevels;
+  const finishedAllNormal = isVictory && state.level >= maxNormalLevels;
+
+  // Retry: show on defeat, hide on victory
+  if (resultRetry) resultRetry.classList.toggle('hidden', isVictory);
+  // Next Level: show only when there's a next normal level
+  if (resultNext) resultNext.classList.toggle('hidden', !hasNextNormal);
+  // Hardcore & Survival: show when finished all normal levels
+  if (resultHardcore) resultHardcore.classList.toggle('hidden', !finishedAllNormal);
+  if (resultSurvival) resultSurvival.classList.toggle('hidden', !finishedAllNormal);
+
+  updateResultCredits();
+  updateUpgrades();
+  resultScreen.classList.remove('hidden');
+}
+
+function hideResultScreen() {
+  if (resultScreen) resultScreen.classList.add('hidden');
 }
 
 // Function to update debug buttons visibility
