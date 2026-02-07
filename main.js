@@ -1,1032 +1,5 @@
-// Debug buttons visibility - set to true to show admin debug buttons
-const SHOW_DEBUG_BUTTONS = false;
+// Config: js/config.js | DOM: js/dom.js | i18n: js/i18n.js | state: js/state.js | boss: js/boss.js | theme: js/theme.js | audio: js/audio.js
 
-// ── i18n ──────────────────────────────────────────────────
-const i18n = {
-  es: {
-    // HUD
-    level: n => `Nivel ${n}`,
-    waveOf: (w, t) => `Oleada ${w} de ${t}`,
-    wave: w => `Oleada ${w}`,
-    boss: 'Jefe',
-    credits: n => `Créditos: ${n}`,
-    time: t => `Tiempo ${t}s`,
-    survival: 'Supervivencia',
-    hardcore: 'Extremo',
-    debugMode: 'Modo Depuración',
-    meteorViewer: 'Visor de Meteoritos',
-
-    // Menu
-    gameTitle: 'Core Protection',
-    play: 'Jugar',
-    upgrades: 'Mejoras',
-    options: 'Opciones',
-    start: 'Iniciar',
-    backToMenu: 'Volver al Menú',
-    backToModes: 'Volver a Modos',
-    modes: 'Modos',
-    normalMode: 'Modo Normal',
-    hardcoreMode: 'Modo Extremo',
-    survivalMode: 'Modo Supervivencia',
-    normalLevels: 'Niveles Normales',
-    levelN: n => `Nivel ${n}`,
-    hardcoreDesc: 'No habrá habilidades ni mejoras disponibles en este modo.',
-    survivalDesc: 'Oleadas infinitas con puntuación basada en tiempo de supervivencia.',
-    highScores: 'Mejores Puntuaciones',
-    noRecords: 'Sin registros aún',
-
-    // Options
-    music: 'Música',
-    sounds: 'Sonidos',
-    styles: 'Estilos',
-    language: 'Idioma',
-    defaultStyle: 'Predeterminado',
-    defaultDesc: 'Defensa espacial clásica',
-    retroStyle: 'Retro',
-    retroDesc: 'Arcade retro con cuadrícula',
-    neonStyle: 'Neón',
-    neonDesc: 'Ciencia ficción con brillo',
-    forgeStyle: 'Forja',
-    forgeDesc: 'Defensa de acero fundido',
-    resetProgress: 'Reiniciar Progreso',
-    resetTitle: 'Reiniciar Progreso?',
-    resetText: 'Esto borrará niveles, créditos y mejoras.',
-    yes: 'Sí',
-    cancel: 'Cancelar',
-
-    // Pause
-    paused: 'Pausado',
-    tapResume: 'Toca para continuar',
-    returnToMenu: 'Volver al Menú',
-    returnToMenuQ: 'Volver al Menú?',
-    pauseLoseCredits: 'Perderás todos los créditos ganados en esta partida.',
-
-    // Game messages
-    bossIncoming: 'Jefe Entrante',
-    levelComplete: 'Nivel Completado',
-    gameOver: 'Fin del Juego',
-    hardcoreModeMsg: 'Modo Extremo',
-    survivalModeMsg: 'Modo Supervivencia',
-    survivalTime: t => `Supervivencia: ${t}`,
-    survivalNewRecord: t => `Supervivencia: ${t} — ¡Nuevo Récord!`,
-    godsFingerDeath: 'La ira de Dios está fuera de control...\n¡Te has matado a ti mismo!',
-
-    // Victory / Result
-    congratulations: 'Felicidades',
-    completedAll: 'Has completado todos los niveles',
-    hardcoreUnlocked: 'MODO EXTREMO DESBLOQUEADO',
-    continue_: 'Continuar',
-    retryLevel: 'Reintentar Nivel',
-    nextLevel: 'Siguiente Nivel',
-    playHardcore: 'Jugar Extremo',
-    playSurvival: 'Jugar Supervivencia',
-
-    // Abilities
-    abilities: 'Habilidades',
-    pause: 'Pausa',
-    debug: 'Depurar',
-    locked: 'Bloqueado',
-    max: 'Máx',
-    cooldownS: s => `Enfriamiento ${s}s`,
-    shieldLevel: n => `Escudo nivel ${n}`,
-    unlockNova: 'Desbloquear Nova',
-    novaLevel: n => `Nova Nivel ${n}`,
-    unlockRegen: 'Desbloquear Regen',
-    regenLevel: n => `Regen Nivel ${n}`,
-    unlockSlow: 'Desbloquear Lento',
-    slowLevel: n => `Lento Nivel ${n}`,
-    unlockAegis: 'Desbloquear Aegis',
-    aegisLevel: n => `Aegis Nivel ${n}`,
-    unlockGodsFinger: 'Desbloquear Dedo de Dios',
-    disableGodsFinger: 'Desactivar Dedo de Dios',
-    enableGodsFinger: 'Activar Dedo de Dios',
-    clickToDisable: 'Clic para desactivar',
-    clickToEnable: 'Clic para activar (gratis)',
-    permanentUpgrade: 'Mejora permanente',
-    adminCreditsLabel: '+1000 Créditos',
-    admin: 'Admin',
-    notAdmin: 'No eres administrador',
-    notEnoughCredits: 'Créditos insuficientes',
-    levelNotAvailable: 'Este nivel aún no está disponible',
-
-    // Hardcore confirm
-    hardcoreConfirmTitle: 'Modo Extremo',
-    hardcoreConfirmPlay: 'Jugar Extremo',
-
-    // Medal aria
-    goldMedal: 'Medalla de oro',
-    silverMedal: 'Medalla de plata',
-    bronzeMedal: 'Medalla de bronce',
-  },
-  en: {
-    level: n => `Level ${n}`,
-    waveOf: (w, t) => `Wave ${w} of ${t}`,
-    wave: w => `Wave ${w}`,
-    boss: 'Boss',
-    credits: n => `Credits: ${n}`,
-    time: t => `Time ${t}s`,
-    survival: 'Survival',
-    hardcore: 'Hardcore',
-    debugMode: 'Debug Mode',
-    meteorViewer: 'Meteor Viewer',
-
-    gameTitle: 'Core Protection',
-    play: 'Play',
-    upgrades: 'Upgrades',
-    options: 'Options',
-    start: 'Start',
-    backToMenu: 'Back to Menu',
-    backToModes: 'Back to Modes',
-    modes: 'Modes',
-    normalMode: 'Normal Mode',
-    hardcoreMode: 'Hardcore Mode',
-    survivalMode: 'Survival Mode',
-    normalLevels: 'Normal Levels',
-    levelN: n => `Level ${n}`,
-    hardcoreDesc: 'No skills or upgrades will be available in this mode.',
-    survivalDesc: 'Endless waves with scores tracked by time survived.',
-    highScores: 'High Scores',
-    noRecords: 'No records yet',
-
-    music: 'Music',
-    sounds: 'Sounds',
-    styles: 'Styles',
-    language: 'Language',
-    defaultStyle: 'Default',
-    defaultDesc: 'Classic space defense',
-    retroStyle: 'Retro',
-    retroDesc: 'Retro arcade grid',
-    neonStyle: 'Neon',
-    neonDesc: 'Hyper glow sci-fi',
-    forgeStyle: 'Forge',
-    forgeDesc: 'Molten steel defense',
-    resetProgress: 'Reset Progress',
-    resetTitle: 'Reset Progress?',
-    resetText: 'This will clear levels, credits, and upgrades.',
-    yes: 'Yes',
-    cancel: 'Cancel',
-
-    paused: 'Paused',
-    tapResume: 'Tap to resume',
-    returnToMenu: 'Return to Menu',
-    returnToMenuQ: 'Return to Menu?',
-    pauseLoseCredits: 'You will lose all credits earned this run.',
-
-    bossIncoming: 'Boss Incoming',
-    levelComplete: 'Level Complete',
-    gameOver: 'Game Over',
-    hardcoreModeMsg: 'Hardcore Mode',
-    survivalModeMsg: 'Survival Mode',
-    survivalTime: t => `Survival: ${t}`,
-    survivalNewRecord: t => `Survival: ${t} — New Record!`,
-    godsFingerDeath: 'The wrath of God is out of control...\nYou killed yourself!',
-
-    congratulations: 'Congratulations',
-    completedAll: 'You completed all levels',
-    hardcoreUnlocked: 'HARDCORE MODE UNLOCKED',
-    continue_: 'Continue',
-    retryLevel: 'Retry Level',
-    nextLevel: 'Next Level',
-    playHardcore: 'Play Hardcore',
-    playSurvival: 'Play Survival',
-
-    abilities: 'Abilities',
-    pause: 'Pause',
-    debug: 'Debug',
-    locked: 'Locked',
-    max: 'Max',
-    cooldownS: s => `Cooldown ${s}s`,
-    shieldLevel: n => `Shield level ${n}`,
-    unlockNova: 'Unlock Nova',
-    novaLevel: n => `Nova Level ${n}`,
-    unlockRegen: 'Unlock Regen',
-    regenLevel: n => `Regen Level ${n}`,
-    unlockSlow: 'Unlock Slow',
-    slowLevel: n => `Slow Level ${n}`,
-    unlockAegis: 'Unlock Aegis',
-    aegisLevel: n => `Aegis Level ${n}`,
-    unlockGodsFinger: "Unlock God's Finger",
-    disableGodsFinger: "Disable God's Finger",
-    enableGodsFinger: "Enable God's Finger",
-    clickToDisable: 'Click to disable',
-    clickToEnable: 'Click to enable (free)',
-    permanentUpgrade: 'Permanent upgrade',
-    adminCreditsLabel: '+1000 Credits',
-    admin: 'Admin',
-    notAdmin: 'You are not an admin',
-    notEnoughCredits: 'Not enough credits',
-    levelNotAvailable: 'This level is not available yet',
-
-    hardcoreConfirmTitle: 'Hardcore Mode',
-    hardcoreConfirmPlay: 'Play Hardcore',
-
-    goldMedal: 'Gold medal',
-    silverMedal: 'Silver medal',
-    bronzeMedal: 'Bronze medal',
-  },
-  fr: {
-    level: n => `Niveau ${n}`,
-    waveOf: (w, t) => `Vague ${w} sur ${t}`,
-    wave: w => `Vague ${w}`,
-    boss: 'Boss',
-    credits: n => `Crédits : ${n}`,
-    time: t => `Temps ${t}s`,
-    survival: 'Survie',
-    hardcore: 'Extrême',
-    debugMode: 'Mode Débogage',
-    meteorViewer: 'Visionneur de Météores',
-
-    gameTitle: 'Core Protection',
-    play: 'Jouer',
-    upgrades: 'Améliorations',
-    options: 'Options',
-    start: 'Lancer',
-    backToMenu: 'Retour au Menu',
-    backToModes: 'Retour aux Modes',
-    modes: 'Modes',
-    normalMode: 'Mode Normal',
-    hardcoreMode: 'Mode Extrême',
-    survivalMode: 'Mode Survie',
-    normalLevels: 'Niveaux Normaux',
-    levelN: n => `Niveau ${n}`,
-    hardcoreDesc: 'Aucune compétence ni amélioration ne sera disponible dans ce mode.',
-    survivalDesc: 'Vagues infinies avec scores basés sur le temps de survie.',
-    highScores: 'Meilleurs Scores',
-    noRecords: 'Aucun record',
-
-    music: 'Musique',
-    sounds: 'Sons',
-    styles: 'Styles',
-    language: 'Langue',
-    defaultStyle: 'Défaut',
-    defaultDesc: 'Défense spatiale classique',
-    retroStyle: 'Rétro',
-    retroDesc: 'Arcade rétro avec grille',
-    neonStyle: 'Néon',
-    neonDesc: 'Sci-fi lumineux',
-    forgeStyle: 'Forge',
-    forgeDesc: 'Défense d\'acier fondu',
-    resetProgress: 'Réinitialiser la Progression',
-    resetTitle: 'Réinitialiser la Progression ?',
-    resetText: 'Cela effacera les niveaux, crédits et améliorations.',
-    yes: 'Oui',
-    cancel: 'Annuler',
-
-    paused: 'En Pause',
-    tapResume: 'Touchez pour reprendre',
-    returnToMenu: 'Retour au Menu',
-    returnToMenuQ: 'Retour au Menu ?',
-    pauseLoseCredits: 'Vous perdrez tous les crédits gagnés durant cette partie.',
-
-    bossIncoming: 'Boss en Approche',
-    levelComplete: 'Niveau Terminé',
-    gameOver: 'Fin de Partie',
-    hardcoreModeMsg: 'Mode Extrême',
-    survivalModeMsg: 'Mode Survie',
-    survivalTime: t => `Survie : ${t}`,
-    survivalNewRecord: t => `Survie : ${t} — Nouveau Record !`,
-    godsFingerDeath: 'La colère de Dieu est hors de contrôle...\nVous vous êtes tué !',
-
-    congratulations: 'Félicitations',
-    completedAll: 'Vous avez terminé tous les niveaux',
-    hardcoreUnlocked: 'MODE EXTRÊME DÉBLOQUÉ',
-    continue_: 'Continuer',
-    retryLevel: 'Réessayer le Niveau',
-    nextLevel: 'Niveau Suivant',
-    playHardcore: 'Jouer Extrême',
-    playSurvival: 'Jouer Survie',
-
-    abilities: 'Compétences',
-    pause: 'Pause',
-    debug: 'Débogage',
-    locked: 'Verrouillé',
-    max: 'Max',
-    cooldownS: s => `Recharge ${s}s`,
-    shieldLevel: n => `Bouclier niveau ${n}`,
-    unlockNova: 'Débloquer Nova',
-    novaLevel: n => `Nova Niveau ${n}`,
-    unlockRegen: 'Débloquer Regen',
-    regenLevel: n => `Regen Niveau ${n}`,
-    unlockSlow: 'Débloquer Lent',
-    slowLevel: n => `Lent Niveau ${n}`,
-    unlockAegis: 'Débloquer Aegis',
-    aegisLevel: n => `Aegis Niveau ${n}`,
-    unlockGodsFinger: 'Débloquer Doigt de Dieu',
-    disableGodsFinger: 'Désactiver Doigt de Dieu',
-    enableGodsFinger: 'Activer Doigt de Dieu',
-    clickToDisable: 'Cliquer pour désactiver',
-    clickToEnable: 'Cliquer pour activer (gratuit)',
-    permanentUpgrade: 'Amélioration permanente',
-    adminCreditsLabel: '+1000 Crédits',
-    admin: 'Admin',
-    notAdmin: 'Vous n\'êtes pas administrateur',
-    notEnoughCredits: 'Crédits insuffisants',
-    levelNotAvailable: 'Ce niveau n\'est pas encore disponible',
-
-    hardcoreConfirmTitle: 'Mode Extrême',
-    hardcoreConfirmPlay: 'Jouer Extrême',
-
-    goldMedal: 'Médaille d\'or',
-    silverMedal: 'Médaille d\'argent',
-    bronzeMedal: 'Médaille de bronze',
-  }
-};
-
-let currentLang = localStorage.getItem('language') || 'es';
-
-function t(key, ...args) {
-  const val = i18n[currentLang]?.[key] ?? i18n.es[key];
-  return typeof val === 'function' ? val(...args) : val;
-}
-
-function applyLanguage() {
-  document.documentElement.lang = currentLang === 'es' ? 'es' : currentLang === 'fr' ? 'fr' : 'en';
-
-  // Toasts
-  if (adminToast) adminToast.textContent = t('notAdmin');
-  if (moneyToast) moneyToast.textContent = t('notEnoughCredits');
-  if (levelLockedToast) levelLockedToast.textContent = t('levelNotAvailable');
-
-  // Boss bar
-  const bossLabel = document.querySelector('.boss-label');
-  if (bossLabel) bossLabel.textContent = t('boss');
-
-  // Pause overlay
-  const pauseTitle = document.querySelector('.pause-title');
-  if (pauseTitle) pauseTitle.textContent = t('paused');
-  const pauseResEl = document.getElementById('pause-resume');
-  if (pauseResEl) pauseResEl.textContent = t('tapResume');
-  const pauseMenuBtn = document.getElementById('pause-menu');
-  if (pauseMenuBtn) pauseMenuBtn.textContent = t('returnToMenu');
-
-  // Pause confirm
-  const pcTitle = document.querySelector('#pause-confirm .confirm-title');
-  if (pcTitle) pcTitle.textContent = t('returnToMenuQ');
-  const pcText = document.querySelector('#pause-confirm .confirm-text');
-  if (pcText) pcText.textContent = t('pauseLoseCredits');
-  const pcYes = document.getElementById('pause-confirm-yes');
-  if (pcYes) pcYes.textContent = t('yes');
-  const pcNo = document.getElementById('pause-confirm-no');
-  if (pcNo) pcNo.textContent = t('cancel');
-
-  // Result screen
-  const resultRetryEl = document.getElementById('result-retry');
-  if (resultRetryEl) resultRetryEl.textContent = t('retryLevel');
-  const resultNextEl = document.getElementById('result-next');
-  if (resultNextEl) resultNextEl.textContent = t('nextLevel');
-  const resultHardcoreEl = document.getElementById('result-hardcore');
-  if (resultHardcoreEl) resultHardcoreEl.textContent = t('playHardcore');
-  const resultSurvivalEl = document.getElementById('result-survival');
-  if (resultSurvivalEl) resultSurvivalEl.textContent = t('playSurvival');
-  const resultMenuEl = document.getElementById('result-menu');
-  if (resultMenuEl) resultMenuEl.textContent = t('returnToMenu');
-  // Row titles in result upgrades
-  const resultUpgRowTitle = document.querySelector('#result-upgrades .row-title');
-  if (resultUpgRowTitle) resultUpgRowTitle.textContent = t('upgrades');
-
-  // Victory
-  const vicTitle = document.querySelector('#victory .title');
-  if (vicTitle) vicTitle.textContent = t('congratulations');
-  const vicSubtitle = document.querySelector('#victory .subtitle:not(#hardcore-unlocked)');
-  if (vicSubtitle) vicSubtitle.textContent = t('completedAll');
-  const hcUnlocked = document.getElementById('hardcore-unlocked');
-  if (hcUnlocked) hcUnlocked.textContent = t('hardcoreUnlocked');
-  const vicClose = document.getElementById('victory-close');
-  if (vicClose) vicClose.textContent = t('continue_');
-
-  // Start screen - Home
-  const homeTitle = document.querySelector('#menu-home-panel .title');
-  if (homeTitle) homeTitle.textContent = t('gameTitle');
-  const menuPlayBtn = document.getElementById('menu-play');
-  if (menuPlayBtn) menuPlayBtn.textContent = t('play');
-  const menuUpgBtn = document.getElementById('menu-upgrades-button');
-  if (menuUpgBtn) menuUpgBtn.textContent = t('upgrades');
-  const menuOptBtn = document.getElementById('menu-options-button');
-  if (menuOptBtn) menuOptBtn.textContent = t('options');
-  const debugLabel = document.querySelector('#debug-mode-button .label');
-  if (debugLabel) debugLabel.textContent = t('debugMode');
-  const debugStatus = document.querySelector('#debug-mode-button .status');
-  if (debugStatus) debugStatus.textContent = t('admin');
-
-  // Play panel
-  const playBackBtn = document.getElementById('play-back');
-  if (playBackBtn) { playBackBtn.innerHTML = '<span aria-hidden="true">&lt;</span> ' + t('backToMenu'); }
-  const modesTitle = document.querySelector('#menu-play-panel .modes-title');
-  if (modesTitle) modesTitle.textContent = t('modes');
-  const normalToggle = document.getElementById('normal-mode-toggle');
-  if (normalToggle) normalToggle.textContent = t('normalMode');
-  const hardcoreToggle = document.getElementById('hardcore-mode-toggle');
-  if (hardcoreToggle) hardcoreToggle.textContent = t('hardcoreMode');
-  const survivalToggle = document.getElementById('survival-mode-toggle');
-  if (survivalToggle) survivalToggle.textContent = t('survivalMode');
-
-  // Normal panel
-  const normalBackBtn = document.getElementById('normal-back');
-  if (normalBackBtn) { normalBackBtn.innerHTML = '<span aria-hidden="true">&lt;</span> ' + t('backToModes'); }
-  const normalTitle = document.querySelector('#menu-normal-panel .modes-title');
-  if (normalTitle) normalTitle.textContent = t('normalLevels');
-  document.querySelectorAll('.normal-level').forEach(btn => {
-    const lv = Number(btn.dataset.level);
-    if (!Number.isNaN(lv)) btn.textContent = t('levelN', lv);
-  });
-  const normalStartBtn = document.getElementById('normal-start');
-  if (normalStartBtn) normalStartBtn.textContent = t('start');
-
-  // Hardcore panel
-  const hcBackBtn = document.getElementById('hardcore-back');
-  if (hcBackBtn) { hcBackBtn.innerHTML = '<span aria-hidden="true">&lt;</span> ' + t('backToModes'); }
-  const hcTitle = document.querySelector('#menu-hardcore-panel .modes-title');
-  if (hcTitle) hcTitle.textContent = t('hardcoreMode');
-  const hcDesc = document.querySelector('#menu-hardcore-panel .confirm-text');
-  if (hcDesc) hcDesc.textContent = t('hardcoreDesc');
-  const hcStartBtn = document.getElementById('hardcore-start');
-  if (hcStartBtn) hcStartBtn.textContent = t('start');
-
-  // Survival panel
-  const svBackBtn = document.getElementById('survival-back');
-  if (svBackBtn) { svBackBtn.innerHTML = '<span aria-hidden="true">&lt;</span> ' + t('backToModes'); }
-  const svTitle = document.querySelector('#menu-survival-panel .modes-title');
-  if (svTitle) svTitle.textContent = t('survivalMode');
-  const svDesc = document.querySelector('#menu-survival-panel .modes-description');
-  if (svDesc) svDesc.textContent = t('survivalDesc');
-  const svRecTitle = document.querySelector('#survival-records .records-title');
-  if (svRecTitle) svRecTitle.textContent = t('highScores');
-  const svStartBtn = document.getElementById('survival-start');
-  if (svStartBtn) svStartBtn.textContent = t('start');
-
-  // Upgrades panel
-  const upgRowTitle = document.querySelector('#menu-upgrades .row-title');
-  if (upgRowTitle) upgRowTitle.textContent = t('upgrades');
-  const upgBackBtn = document.getElementById('upgrades-back');
-  if (upgBackBtn) { upgBackBtn.innerHTML = '<span aria-hidden="true">&lt;</span> ' + t('backToMenu'); }
-  const admCredLabel = document.querySelector('#admin-credits .label');
-  if (admCredLabel) admCredLabel.textContent = t('adminCreditsLabel');
-  const admCredStatus = document.querySelector('#admin-credits .status');
-  if (admCredStatus) admCredStatus.textContent = t('admin');
-
-  // Options panel
-  const optTitle = document.querySelector('.options-title');
-  if (optTitle) optTitle.textContent = t('options');
-  const musicLabel = document.querySelector('label[for="music-volume"]');
-  if (musicLabel) musicLabel.textContent = t('music');
-  const sfxLabel = document.querySelector('label[for="sfx-volume"]');
-  if (sfxLabel) sfxLabel.textContent = t('sounds');
-  const stylesTitle = document.querySelector('.styles-title');
-  if (stylesTitle) stylesTitle.textContent = t('styles');
-  const styleCards = { default: ['defaultStyle','defaultDesc'], retro: ['retroStyle','retroDesc'], neon: ['neonStyle','neonDesc'], forge: ['forgeStyle','forgeDesc'] };
-  Object.entries(styleCards).forEach(([key, [nameKey, descKey]]) => {
-    const card = document.querySelector(`.style-card[data-style="${key}"]`);
-    if (card) {
-      const nm = card.querySelector('.style-name');
-      if (nm) nm.textContent = t(nameKey);
-      const ds = card.querySelector('.style-desc');
-      if (ds) ds.textContent = t(descKey);
-    }
-  });
-  const resetBtn = document.getElementById('reset-progress');
-  if (resetBtn) resetBtn.textContent = t('resetProgress');
-  const optBackBtn = document.getElementById('options-back');
-  if (optBackBtn) { optBackBtn.innerHTML = '<span aria-hidden="true">&lt;</span> ' + t('backToMenu'); }
-
-  // Language selector
-  const langTitle = document.querySelector('.language-title');
-  if (langTitle) langTitle.textContent = t('language');
-
-  // Reset confirm
-  const rcTitle = document.querySelector('#confirm-reset .confirm-title');
-  if (rcTitle) rcTitle.textContent = t('resetTitle');
-  const rcText = document.querySelector('#confirm-reset .confirm-text');
-  if (rcText) rcText.textContent = t('resetText');
-  const rcYes = document.getElementById('confirm-reset-yes');
-  if (rcYes) rcYes.textContent = t('yes');
-  const rcNo = document.getElementById('confirm-reset-no');
-  if (rcNo) rcNo.textContent = t('cancel');
-
-  // Hardcore confirm
-  const hccTitle = document.querySelector('#hardcore-confirm .confirm-title');
-  if (hccTitle) hccTitle.textContent = t('hardcoreConfirmTitle');
-  const hccText = document.querySelector('#hardcore-confirm .confirm-text');
-  if (hccText) hccText.textContent = t('hardcoreDesc');
-  const hccYes = document.getElementById('hardcore-confirm-yes');
-  if (hccYes) hccYes.textContent = t('hardcoreConfirmPlay');
-  const hccNo = document.getElementById('hardcore-confirm-no');
-  if (hccNo) hccNo.textContent = t('cancel');
-
-  // Gameover buttons (old, still in DOM)
-  if (gameoverMenu) gameoverMenu.textContent = t('returnToMenu');
-  if (gameoverRetry) gameoverRetry.textContent = t('retryLevel');
-
-  // Skills bar
-  const skillsRowTitle = document.querySelector('#skills .row-title');
-  if (skillsRowTitle) skillsRowTitle.textContent = t('abilities');
-  const pauseBtnLabel = document.querySelector('#pause-button .label');
-  if (pauseBtnLabel) pauseBtnLabel.textContent = t('pause');
-  const debugSkipLabel = document.querySelector('#debug-skip .label');
-  if (debugSkipLabel) debugSkipLabel.textContent = t('debug');
-
-  // Re-capture skill dataset.label after language change
-  document.querySelectorAll('.skill').forEach(button => {
-    const lbl = button.querySelector('.label');
-    if (lbl) button.dataset.label = lbl.textContent;
-  });
-
-  // Refresh dynamic content
-  updateHud();
-  updateUpgrades();
-  updateSkillLocks();
-  renderSurvivalRecords();
-}
-
-const canvas = document.getElementById('game');
-const ctx = canvas.getContext('2d');
-const hudLevel = document.getElementById('level');
-const hudWave = document.getElementById('wave');
-const countdownEl = document.getElementById('countdown');
-const waveMessageEl = document.getElementById('wave-message');
-const gameoverEl = document.getElementById('gameover');
-const gameoverMenu = document.getElementById('gameover-menu');
-const gameoverRetry = document.getElementById('gameover-retry');
-const victoryEl = document.getElementById('victory');
-const hardcoreUnlocked = document.getElementById('hardcore-unlocked');
-const victoryClose = document.getElementById('victory-close');
-const startScreen = document.getElementById('start-screen');
-const normalStartButton = document.getElementById('normal-start');
-const resetProgressButton = document.getElementById('reset-progress');
-const debugSkip = document.getElementById('debug-skip');
-const adminToast = document.getElementById('admin-toast');
-const moneyToast = document.getElementById('money-toast');
-const levelLockedToast = document.getElementById('level-locked-toast');
-const pauseOverlay = document.getElementById('pause-overlay');
-const pauseButton = document.getElementById('pause-button');
-const pauseMenu = document.getElementById('pause-menu');
-const pauseResume = document.getElementById('pause-resume');
-const pauseConfirm = document.getElementById('pause-confirm');
-const pauseConfirmYes = document.getElementById('pause-confirm-yes');
-const pauseConfirmNo = document.getElementById('pause-confirm-no');
-const menuCredits = document.getElementById('menu-credits');
-const bossBar = document.getElementById('boss-bar');
-const bossBarFill = bossBar ? bossBar.querySelector('.boss-fill') : null;
-const menuPlay = document.getElementById('menu-play');
-const menuUpgradesButton = document.getElementById('menu-upgrades-button');
-const menuHomePanel = document.getElementById('menu-home-panel');
-const menuPlayPanel = document.getElementById('menu-play-panel');
-const menuNormalPanel = document.getElementById('menu-normal-panel');
-const menuHardcorePanel = document.getElementById('menu-hardcore-panel');
-const menuSurvivalPanel = document.getElementById('menu-survival-panel');
-const menuUpgradesPanel = document.getElementById('menu-upgrades-panel');
-const upgradesBack = document.getElementById('upgrades-back');
-const playBack = document.getElementById('play-back');
-const normalModeToggle = document.getElementById('normal-mode-toggle');
-const hardcoreModeToggle = document.getElementById('hardcore-mode-toggle');
-const survivalModeToggle = document.getElementById('survival-mode-toggle');
-const normalLevels = document.getElementById('normal-levels');
-const normalBack = document.getElementById('normal-back');
-const hardcoreBack = document.getElementById('hardcore-back');
-const survivalBack = document.getElementById('survival-back');
-const hardcoreStartButton = document.getElementById('hardcore-start');
-const survivalStartButton = document.getElementById('survival-start');
-const menuOptionsButton = document.getElementById('menu-options-button');
-const menuOptionsPanel = document.getElementById('menu-options-panel');
-const optionsBack = document.getElementById('options-back');
-const musicVolumeSlider = document.getElementById('music-volume');
-const sfxVolumeSlider = document.getElementById('sfx-volume');
-const musicVolumeValue = document.getElementById('music-volume-value');
-const sfxVolumeValue = document.getElementById('sfx-volume-value');
-const styleButtons = document.querySelectorAll('[data-style]');
-const adminCreditsButton = document.getElementById('admin-credits');
-const adminCreditFloater = document.getElementById('admin-credit-floater');
-const debugModeButton = document.getElementById('debug-mode-button');
-const debugPanel = document.getElementById('debug-panel');
-const debugDistanceInput = document.getElementById('debug-distance');
-const debugAngleOffsetInput = document.getElementById('debug-angle-offset');
-const debugUseBaseAngleInput = document.getElementById('debug-use-base-angle');
-const debugShowVariablesInput = document.getElementById('debug-show-variables');
-const resultScreen = document.getElementById('result-screen');
-const resultTitle = document.getElementById('result-title');
-const resultCredits = document.getElementById('result-credits');
-const resultRetry = document.getElementById('result-retry');
-const resultNext = document.getElementById('result-next');
-const resultHardcore = document.getElementById('result-hardcore');
-const resultSurvival = document.getElementById('result-survival');
-const resultMenu = document.getElementById('result-menu');
-const confirmReset = document.getElementById('confirm-reset');
-const confirmResetYes = document.getElementById('confirm-reset-yes');
-const confirmResetNo = document.getElementById('confirm-reset-no');
-const actionsBar = document.getElementById('actions');
-const skillButtons = document.querySelectorAll('[data-skill]');
-const upgradeButtons = document.querySelectorAll('[data-upgrade]');
-const levelButtons = document.querySelectorAll('.level-button');
-const moneyEl = document.getElementById('money');
-const survivalTimeEl = document.getElementById('survival-time');
-
-let width = window.innerWidth;
-let height = window.innerHeight;
-let dpr = window.devicePixelRatio || 1;
-let mouseX = width / 2;
-let mouseY = height / 2;
-
-const state = {
-  running: false,
-  level: 1,
-  wave: 1,
-  wavesTotal: 3,
-  countdown: 3,
-  spawnTimer: 0,
-  spawnInterval: 1.1,
-  waveSpawned: 0,
-  waveTarget: 0,
-  bossSpawnTimer: 0,
-  money: 0,
-  unlockedLevel: 1,
-  selectedLevel: 1,
-  betweenLevels: false,
-  finalLevel: false,
-  hardcoreLevel: false,
-  survivalLevel: false,
-  bossLevel: false,
-  bossPhase: false,
-  paused: false,
-  runStartMoney: 0,
-  slowTimer: 0,
-  aegisTimer: 0,
-  survivalTime: 0,
-  musicGain: 0.24,
-  musicTempo: 140,
-  lastTime: 0,
-  animationTime: 0, // Time used for animations, only updates when game is running and not paused
-  debugMode: false,
-  bossTestMode: false,
-  bossTestEntry: 'top'
-};
-
-const levels = [
-  { level: 1, spawnInterval: 1.35, music: { gain: 0.2, tempo: 220 } },
-  { level: 2, spawnInterval: 1.05, music: { gain: 0.26, tempo: 170 } },
-  { level: 3, spawnInterval: 0.75, music: { gain: 0.32, tempo: 130 } },
-  { level: 4, spawnInterval: 0.4, music: { gain: 0.4, tempo: 90 } },
-  { level: 5, spawnInterval: 1.2, music: { gain: 0.3, tempo: 140 } }
-];
-
-const baseCoreRadius = 28;
-const baseShieldRadius = 68;
-const layerGap = 24;
-const maxLayers = 3;
-const shieldLayers = [];
-
-const core = {
-  radius: baseCoreRadius,
-  alive: true
-};
-
-const layout = {
-  x: width / 2,
-  y: height / 2,
-  scale: 1,
-  safeBottom: 0
-};
-
-const missiles = [];
-const twinGroups = new Map();
-let twinCounter = 0;
-const explosions = [];
-const confetti = [];
-const cashFloaters = [];
-const debugMeteorTemplates = [];
-const debugRespawnQueue = [];
-const boss = {
-  active: false,
-  x: 0,
-  y: -400,
-  width: 260,
-  height: 200,
-  entry: 'top',
-  targetX: 0,
-  targetY: 0,
-  speed: 90,
-  hp: 20,
-  maxHp: 20,
-  bodyFlash: 0,
-  driftSpeed: 0,
-  driftDir: 1,
-  settled: false,
-  parts: []
-};
-
-// ── Boss spaceship image & hitbox ────────────────────────
-const bossImage = new Image();
-bossImage.src = 'img/spaceship.png';
-const bossImageLeftDestroyed = new Image();
-bossImageLeftDestroyed.src = 'img/spaceship_left_destroyed.png';
-const bossImageRightDestroyed = new Image();
-bossImageRightDestroyed.src = 'img/spaceship_right_destroyed.png';
-const bossImageBothDestroyed = new Image();
-bossImageBothDestroyed.src = 'img/spaceship_both_destroyed.png';
-
-function getBossCurrentImage() {
-  const left = boss.parts.find(p => p.id === 'front-left');
-  const right = boss.parts.find(p => p.id === 'front-right');
-  const leftDead = left && left.hp <= 0;
-  const rightDead = right && right.hp <= 0;
-  if (leftDead && rightDead) return bossImageBothDestroyed;
-  if (leftDead) return bossImageLeftDestroyed;
-  if (rightDead) return bossImageRightDestroyed;
-  return bossImage;
-}
-
-// Polygon hitbox for the spaceship silhouette (normalized 0-1 in image/ship space)
-const bossHitboxPoly = [
-  { x: 0.12, y: 0.03 },
-  { x: 0.35, y: 0.03 },
-  { x: 0.35, y: 0.12 },
-  { x: 0.42, y: 0.07 },
-  { x: 0.58, y: 0.07 },
-  { x: 0.65, y: 0.12 },
-  { x: 0.65, y: 0.03 },
-  { x: 0.88, y: 0.03 },
-  { x: 0.97, y: 0.20 },
-  { x: 0.99, y: 0.34 },
-  { x: 0.99, y: 0.52 },
-  { x: 0.90, y: 0.58 },
-  { x: 0.73, y: 0.63 },
-  { x: 0.62, y: 0.76 },
-  { x: 0.55, y: 0.90 },
-  { x: 0.50, y: 0.97 },
-  { x: 0.45, y: 0.90 },
-  { x: 0.38, y: 0.76 },
-  { x: 0.27, y: 0.63 },
-  { x: 0.10, y: 0.58 },
-  { x: 0.01, y: 0.52 },
-  { x: 0.01, y: 0.34 },
-  { x: 0.03, y: 0.20 },
-];
-
-function getBossRotation() {
-  if (boss.entry === 'left') return -Math.PI / 2;
-  if (boss.entry === 'right') return Math.PI / 2;
-  return 0;
-}
-
-function getBossImageDims() {
-  if (boss.entry === 'left' || boss.entry === 'right') {
-    return { imgW: boss.height, imgH: boss.width };
-  }
-  return { imgW: boss.width, imgH: boss.height };
-}
-
-function shipToScreen(normX, normY) {
-  const cx = boss.x + boss.width / 2;
-  const cy = boss.y + boss.height / 2;
-  const rotation = getBossRotation();
-  const { imgW, imgH } = getBossImageDims();
-  const localX = normX * imgW - imgW / 2;
-  const localY = normY * imgH - imgH / 2;
-  const cos = Math.cos(rotation);
-  const sin = Math.sin(rotation);
-  return {
-    x: cx + localX * cos - localY * sin,
-    y: cy + localX * sin + localY * cos
-  };
-}
-
-function screenToShip(sx, sy) {
-  const cx = boss.x + boss.width / 2;
-  const cy = boss.y + boss.height / 2;
-  const rotation = getBossRotation();
-  const dx = sx - cx;
-  const dy = sy - cy;
-  const cos = Math.cos(-rotation);
-  const sin = Math.sin(-rotation);
-  const localX = dx * cos - dy * sin;
-  const localY = dx * sin + dy * cos;
-  const { imgW, imgH } = getBossImageDims();
-  return {
-    x: (localX + imgW / 2) / imgW,
-    y: (localY + imgH / 2) / imgH
-  };
-}
-
-function pointInPolygon(px, py, poly) {
-  let inside = false;
-  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    const xi = poly[i].x, yi = poly[i].y;
-    const xj = poly[j].x, yj = poly[j].y;
-    if ((yi > py) !== (yj > py) && px < (xj - xi) * (py - yi) / (yj - yi) + xi) {
-      inside = !inside;
-    }
-  }
-  return inside;
-}
-
-let stars = [];
-let screenFlash = 0;
-let shockwave = 0;
-
-let audioCtx = null;
-let masterGain = null;
-let bgMusic = null;
-let bgMusicTrack = null;
-let melodyTimer = null;
-let gamePulse = null;
-let countdownTimer = null;
-let isInCountdown = false; // Track if we're currently in countdown phase
-let waveTimeout = null;
-let waveMessageTimer = null;
-let victoryTimer = null;
-let gameGain = null;
-let melodyIntervalMs = 140;
-let baseMelodyIntervalMs = 140;
-let baseMusicGain = 0.24;
-const audioSettingsKey = {
-  music: 'musicVolume',
-  sfx: 'sfxVolume'
-};
-const baseSfxGain = 0.2;
-const baseShootVolume = 0.4;
-const baseHitVolume = 0.55;
-let musicVolume = 1;
-let sfxVolume = 1;
-let previousMusicVolume = 1; // Store previous volume when muting
-let previousSfxVolume = 1; // Store previous volume when muting
-let pausedBgMusicVolume = 1; // Store bgMusic volume before pause to restore it
-let pausedGameGainValue = 1; // Store gameGain value before pause to restore it
-let musicSlowFactor = 1;
-let leadOsc = null;
-let melodyStep = 0;
-let lastMusicPreview = 0;
-let lastSfxPreview = 0;
-let debugHoldTimer = null;
-let debugHoldTriggered = false;
-let adminToastTimer = null;
-let moneyToastTimer = null;
-let levelLockedToastTimer = null;
-let adminCreditsTimer = null;
-let adminCreditsTriggered = false;
-let adminCreditFloaterTimer = null;
-let debugModeTimer = null;
-let debugModeTriggered = false;
-const survivalRecordsKey = 'survivalRecords';
-const maxNormalLevels = 3;
-const themeMusic = {
-  default: { gain: 1, tempo: 1, pulse: 'square', lead: 'sawtooth' },
-  retro: { gain: 0.85, tempo: 1.15, pulse: 'square', lead: 'square' },
-  neon: { gain: 1.2, tempo: 0.8, pulse: 'sawtooth', lead: 'triangle' },
-  forge: { gain: 1.05, tempo: 0.92, pulse: 'triangle', lead: 'sawtooth' }
-};
-const themeMusicTracks = {
-  default: null,
-  retro: 'music/retroMusic.mp3',
-  neon: 'music/neonMusic.mp3',
-  forge: 'music/forgeMusic.mp3'
-};
-const themeColors = {
-  space1: '#1a2a4f',
-  space2: '#070b16',
-  space3: '#020308',
-  star: '200, 220, 255'
-};
-const themePalette = {
-  shield: ['#52b8ff', '#58e28f', '#ff6b6b'],
-  coreOuter: '#ffb347',
-  coreInner: '#ffe1b3',
-  missileNormal: '#ff7c57',
-  missileFast: '#6ce3ff',
-  missileTank: '#7fdc7a',
-  missileTwin: '#7fdc7a',
-  missileStrokeNormal: 'rgba(255, 220, 180, 0.7)',
-  missileStrokeFast: 'rgba(160, 240, 255, 0.8)',
-  missileFinNormal: 'rgba(255, 160, 110, 0.9)',
-  missileFinFast: 'rgba(120, 220, 255, 0.9)',
-  missileTrailNormal: 'rgba(255, 140, 60, 0.9)',
-  missileTrailFast: 'rgba(120, 220, 255, 0.9)',
-  twinBeam: 'rgba(110, 255, 150, 0.85)',
-  screenFlash: '#9cd3ff',
-  shockwave: '140, 220, 255'
-};
-const showMeteorHitboxes = false;
-const showShieldHitboxes = false; // Set to true to show shield hitboxes in normal gameplay
-let shootSfx = null;
-let hitSfx = null;
-let shootSfxBuffer = null;
-let hitSfxBuffer = null;
-let audioBuffersLoaded = false;
-
-// Cargar buffers de audio para reducir latencia en móviles
-async function loadAudioBuffers() {
-  if (!audioCtx || audioBuffersLoaded) return;
-  
-  try {
-    // Cargar destroy.wav
-    const destroyResponse = await fetch('sound/destroy.wav');
-    const destroyArrayBuffer = await destroyResponse.arrayBuffer();
-    shootSfxBuffer = await audioCtx.decodeAudioData(destroyArrayBuffer);
-    
-    // Cargar hit.wav
-    const hitResponse = await fetch('sound/hit.wav');
-    const hitArrayBuffer = await hitResponse.arrayBuffer();
-    hitSfxBuffer = await audioCtx.decodeAudioData(hitArrayBuffer);
-    
-    audioBuffersLoaded = true;
-  } catch (err) {
-    // Si falla, usar el método HTML Audio como fallback
-    console.warn('Failed to load audio buffers, using HTML Audio fallback:', err);
-  }
-}
-
-function playShootSfx() {
-  // En móviles, usar AudioContext con buffers para menor latencia
-  if (audioCtx && audioBuffersLoaded && shootSfxBuffer) {
-    // Asegurar que el contexto esté activo
-    if (audioCtx.state === 'suspended') {
-      audioCtx.resume().then(() => {
-        // Reproducir después de resumir
-        const source = audioCtx.createBufferSource();
-        const gain = audioCtx.createGain();
-        source.buffer = shootSfxBuffer;
-        // Compensar por masterGain para que el volumen sea equivalente al HTML Audio
-        // HTML Audio: volume = baseShootVolume * sfxVolume
-        // AudioBuffer: necesita dividir por masterGain para obtener el mismo volumen final
-        const masterGainValue = masterGain ? masterGain.gain.value : baseSfxGain * sfxVolume;
-        gain.gain.value = (baseShootVolume * sfxVolume) / Math.max(0.001, masterGainValue);
-        source.connect(gain);
-        gain.connect(masterGain);
-        source.start(0);
-      }).catch(() => {});
-      return;
-    }
-    // Si ya está activo, reproducir inmediatamente
-    const source = audioCtx.createBufferSource();
-    const gain = audioCtx.createGain();
-    source.buffer = shootSfxBuffer;
-    // Compensar por masterGain para que el volumen sea equivalente al HTML Audio
-    const masterGainValue = masterGain ? masterGain.gain.value : baseSfxGain * sfxVolume;
-    gain.gain.value = (baseShootVolume * sfxVolume) / Math.max(0.001, masterGainValue);
-    source.connect(gain);
-    gain.connect(masterGain);
-    source.start(0);
-    return;
-  }
-  
-  // Fallback a HTML Audio si los buffers no están cargados
-  if (!shootSfx) {
-    shootSfx = new Audio('sound/destroy.wav');
-    shootSfx.preload = 'auto';
-    shootSfx.volume = baseShootVolume * sfxVolume;
-    // En móviles, intentar cargar inmediatamente
-    shootSfx.load();
-  }
-  shootSfx.volume = baseShootVolume * sfxVolume;
-  // Usar cloneNode para evitar latencia de resetear currentTime
-  const audioClone = shootSfx.cloneNode();
-  audioClone.volume = baseShootVolume * sfxVolume;
-  void audioClone.play().catch(() => {});
-}
-
-function playHitSfx() {
-  // En móviles, usar AudioContext con buffers para menor latencia
-  if (audioCtx && audioBuffersLoaded && hitSfxBuffer) {
-    // Asegurar que el contexto esté activo
-    if (audioCtx.state === 'suspended') {
-      audioCtx.resume().then(() => {
-        // Reproducir después de resumir
-        const source = audioCtx.createBufferSource();
-        const gain = audioCtx.createGain();
-        source.buffer = hitSfxBuffer;
-        // Compensar por masterGain para que el volumen sea equivalente al HTML Audio
-        const masterGainValue = masterGain ? masterGain.gain.value : baseSfxGain * sfxVolume;
-        gain.gain.value = (baseHitVolume * sfxVolume) / Math.max(0.001, masterGainValue);
-        source.connect(gain);
-        gain.connect(masterGain);
-        source.start(0);
-      }).catch(() => {});
-      return;
-    }
-    // Si ya está activo, reproducir inmediatamente
-    const source = audioCtx.createBufferSource();
-    const gain = audioCtx.createGain();
-    source.buffer = hitSfxBuffer;
-    // Compensar por masterGain para que el volumen sea equivalente al HTML Audio
-    const masterGainValue = masterGain ? masterGain.gain.value : baseSfxGain * sfxVolume;
-    gain.gain.value = (baseHitVolume * sfxVolume) / Math.max(0.001, masterGainValue);
-    source.connect(gain);
-    gain.connect(masterGain);
-    source.start(0);
-    return;
-  }
-  
-  // Fallback a HTML Audio si los buffers no están cargados
-  if (!hitSfx) {
-    hitSfx = new Audio('sound/hit.wav');
-    hitSfx.preload = 'auto';
-    hitSfx.volume = baseHitVolume * sfxVolume;
-    // En móviles, intentar cargar inmediatamente
-    hitSfx.load();
-  }
-  hitSfx.volume = baseHitVolume * sfxVolume;
-  // Usar cloneNode para evitar latencia de resetear currentTime
-  const audioClone = hitSfx.cloneNode();
-  audioClone.volume = baseHitVolume * sfxVolume;
-  void audioClone.play().catch(() => {});
-}
 const meteorSprite = new Image();
 const meteorSpriteData = {
   ready: false,
@@ -1182,47 +155,12 @@ if (window.location.protocol !== 'file:') {
 }
 meteorSprite.src = 'img/meteorSprite.png';
 
-function isPixelTheme() {
-  return document.body.dataset.theme === 'retro';
-}
-
-function isNeonTheme() {
-  return document.body.dataset.theme === 'neon';
-}
-
-function isForgeTheme() {
-  return document.body.dataset.theme === 'forge';
-}
-
-function getHudFont(size) {
-  if (isPixelTheme()) {
-    return `${Math.max(10, Math.round(size))}px "Press Start 2P", monospace`;
-  }
-  if (isNeonTheme()) {
-    return `${size}px "Rajdhani", sans-serif`;
-  }
-  if (isForgeTheme()) {
-    return `${size}px "Chakra Petch", sans-serif`;
-  }
-  return `${size}px "Orbitron", "Russo One", sans-serif`;
-}
-
-const skillCooldownLevels = [30, 20, 10];
 const skillState = {
   nova: 0,
   regen: 0,
   slow: 0,
   aegis: 0
   // godsFinger no tiene cooldown, es permanente
-};
-
-const upgradeCosts = {
-  shield: [0, 18, 36, 60],
-  nova: [0, 30, 60, 90],
-  regen: [0, 24, 48, 72],
-  slow: [0, 20, 40, 70],
-  aegis: [0, 28, 56, 84],
-  godsFinger: [0, 1000] // Solo un nivel, mejora permanente
 };
 
 let shieldUpgrades = 0;
@@ -1288,51 +226,6 @@ function updateLayout() {
       boss.targetY = 20 * layout.scale;
     }
   }
-}
-
-function readThemeColors() {
-  const styles = getComputedStyle(document.body);
-  themeColors.space1 = styles.getPropertyValue('--space-1').trim() || themeColors.space1;
-  themeColors.space2 = styles.getPropertyValue('--space-2').trim() || themeColors.space2;
-  themeColors.space3 = styles.getPropertyValue('--space-3').trim() || themeColors.space3;
-  themeColors.star = styles.getPropertyValue('--star-color').trim() || themeColors.star;
-}
-
-function normalizeThemeKey(theme) {
-  if (theme === 'pixel') return 'retro';
-  return theme || 'default';
-}
-
-function getThemeKey() {
-  return normalizeThemeKey(document.body.dataset.theme);
-}
-
-function getThemeMelody() {
-  const theme = getThemeKey();
-  if (theme === 'retro') {
-    return [660, 550, 440, 494, 523, 440, 392, 330, 392, 440, 494, 523, 588, 523, 494, 440];
-  }
-  if (theme === 'neon') {
-    return [392, 440, 523, 659, 784, 659, 523, 440];
-  }
-  if (theme === 'forge') {
-    return [196, 220, 262, 294, 330, 294, 262, 220, 196, 220, 262, 294];
-  }
-  return [220, 262, 330, 392, 440, 494, 440, 392, 330, 262, 330, 392];
-}
-
-function getThemeLeadLine() {
-  const theme = getThemeKey();
-  if (theme === 'retro') {
-    return [880, 660, 740, 660, 880, 990, 740, 660, 880, 740, 660, 740, 990, 880, 740, 660];
-  }
-  if (theme === 'neon') {
-    return [659, 784, 988, 1175, 988, 784, 659, 523];
-  }
-  if (theme === 'forge') {
-    return [392, 440, 523, 659, 523, 440, 392, 330, 392, 440];
-  }
-  return [440, 523, 659, 784, 659, 523, 440, 392];
 }
 
 function clamp01(value) {
@@ -1922,6 +815,10 @@ function resetMusic() {
   bgMusic.currentTime = 0; // Reiniciar desde el principio
 }
 
+function fillNoiseFade(data) {
+  for (let i = 0; i < data.length; i += 1) data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
+}
+
 function playSfx(type) {
   if (type === 'boom') {
     playShootSfx();
@@ -2018,10 +915,7 @@ function playSfx(type) {
 
   if (type === 'hit') {
     const noiseBuffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.4, audioCtx.sampleRate);
-    const data = noiseBuffer.getChannelData(0);
-    for (let i = 0; i < data.length; i += 1) {
-      data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
-    }
+    fillNoiseFade(noiseBuffer.getChannelData(0));
     const noise = audioCtx.createBufferSource();
     noise.buffer = noiseBuffer;
     const filter = audioCtx.createBiquadFilter();
@@ -2074,10 +968,7 @@ function playSfx(type) {
     gain.connect(masterGain);
 
     const noiseBuffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.7, audioCtx.sampleRate);
-    const data = noiseBuffer.getChannelData(0);
-    for (let i = 0; i < data.length; i += 1) {
-      data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
-    }
+    fillNoiseFade(noiseBuffer.getChannelData(0));
     const noise = audioCtx.createBufferSource();
     noise.buffer = noiseBuffer;
     const filter = audioCtx.createBiquadFilter();
@@ -2135,10 +1026,7 @@ function playSfx(type) {
     
     // Añadir ruido para más impacto
     const noiseBuffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.8, audioCtx.sampleRate);
-    const data = noiseBuffer.getChannelData(0);
-    for (let i = 0; i < data.length; i += 1) {
-      data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
-    }
+    fillNoiseFade(noiseBuffer.getChannelData(0));
     const noise = audioCtx.createBufferSource();
     noise.buffer = noiseBuffer;
     const filter = audioCtx.createBiquadFilter();
@@ -3431,16 +2319,10 @@ function updateBoss(dt) {
     part.cooldown += dt;
     if (part.cooldown >= part.rate) {
       part.cooldown = 0;
-      // Transform part center from ship-space to screen-space
       const spawnPos = shipToScreen(part.x + part.w * 0.5, part.y + part.h * 0.5);
       spawnMissileFrom(spawnPos.x, spawnPos.y, part.type);
     }
-  });
-
-  boss.parts.forEach(part => {
-    if (part.flash > 0) {
-      part.flash = Math.max(0, part.flash - dt * 2.5);
-    }
+    if (part.flash > 0) part.flash = Math.max(0, part.flash - dt * 2.5);
   });
   if (boss.bodyFlash > 0) {
     boss.bodyFlash = Math.max(0, boss.bodyFlash - dt * 2.5);
@@ -3516,10 +2398,7 @@ function drawBoss() {
     ctx.fillRect(-imgW / 2, -imgH / 2, imgW, imgH);
   }
 
-  // Draw body flash overlay when hit directly
-  if (boss.bodyFlash > 0) {
-    ctx.fillStyle = '#9cd3ff';
-    ctx.globalAlpha = boss.bodyFlash * 0.35;
+  function drawBossHitboxPath(imgW, imgH) {
     ctx.beginPath();
     for (let i = 0; i < bossHitboxPoly.length; i++) {
       const p = bossHitboxPoly[i];
@@ -3529,6 +2408,13 @@ function drawBoss() {
       else ctx.lineTo(px, py);
     }
     ctx.closePath();
+  }
+
+  // Draw body flash overlay when hit directly
+  if (boss.bodyFlash > 0) {
+    ctx.fillStyle = '#9cd3ff';
+    ctx.globalAlpha = boss.bodyFlash * 0.35;
+    drawBossHitboxPath(imgW, imgH);
     ctx.fill();
     ctx.globalAlpha = 1;
   }
@@ -3538,11 +2424,9 @@ function drawBoss() {
     if (part.hp <= 0 || part.flash <= 0) return;
     const px = part.x * imgW - imgW / 2;
     const py = part.y * imgH - imgH / 2;
-    const pw = part.w * imgW;
-    const ph = part.h * imgH;
     ctx.fillStyle = '#ffb347';
     ctx.globalAlpha = part.flash * 0.45;
-    ctx.fillRect(px, py, pw, ph);
+    ctx.fillRect(px, py, part.w * imgW, part.h * imgH);
     ctx.globalAlpha = 1;
   });
 
@@ -3550,15 +2434,7 @@ function drawBoss() {
   if (state.debugMode) {
     ctx.strokeStyle = 'rgba(0, 255, 0, 0.6)';
     ctx.lineWidth = 2;
-    ctx.beginPath();
-    for (let i = 0; i < bossHitboxPoly.length; i++) {
-      const p = bossHitboxPoly[i];
-      const px = p.x * imgW - imgW / 2;
-      const py = p.y * imgH - imgH / 2;
-      if (i === 0) ctx.moveTo(px, py);
-      else ctx.lineTo(px, py);
-    }
-    ctx.closePath();
+    drawBossHitboxPath(imgW, imgH);
     ctx.stroke();
 
     // Draw part rectangles in debug
@@ -5862,11 +4738,9 @@ document.addEventListener('keydown', (e) => {
     updateBossBar();
   }
 });
-document.querySelectorAll('.skill').forEach(button => {
+skillButtons.forEach(button => {
   const label = button.querySelector('.label');
-  if (label) {
-    button.dataset.label = label.textContent;
-  }
+  if (label) button.dataset.label = label.textContent;
 });
 skillButtons.forEach(button => {
   button.addEventListener('animationend', event => {
@@ -5903,23 +4777,15 @@ function updateCooldowns(dt) {
       button.classList.add('cooldown');
       button.classList.remove('ready-flash');
       const total = getSkillCooldown(skill);
-      const ratio = total > 0 ? remaining / total : 0;
-      button.style.setProperty('--cooldown-scale', ratio.toString());
+      button.style.setProperty('--cooldown-scale', total > 0 ? (remaining / total).toString() : '0');
       button.dataset.remaining = `${Math.ceil(remaining)}s`;
-      if (label) {
-        label.textContent = `${button.dataset.label}`;
-      }
     } else {
       button.classList.remove('cooldown');
       button.style.setProperty('--cooldown-scale', '0');
       button.dataset.remaining = '';
-      if (label) {
-        label.textContent = `${button.dataset.label}`;
-      }
-      if (wasCoolingDown && !button.disabled) {
-        button.classList.add('ready-flash');
-      }
+      if (wasCoolingDown && !button.disabled) button.classList.add('ready-flash');
     }
+    if (label) label.textContent = button.dataset.label;
   });
 }
 
@@ -6171,27 +5037,14 @@ function hideResultScreen() {
   if (resultScreen) resultScreen.classList.add('hidden');
 }
 
-// Function to update debug buttons visibility
 function updateDebugButtonsVisibility() {
-  if (!SHOW_DEBUG_BUTTONS) {
-    if (adminCreditsButton) {
-      adminCreditsButton.classList.add('hidden');
-      adminCreditsButton.style.display = 'none';
+  const show = !!SHOW_DEBUG_BUTTONS;
+  [adminCreditsButton, debugModeButton].forEach(btn => {
+    if (btn) {
+      btn.classList.toggle('hidden', !show);
+      btn.style.display = show ? '' : 'none';
     }
-    if (debugModeButton) {
-      debugModeButton.classList.add('hidden');
-      debugModeButton.style.display = 'none';
-    }
-  } else {
-    if (adminCreditsButton) {
-      adminCreditsButton.classList.remove('hidden');
-      adminCreditsButton.style.display = '';
-    }
-    if (debugModeButton) {
-      debugModeButton.classList.remove('hidden');
-      debugModeButton.style.display = '';
-    }
-  }
+  });
 }
 
 function loadProgress() {
