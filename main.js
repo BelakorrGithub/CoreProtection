@@ -4806,63 +4806,60 @@ function activateGodsFinger(x, y) {
     coreHit = distToCore <= coreRadiusScaled + radius;
   }
   
-  // Verificar si hay escudos activos ANTES de hacer cualquier cosa
+  // Si Aegis está activo, el Dedo de Dios no daña núcleo ni escudos
+  const aegisProtects = state.aegisTimer > 0;
   const hasActiveShields = getActiveShield() !== null;
-  
-  // Si el núcleo fue tocado
-  if (coreHit && core.alive) {
-    if (hasActiveShields) {
-      // Si hay escudos activos, solo destruir el más externo, NO matar
+
+  if (!aegisProtects) {
+    // Si el núcleo fue tocado
+    if (coreHit && core.alive) {
+      if (hasActiveShields) {
+        // Si hay escudos activos, solo destruir el más externo, NO matar
+        for (let i = shieldLayers.length - 1; i >= 0; i -= 1) {
+          const layer = shieldLayers[i];
+          if (layer.hp > 0) {
+            layer.hp = 0;
+            playSfx('shield');
+            triggerExplosion(target.x, target.y, '#6ecbff', 28, 0.18);
+            break; // Solo destruir una capa
+          }
+        }
+      } else {
+        // Si NO hay escudos activos, el jugador muere
+        handleCoreHit(t('godsFingerDeath'));
+        return; // No procesar meteoritos si el jugador ya murió
+      }
+    } else {
+      // Si el núcleo NO fue tocado, verificar colisión con escudos
       for (let i = shieldLayers.length - 1; i >= 0; i -= 1) {
         const layer = shieldLayers[i];
-        if (layer.hp > 0) {
+        if (layer.hp <= 0) continue; // Skip destroyed shields
+
+        const shieldRadius = layer.radius * layout.scale;
+        const distToShield = Math.hypot(target.x - x, target.y - y);
+
+        // Para pixel theme, verificar intersección de cuadrado con círculo
+        // Para otros temas, verificar intersección de círculo con círculo
+        let shieldHit = false;
+        if (isPixelTheme()) {
+          const halfShieldSize = shieldRadius;
+          const shieldRect = {
+            x: target.x - halfShieldSize,
+            y: target.y - halfShieldSize,
+            w: halfShieldSize * 2,
+            h: halfShieldSize * 2
+          };
+          shieldHit = isCircleIntersectingRect(x, y, shieldRect, radius);
+        } else {
+          shieldHit = distToShield <= shieldRadius + radius;
+        }
+
+        if (shieldHit) {
           layer.hp = 0;
           playSfx('shield');
           triggerExplosion(target.x, target.y, '#6ecbff', 28, 0.18);
-          break; // Solo destruir una capa
+          break;
         }
-      }
-      // No procesar más, solo destruir el escudo
-      // Continuar para procesar meteoritos
-    } else {
-      // Si NO hay escudos activos, el jugador muere
-      handleCoreHit(t('godsFingerDeath'));
-      return; // No procesar meteoritos si el jugador ya murió
-    }
-  } else {
-    // Si el núcleo NO fue tocado, verificar colisión con escudos
-    for (let i = shieldLayers.length - 1; i >= 0; i -= 1) {
-      const layer = shieldLayers[i];
-      if (layer.hp <= 0) continue; // Skip destroyed shields
-      
-      const shieldRadius = layer.radius * layout.scale;
-      const distToShield = Math.hypot(target.x - x, target.y - y);
-      
-      // Para pixel theme, verificar intersección de cuadrado con círculo
-      // Para otros temas, verificar intersección de círculo con círculo
-      let shieldHit = false;
-      if (isPixelTheme()) {
-        // En pixel theme, el escudo es un cuadrado
-        // Verificar si el círculo de explosión intersecta con el cuadrado del escudo
-        const halfShieldSize = shieldRadius;
-        const shieldRect = {
-          x: target.x - halfShieldSize,
-          y: target.y - halfShieldSize,
-          w: halfShieldSize * 2,
-          h: halfShieldSize * 2
-        };
-        shieldHit = isCircleIntersectingRect(x, y, shieldRect, radius);
-      } else {
-        // En otros temas, el escudo es un círculo (o hexágono, pero aproximamos como círculo)
-        shieldHit = distToShield <= shieldRadius + radius;
-      }
-      
-      if (shieldHit) {
-        // Solo destruir la capa más externa que intersecta (la primera que encontramos al iterar desde el final)
-        layer.hp = 0;
-        playSfx('shield');
-        triggerExplosion(target.x, target.y, '#6ecbff', 28, 0.18);
-        break; // Solo destruir una capa
       }
     }
   }
