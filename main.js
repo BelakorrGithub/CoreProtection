@@ -3631,6 +3631,35 @@ function getBounty(type) {
 
 const GODS_FINGER_RADIUS = 96; // Radio de ataque de God's Finger (reducido 20% desde 120)
 
+// Devuelve un punto en pantalla sobre el boss que esté dentro del círculo (cx, cy, radius), o null
+function getBossPointInCircle(cx, cy, radius) {
+  if (!boss.active || boss.hp <= 0) return null;
+  const r2 = radius * radius;
+  // Partes (lanzadores): centro de cada parte en pantalla
+  for (let i = 0; i < boss.parts.length; i += 1) {
+    const part = boss.parts[i];
+    if (part.hp <= 0) continue;
+    const pt = shipToScreen(part.x + part.w * 0.5, part.y + part.h * 0.5);
+    const dx = pt.x - cx;
+    const dy = pt.y - cy;
+    if (dx * dx + dy * dy <= r2) return pt;
+  }
+  // Cuerpo: centroide del polígono en espacio barco, luego a pantalla
+  let sx = 0;
+  let sy = 0;
+  for (let j = 0; j < bossHitboxPoly.length; j += 1) {
+    sx += bossHitboxPoly[j].x;
+    sy += bossHitboxPoly[j].y;
+  }
+  sx /= bossHitboxPoly.length;
+  sy /= bossHitboxPoly.length;
+  const bodyPt = shipToScreen(sx, sy);
+  const dx = bodyPt.x - cx;
+  const dy = bodyPt.y - cy;
+  if (dx * dx + dy * dy <= r2) return bodyPt;
+  return null;
+}
+
 function drawGodsFingerRadius() {
   // Draw a circle showing the attack radius following the mouse cursor
   // This helps visualize the range in debug mode
@@ -3737,6 +3766,14 @@ function activateGodsFinger(x, y) {
           break;
         }
       }
+    }
+  }
+
+  // Si el área del Dedo de Dios toca al boss, aplicar un golpe normal (como un tap)
+  if (boss.active && boss.hp > 0) {
+    const bossPoint = getBossPointInCircle(x, y, radius);
+    if (bossPoint) {
+      hitBossAt(bossPoint.x, bossPoint.y);
     }
   }
   
@@ -4080,6 +4117,30 @@ skillButtons.forEach(button => {
       missiles.length = 0;
       playSfx('nova');
       triggerNovaEffect();
+      // Si el boss está en pantalla, la Nova le hace un golpe a cada parte (puede rematarlo)
+      if (state.bossPhase && boss.active && boss.hp > 0) {
+        boss.parts.forEach(part => {
+          if (part.hp > 0) {
+            part.hp -= 1;
+            boss.hp = Math.max(0, boss.hp - 0.5);
+            part.flash = 0.6;
+            const pos = shipToScreen(part.x + part.w * 0.5, part.y + part.h * 0.5);
+            playSfx(part.hp <= 0 ? 'boom' : 'hitsoft');
+            triggerExplosion(pos.x, pos.y, part.hp <= 0 ? '#ff6b3b' : '#ffb347', part.hp <= 0 ? 60 : 32, part.hp <= 0 ? 0.5 : 0.2, part.hp <= 0 ? 12 : 6);
+            if (part.hp <= 0) {
+              awardMoney(25);
+              spawnCashFloater(pos.x, pos.y - 30, 25);
+            }
+          }
+        });
+        boss.hp = Math.max(0, boss.hp - 1);
+        boss.bodyFlash = 0.5;
+        const cx = boss.x + boss.width / 2;
+        const cy = boss.y + boss.height / 2;
+        playSfx('hitsoft');
+        triggerExplosion(cx, cy, '#9cd3ff', 28, 0.15, 5);
+        updateBossBar();
+      }
       setCooldown(skill);
       return;
     }
