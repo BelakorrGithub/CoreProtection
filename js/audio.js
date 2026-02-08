@@ -4,6 +4,7 @@ var audioCtx = null;
 var masterGain = null;
 var bgMusic = null;
 var bgMusicTrack = null;
+var menuChillMusic = null;
 var melodyTimer = null;
 var gamePulse = null;
 var countdownTimer = null;
@@ -129,4 +130,34 @@ function playHitSfx() {
   var audioClone = hitSfx.cloneNode();
   audioClone.volume = baseHitVolume * sfxVolume;
   void audioClone.play().catch(function() {});
+}
+
+function ensureMenuChillMusic() {
+  if (typeof menuChillTrack === 'undefined' || !menuChillTrack) return;
+  if (!menuChillMusic) {
+    menuChillMusic = new Audio(menuChillTrack);
+    menuChillMusic.loop = true;
+    menuChillMusic.preload = 'auto';
+  }
+}
+
+function startMenuChillMusic() {
+  ensureMenuChillMusic();
+  if (!menuChillMusic) return;
+  var gain = (typeof menuChillGain !== 'undefined' && Number.isFinite(menuChillGain)) ? menuChillGain : 0.45;
+  menuChillMusic.volume = Math.min(1, gain * musicVolume);
+  menuChillMusic.currentTime = 0;
+  void menuChillMusic.play().catch(function() {});
+}
+
+function stopMenuChillMusic() {
+  if (menuChillMusic) {
+    menuChillMusic.pause();
+  }
+}
+
+function updateMenuChillVolume() {
+  if (!menuChillMusic || menuChillMusic.paused) return;
+  var gain = (typeof menuChillGain !== 'undefined' && Number.isFinite(menuChillGain)) ? menuChillGain : 0.45;
+  menuChillMusic.volume = Math.min(1, gain * musicVolume);
 }

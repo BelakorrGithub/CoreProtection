@@ -38,7 +38,7 @@ var i18n = {
     sounds: 'Sonidos',
     styles: 'Estilos',
     language: 'Idioma',
-    defaultStyle: 'Predeterminado',
+    defaultStyle: 'Básico',
     defaultDesc: 'Defensa espacial clásica',
     retroStyle: 'Retro',
     retroDesc: 'Arcade retro con cuadrícula',
@@ -73,7 +73,9 @@ var i18n = {
     congratulations: 'Felicidades',
     completedAll: 'Has completado todos los niveles',
     hardcoreUnlocked: 'MODO EXTREMO DESBLOQUEADO',
-    continue_: 'Continuar',
+    returnToMainMenu: 'Volver al menú principal',
+    tryExtremeMode: 'Probar modo extremo',
+    infiniteMode: 'Modo infinito',
     retryLevel: 'Reintentar Nivel',
     nextLevel: 'Siguiente Nivel',
     playHardcore: 'Jugar Extremo',
@@ -150,7 +152,7 @@ var i18n = {
     sounds: 'Sounds',
     styles: 'Styles',
     language: 'Language',
-    defaultStyle: 'Default',
+    defaultStyle: 'Basic',
     defaultDesc: 'Classic space defense',
     retroStyle: 'Retro',
     retroDesc: 'Retro arcade grid',
@@ -182,7 +184,9 @@ var i18n = {
     congratulations: 'Congratulations',
     completedAll: 'You completed all levels',
     hardcoreUnlocked: 'HARDCORE MODE UNLOCKED',
-    continue_: 'Continue',
+    returnToMainMenu: 'Return to main menu',
+    tryExtremeMode: 'Try Extreme Mode',
+    infiniteMode: 'Infinite Mode',
     retryLevel: 'Retry Level',
     nextLevel: 'Next Level',
     playHardcore: 'Play Hardcore',
@@ -256,7 +260,7 @@ var i18n = {
     sounds: 'Sons',
     styles: 'Styles',
     language: 'Langue',
-    defaultStyle: 'Défaut',
+    defaultStyle: 'Basique',
     defaultDesc: 'Défense spatiale classique',
     retroStyle: 'Rétro',
     retroDesc: 'Arcade rétro avec grille',
@@ -288,7 +292,9 @@ var i18n = {
     congratulations: 'Félicitations',
     completedAll: 'Vous avez terminé tous les niveaux',
     hardcoreUnlocked: 'MODE EXTRÊME DÉBLOQUÉ',
-    continue_: 'Continuer',
+    returnToMainMenu: 'Retour au menu principal',
+    tryExtremeMode: 'Essayer le mode extrême',
+    infiniteMode: 'Mode infini',
     retryLevel: 'Réessayer le Niveau',
     nextLevel: 'Niveau Suivant',
     playHardcore: 'Jouer Extrême',
@@ -347,8 +353,8 @@ var LANG_TEXT = [
   ['.boss-label', 'boss'], ['.pause-title', 'paused'], ['#pause-resume', 'tapResume'], ['#pause-menu', 'returnToMenu'],
   ['#pause-confirm .confirm-title', 'returnToMenuQ'], ['#pause-confirm .confirm-text', 'pauseLoseCredits'], ['#pause-confirm-yes', 'yes'], ['#pause-confirm-no', 'cancel'],
   ['#result-retry', 'retryLevel'], ['#result-next', 'nextLevel'], ['#result-hardcore', 'playHardcore'], ['#result-survival', 'playSurvival'], ['#result-menu', 'returnToMenu'],
-  ['#result-upgrades .row-title', 'upgrades'], ['#victory .title', 'congratulations'], ['#victory .subtitle:not(#hardcore-unlocked)', 'completedAll'],
-  ['#hardcore-unlocked', 'hardcoreUnlocked'], ['#victory-close', 'continue_'], ['#menu-home-panel .title', 'gameTitle'],
+  ['#result-upgrades .row-title', 'upgrades'],
+  ['#hardcore-unlocked', 'hardcoreUnlocked'], ['#victory .victory-title', 'congratulations'], ['#victory .victory-subtitle', 'completedAll'], ['#victory-try-hardcore', 'tryExtremeMode'], ['#victory-try-survival', 'infiniteMode'],
   ['#menu-play', 'play'], ['#menu-upgrades-button', 'upgrades'], ['#menu-options-button', 'options'],
   ['#debug-mode-button .label', 'debugMode'], ['#debug-mode-button .status', 'admin'], ['#menu-play-panel .modes-title', 'modes'],
   ['#normal-mode-toggle', 'normalMode'], ['#hardcore-mode-toggle', 'hardcoreMode'], ['#survival-mode-toggle', 'survivalMode'],
@@ -362,13 +368,44 @@ var LANG_TEXT = [
   ['#hardcore-confirm .confirm-title', 'hardcoreConfirmTitle'], ['#hardcore-confirm .confirm-text', 'hardcoreDesc'], ['#hardcore-confirm-yes', 'hardcoreConfirmPlay'], ['#hardcore-confirm-no', 'cancel'],
   ['#gameover-menu', 'returnToMenu'], ['#gameover-retry', 'retryLevel'], ['#skills .row-title', 'abilities'], ['#pause-button .label', 'pause'], ['#debug-skip .label', 'debug']
 ];
-var LANG_BACK = [['#play-back', 'backToMenu'], ['#normal-back', 'backToModes'], ['#hardcore-back', 'backToModes'], ['#survival-back', 'backToModes'], ['#upgrades-back', 'backToMenu'], ['#options-back', 'backToMenu']];
+var LANG_BACK = [['#play-back', 'backToMenu'], ['#normal-back', 'backToModes'], ['#hardcore-back', 'backToModes'], ['#survival-back', 'backToModes'], ['#upgrades-back', 'backToMenu'], ['#options-back', 'backToMenu'], ['#victory-close', 'returnToMainMenu']];
 var LANG_BACK_HTML = '<span aria-hidden="true">&lt;</span> ';
 
 function applyLanguage() {
   document.documentElement.lang = { es: 'es', en: 'en', fr: 'fr' }[currentLang] || 'en';
   LANG_TEXT.forEach(([sel, key]) => { const el = langEl(sel); if (el) el.textContent = t(key); });
   LANG_BACK.forEach(([sel, key]) => { const el = langEl(sel); if (el) el.innerHTML = LANG_BACK_HTML + t(key); });
+  var titleBefore = document.getElementById('title-core-before');
+  var titleAfter = document.getElementById('title-core-after');
+  var titleP2Before = document.getElementById('title-p2-before');
+  var titleP2Mid = document.getElementById('title-p2-mid');
+  var titleP2After = document.getElementById('title-p2-after');
+  if (titleBefore && titleAfter) {
+    var full = t('gameTitle');
+    var parts = full.split(/\s+/);
+    var line1 = parts[0] || '';
+    var line2 = parts.slice(1).join(' ') || '';
+    var oIdx = line1.indexOf('o');
+    titleBefore.textContent = oIdx >= 0 ? line1.slice(0, oIdx) : line1;
+    titleAfter.textContent = oIdx >= 0 ? line1.slice(oIdx + 1) : '';
+    if (titleP2Before && titleP2Mid && titleP2After) {
+      var firstO = line2.indexOf('o');
+      var secondO = line2.indexOf('o', firstO + 1);
+      if (firstO >= 0 && secondO >= 0) {
+        titleP2Before.textContent = line2.slice(0, firstO);
+        titleP2Mid.textContent = line2.slice(firstO + 1, secondO);
+        titleP2After.textContent = line2.slice(secondO + 1);
+      } else if (firstO >= 0) {
+        titleP2Before.textContent = line2.slice(0, firstO);
+        titleP2Mid.textContent = line2.slice(firstO + 1);
+        titleP2After.textContent = '';
+      } else {
+        titleP2Before.textContent = line2;
+        titleP2Mid.textContent = '';
+        titleP2After.textContent = '';
+      }
+    }
+  }
   document.querySelectorAll('.normal-level').forEach(btn => {
     const lv = Number(btn.dataset.level);
     if (!Number.isNaN(lv)) btn.textContent = t('levelN', lv);

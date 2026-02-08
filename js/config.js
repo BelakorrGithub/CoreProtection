@@ -2,11 +2,17 @@
 var SHOW_DEBUG_BUTTONS = false;
 
 var levels = [
-  { level: 1, spawnInterval: 1.35, music: { gain: 0.2, tempo: 220 } },
-  { level: 2, spawnInterval: 1.05, music: { gain: 0.26, tempo: 170 } },
-  { level: 3, spawnInterval: 0.75, music: { gain: 0.32, tempo: 130 } },
-  { level: 4, spawnInterval: 0.4, music: { gain: 0.4, tempo: 90 } },
-  { level: 5, spawnInterval: 1.2, music: { gain: 0.3, tempo: 140 } }
+  { level: 1, spawnInterval: 1.4, music: { gain: 0.18, tempo: 240 } },
+  { level: 2, spawnInterval: 1.0, music: { gain: 0.22, tempo: 200 } },
+  { level: 3, spawnInterval: 0.95, music: { gain: 0.26, tempo: 170 } },
+  { level: 4, spawnInterval: 0.9, music: { gain: 0.28, tempo: 155 } },
+  { level: 5, spawnInterval: 0.85, music: { gain: 0.3, tempo: 140 } },
+  { level: 6, spawnInterval: 0.7, music: { gain: 0.32, tempo: 125 } },
+  { level: 7, spawnInterval: 0.58, music: { gain: 0.34, tempo: 110 } },
+  { level: 8, spawnInterval: 0.5, music: { gain: 0.36, tempo: 98 } },
+  { level: 9, spawnInterval: 0.42, music: { gain: 0.4, tempo: 85 } },
+  { level: 10, spawnInterval: 0.4, music: { gain: 0.4, tempo: 90 } },
+  { level: 11, spawnInterval: 1.2, music: { gain: 0.3, tempo: 140 } }
 ];
 
 var baseCoreRadius = 28;
@@ -14,7 +20,7 @@ var baseShieldRadius = 68;
 var layerGap = 24;
 var maxLayers = 3;
 var survivalRecordsKey = 'survivalRecords';
-var maxNormalLevels = 3;
+var maxNormalLevels = 9;
 
 var skillCooldownLevels = [30, 20, 10];
 var upgradeCosts = {
@@ -38,6 +44,8 @@ var themeMusicTracks = {
   neon: 'music/neonMusic.mp3',
   forge: 'music/forgeMusic.mp3'
 };
+var menuChillTrack = 'music/menu.mp3';
+var menuChillGain = 0.28;
 var themeColors = {
   space1: '#1a2a4f',
   space2: '#070b16',

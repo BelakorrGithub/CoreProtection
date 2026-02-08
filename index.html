@@ -117,15 +117,38 @@
       <button id="result-menu">Return to Menu</button>
     </div>
   </div>
-  <div id="victory" class="hidden">
-    <div class="title">Congratulations</div>
-    <div class="subtitle">You completed all levels</div>
-    <div class="subtitle" id="hardcore-unlocked">HARDCORE MODE UNLOCKED</div>
-    <button id="victory-close">Continue</button>
+  <div id="victory" class="hidden victory-panel">
+    <button id="victory-close" class="victory-back"><span aria-hidden="true">&lt;</span> Return to main menu</button>
+    <div class="victory-title modes-title">Congratulations</div>
+    <div class="victory-subtitle subtitle">You completed all levels</div>
+    <div class="modes-title" id="hardcore-unlocked">HARDCORE MODE UNLOCKED</div>
+    <div id="victory-mode-select" class="victory-actions">
+      <button id="victory-try-hardcore" class="level-button hardcore mode-button">Try Extreme Mode</button>
+      <button id="victory-try-survival" class="level-button survival mode-button">Infinite Mode</button>
+    </div>
   </div>
   <div id="start-screen">
     <div id="menu-home-panel">
-      <div class="title">Core Protection</div>
+      <div class="menu-title-block">
+        <div class="menu-title-line1 title">
+          <span id="title-core-before">C</span>
+          <span class="title-core-wrap" aria-hidden="true">
+            <canvas id="title-core-canvas" width="56" height="32"></canvas>
+          </span>
+          <span id="title-core-after">re</span>
+        </div>
+        <div class="menu-title-line2 title">
+          <span id="title-p2-before">Pr</span>
+          <span class="title-core-wrap" aria-hidden="true">
+            <canvas id="title-core-canvas-2" width="56" height="32"></canvas>
+          </span>
+          <span id="title-p2-mid">tecti</span>
+          <span class="title-core-wrap" aria-hidden="true">
+            <canvas id="title-core-canvas-3" width="56" height="32"></canvas>
+          </span>
+          <span id="title-p2-after">n</span>
+        </div>
+      </div>
       <div id="menu-main-actions">
         <button id="menu-play">Play</button>
         <button id="menu-upgrades-button">Upgrades</button>
@@ -142,8 +165,8 @@
       <div class="modes-title">Modes</div>
       <div id="mode-select">
         <button id="normal-mode-toggle" class="level-button mode-button">Normal Mode</button>
-        <button id="hardcore-mode-toggle" class="level-button hardcore mode-button" data-level="4">Hardcore Mode</button>
-        <button id="survival-mode-toggle" class="level-button survival mode-button" data-level="5">Survival Mode</button>
+        <button id="hardcore-mode-toggle" class="level-button hardcore mode-button" data-level="10">Hardcore Mode</button>
+        <button id="survival-mode-toggle" class="level-button survival mode-button" data-level="11">Survival Mode</button>
       </div>
     </div>
     <div id="menu-normal-panel" class="hidden">
@@ -153,6 +176,12 @@
         <button class="level-button normal-level" data-level="1">Level 1</button>
         <button class="level-button normal-level" data-level="2">Level 2</button>
         <button class="level-button normal-level" data-level="3">Level 3</button>
+        <button class="level-button normal-level" data-level="4">Level 4</button>
+        <button class="level-button normal-level" data-level="5">Level 5</button>
+        <button class="level-button normal-level" data-level="6">Level 6</button>
+        <button class="level-button normal-level" data-level="7">Level 7</button>
+        <button class="level-button normal-level" data-level="8">Level 8</button>
+        <button class="level-button normal-level" data-level="9">Level 9</button>
       </div>
       <button id="normal-start">Start</button>
     </div>
@@ -234,13 +263,13 @@
       </div>
       <div class="styles-title">Styles</div>
       <div class="styles-grid options-styles">
-        <button class="style-card" data-style="default">
-          <span class="style-name">Default</span>
-          <span class="style-desc">Classic space defense</span>
-        </button>
         <button class="style-card" data-style="neon">
           <span class="style-name">Neon</span>
           <span class="style-desc">Hyper glow sci-fi</span>
+        </button>
+        <button class="style-card" data-style="default">
+          <span class="style-name">Basic</span>
+          <span class="style-desc">Classic space defense</span>
         </button>
         <button class="style-card" data-style="retro">
           <span class="style-name">Retro</span>

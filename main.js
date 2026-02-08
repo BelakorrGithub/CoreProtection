@@ -384,6 +384,8 @@ function setMusicVolume(value) {
   localStorage.setItem(audioSettingsKey.music, String(musicVolume));
   updateMusicGain();
   updateVolumeLabel(musicVolumeValue, musicVolume);
+  if (musicVolumeSlider) musicVolumeSlider.value = String(Math.round(musicVolume * 100));
+  if (typeof updateMenuChillVolume === 'function') updateMenuChillVolume();
 }
 
 function setSfxVolume(value) {
@@ -391,6 +393,7 @@ function setSfxVolume(value) {
   localStorage.setItem(audioSettingsKey.sfx, String(sfxVolume));
   applySfxVolume();
   updateVolumeLabel(sfxVolumeValue, sfxVolume);
+  if (sfxVolumeSlider) sfxVolumeSlider.value = String(Math.round(sfxVolume * 100));
 }
 
 function toggleMusicMute() {
@@ -567,6 +570,143 @@ function drawPolygonPath(x, y, radius, sides, rotation = 0) {
     }
   }
   ctx.closePath();
+}
+
+var menuCoreDemoStep = 0;
+var MENU_CORE_THEMES = ['default', 'retro', 'neon', 'forge'];
+var MENU_CORE_PALETTES = {
+  default: { shield: ['#52b8ff', '#58e28f', '#ff6b6b'], coreOuter: '#ffb347', coreInner: '#ffe1b3' },
+  retro: { shield: ['#62c6ff', '#7dff9d', '#ff6d6d'], coreOuter: '#ffcf6e', coreInner: '#fff2cc' },
+  neon: { shield: ['#5af2ff', '#9dff5a', '#ff5ad5'], coreOuter: '#ff9a4f', coreInner: '#ffe3a6' },
+  forge: { shield: ['#ffb35b', '#f0703c', '#61d4c3'], coreOuter: '#ff8b3d', coreInner: '#ffe2b8' }
+};
+
+function drawMenuCoreToCanvas(targetCanvas, scale) {
+  if (!targetCanvas) return;
+  const mctx = targetCanvas.getContext('2d');
+  if (!mctx) return;
+  const cw = targetCanvas.width;
+  const ch = targetCanvas.height;
+  const cx = cw / 2;
+  const cy = ch / 2;
+  const coreRadius = baseCoreRadius * scale;
+  const hexRotation = Math.PI / 6;
+
+  const step = menuCoreDemoStep % 16;
+  const themeKey = MENU_CORE_THEMES[Math.floor(step / 4)];
+  const shieldCount = step % 4;
+  const palette = MENU_CORE_PALETTES[themeKey] || MENU_CORE_PALETTES.default;
+  const usePixel = themeKey === 'retro';
+  const useHex = themeKey === 'forge';
+
+  mctx.imageSmoothingEnabled = !usePixel;
+
+  function polygonPath(mc, x, y, r, sides, rot) {
+    mc.beginPath();
+    for (let i = 0; i < sides; i += 1) {
+      const angle = rot + (Math.PI * 2 * i) / sides;
+      const px = x + Math.cos(angle) * r;
+      const py = y + Math.sin(angle) * r;
+      if (i === 0) mc.moveTo(px, py);
+      else mc.lineTo(px, py);
+    }
+    mc.closePath();
+  }
+
+  mctx.clearRect(0, 0, cw, ch);
+
+  for (let i = 0; i < maxLayers; i += 1) {
+    const radius = (baseShieldRadius + layerGap * i) * scale;
+    if (usePixel) {
+      const size = Math.round(radius * 2);
+      mctx.strokeStyle = 'rgba(80, 140, 200, 0.2)';
+      mctx.lineWidth = 2;
+      mctx.strokeRect(Math.round(cx - size / 2), Math.round(cy - size / 2), size, size);
+    } else if (useHex) {
+      polygonPath(mctx, cx, cy, radius, 6, hexRotation);
+      mctx.strokeStyle = 'rgba(80, 140, 200, 0.12)';
+      mctx.lineWidth = 2;
+      mctx.stroke();
+    } else {
+      mctx.beginPath();
+      mctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      mctx.strokeStyle = 'rgba(80, 140, 200, 0.12)';
+      mctx.lineWidth = 2;
+      mctx.stroke();
+    }
+  }
+
+  for (let i = 0; i < shieldCount; i += 1) {
+    const radius = (baseShieldRadius + layerGap * i) * scale;
+    const color = palette.shield[Math.min(i, palette.shield.length - 1)];
+    const ratio = 1;
+    if (usePixel) {
+      const size = Math.round(radius * 2);
+      mctx.strokeStyle = color;
+      mctx.lineWidth = Math.max(2, Math.round((2 + ratio * 2) * scale));
+      mctx.strokeRect(Math.round(cx - size / 2), Math.round(cy - size / 2), size, size);
+    } else if (useHex) {
+      polygonPath(mctx, cx, cy, radius, 6, hexRotation);
+      mctx.strokeStyle = color;
+      mctx.lineWidth = (3 + ratio * 3) * scale;
+      mctx.shadowColor = color;
+      mctx.shadowBlur = 12 * scale;
+      mctx.stroke();
+      mctx.shadowBlur = 0;
+    } else {
+      mctx.beginPath();
+      mctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      mctx.strokeStyle = color;
+      mctx.lineWidth = (3 + ratio * 3) * scale;
+      mctx.shadowColor = color;
+      mctx.shadowBlur = 12 * scale;
+      mctx.stroke();
+      mctx.shadowBlur = 0;
+    }
+  }
+
+  if (usePixel) {
+    const coreSize = Math.round(coreRadius * 2);
+    mctx.fillStyle = palette.coreOuter;
+    mctx.fillRect(Math.round(cx - coreSize / 2), Math.round(cy - coreSize / 2), coreSize, coreSize);
+    const innerSize = Math.round(coreRadius * 1.1);
+    mctx.fillStyle = palette.coreInner;
+    mctx.fillRect(Math.round(cx - innerSize / 2), Math.round(cy - innerSize / 2), innerSize, innerSize);
+  } else {
+    if (useHex) {
+      polygonPath(mctx, cx, cy, coreRadius, 6, hexRotation);
+    } else {
+      mctx.beginPath();
+      mctx.arc(cx, cy, coreRadius, 0, Math.PI * 2);
+    }
+    mctx.fillStyle = palette.coreOuter;
+    if (themeKey === 'neon') {
+      mctx.shadowColor = 'rgba(120, 255, 240, 0.9)';
+      mctx.shadowBlur = 28;
+    } else if (useHex) {
+      mctx.shadowColor = 'rgba(255, 170, 100, 0.85)';
+      mctx.shadowBlur = 20;
+    } else {
+      mctx.shadowColor = 'rgba(255, 180, 70, 0.8)';
+      mctx.shadowBlur = 18;
+    }
+    mctx.fill();
+    mctx.shadowBlur = 0;
+    if (useHex) {
+      polygonPath(mctx, cx, cy, coreRadius * 0.6, 6, hexRotation);
+    } else {
+      mctx.beginPath();
+      mctx.arc(cx, cy, coreRadius * 0.6, 0, Math.PI * 2);
+    }
+    mctx.fillStyle = palette.coreInner;
+    mctx.fill();
+  }
+}
+
+function drawMenuCore() {
+  drawMenuCoreToCanvas(titleCoreCanvas, 0.13);
+  drawMenuCoreToCanvas(titleCoreCanvas2, 0.13);
+  drawMenuCoreToCanvas(titleCoreCanvas3, 0.13);
 }
 
 function rebuildShields() {
@@ -1309,9 +1449,12 @@ function showWaveMessage(text, duration = 1.4) {
 }
 
 function getWaveTarget(level, wave) {
-  if (level === 4) {
-    const base = 20 + (wave - 1) * 6;
-    return base;
+  if (level === 10) {
+    return 20 + (wave - 1) * 6;
+  }
+  if (level >= 1 && level <= 9) {
+    const base = 7 + (level - 1) * 2;
+    return base + (wave - 1) * 2;
   }
   const base = 7 + (level - 1) * 4;
   return base + (wave - 1) * 2;
@@ -1341,9 +1484,9 @@ function applyLevelConfig(level) {
   const config = levels.find(item => item.level === level) || levels[0];
   state.level = config.level;
   state.finalLevel = false;
-  state.hardcoreLevel = state.level === 4;
-  state.survivalLevel = state.level === 5;
-  state.bossLevel = state.level <= 3;
+  state.hardcoreLevel = state.level === 10;
+  state.survivalLevel = state.level === 11;
+  state.bossLevel = state.level === 3 || state.level === 6 || state.level === 9;
   state.bossPhase = false;
   state.wavesTotal = state.bossLevel ? 3 : state.hardcoreLevel ? 5 : 3;
   state.wave = 1;
@@ -1367,7 +1510,7 @@ function startWave(showMessage = true) {
 }
 
 function getBossConfig(level) {
-  if (level === 1) {
+  if (level === 3) {
     return {
       entry: 'left',
       bossHp: 20,
@@ -1378,7 +1521,7 @@ function getBossConfig(level) {
       ]
     };
   }
-  if (level === 2) {
+  if (level === 6) {
     return {
       entry: 'right',
       bossHp: 30,
@@ -1389,15 +1532,18 @@ function getBossConfig(level) {
       ]
     };
   }
-  return {
-    entry: 'top',
-    bossHp: 40,
-    driftSpeed: 70,
-    launchers: [
-      { id: 'front-left', x: 0.01, y: 0.02, w: 0.31, h: 0.56, hp: 10, type: 'standard', rate: 2.2 },
-      { id: 'front-right', x: 0.68, y: 0.02, w: 0.31, h: 0.56, hp: 10, type: 'standard', rate: 2.2 }
-    ]
-  };
+  if (level === 9) {
+    return {
+      entry: 'top',
+      bossHp: 40,
+      driftSpeed: 70,
+      launchers: [
+        { id: 'front-left', x: 0.01, y: 0.02, w: 0.31, h: 0.56, hp: 10, type: 'standard', rate: 2.2 },
+        { id: 'front-right', x: 0.68, y: 0.02, w: 0.31, h: 0.56, hp: 10, type: 'standard', rate: 2.2 }
+      ]
+    };
+  }
+  return null;
 }
 
 function startBossLevel(showMessage = true) {
@@ -1423,6 +1569,7 @@ function startBossTest(entry) {
   core.alive = true;
   // Hide menus
   const startScreen = document.getElementById('start-screen');
+  if (typeof stopMenuChillMusic === 'function') stopMenuChillMusic();
   if (startScreen) startScreen.classList.add('hidden');
   countdownEl.classList.add('hidden');
   // Init boss with given entry
@@ -1465,12 +1612,12 @@ function completeLevel() {
     showWaveMessage('BOSS DEFEATED! Press B for next entry', 2.5);
     return;
   }
-  if (state.level >= levels.length) {
+  if (state.level === 9 && !state.hardcoreLevel && !state.survivalLevel) {
     stopMusic();
     playSfx('victory');
     triggerConfetti();
     if (hardcoreUnlocked) {
-      hardcoreUnlocked.classList.toggle('hidden', state.level >= 5);
+      hardcoreUnlocked.classList.toggle('hidden', false);
     }
     victoryEl.classList.remove('hidden');
     return;
@@ -1478,7 +1625,7 @@ function completeLevel() {
 
   showWaveMessage(t('levelComplete'), 2.2);
   playSfx('success');
-  if (state.level >= state.unlockedLevel && state.level < levels.length) {
+  if (state.level >= state.unlockedLevel && state.level < maxNormalLevels) {
     state.unlockedLevel = state.level + 1;
     localStorage.setItem('unlockedLevel', String(state.unlockedLevel));
     state.selectedLevel = state.unlockedLevel;
@@ -1535,10 +1682,15 @@ function buildMissile(x, y, forcedType = null) {
       }
     } else if (state.level === 1) {
       type = 'normal';
-    } else if (roll > 0.88) {
-      type = 'tank';
-    } else if (roll > 0.7) {
-      type = 'fast';
+    } else {
+      const l = Math.min(9, Math.max(1, state.level));
+      const tankThreshold = 0.92 - (l - 1) * 0.01;
+      const fastThreshold = 0.78 - (l - 1) * 0.015;
+      if (roll > tankThreshold) {
+        type = 'tank';
+      } else if (roll > fastThreshold) {
+        type = 'fast';
+      }
     }
   }
   let travelTime = 2.6 + Math.random() * 1.2;
@@ -1810,6 +1962,7 @@ function startDebugMode() {
   resetGame();
   state.debugMode = true;
   state.running = true;
+  if (typeof stopMenuChillMusic === 'function') stopMenuChillMusic();
   startScreen.classList.add('hidden');
   actionsBar.classList.remove('hidden');
   if (debugPanel) {
@@ -4176,6 +4329,7 @@ function startSelectedLevel(level) {
   rebuildShields();
   state.runStartMoney = state.money;
   updateHud();
+  if (typeof stopMenuChillMusic === 'function') stopMenuChillMusic();
   startScreen.classList.add('hidden');
   state.betweenLevels = false;
   updateUpgradeVisibility();
@@ -4191,13 +4345,13 @@ if (normalStartButton) {
 
 if (hardcoreStartButton) {
   hardcoreStartButton.addEventListener('click', () => {
-    startSelectedLevel(4);
+    startSelectedLevel(10);
   });
 }
 
 if (survivalStartButton) {
   survivalStartButton.addEventListener('click', () => {
-    startSelectedLevel(5);
+    startSelectedLevel(11);
   });
 }
 
@@ -4277,20 +4431,30 @@ if (optionsBack) {
   });
 }
 
+function handleMusicSliderInput() {
+  initAudio();
+  const raw = Number(musicVolumeSlider.value);
+  setMusicVolume(raw / 100);
+  if (musicVolumeSlider) musicVolumeSlider.value = String(Math.round(musicVolume * 100));
+  previewMusicVolume();
+}
+
+function handleSfxSliderInput() {
+  initAudio();
+  const raw = Number(sfxVolumeSlider.value);
+  setSfxVolume(raw / 100);
+  if (sfxVolumeSlider) sfxVolumeSlider.value = String(Math.round(sfxVolume * 100));
+  previewSfxVolume();
+}
+
 if (musicVolumeSlider) {
-  musicVolumeSlider.addEventListener('input', () => {
-    initAudio();
-    setMusicVolume(Number(musicVolumeSlider.value) / 100);
-    previewMusicVolume();
-  });
+  musicVolumeSlider.addEventListener('input', handleMusicSliderInput);
+  musicVolumeSlider.addEventListener('change', handleMusicSliderInput);
 }
 
 if (sfxVolumeSlider) {
-  sfxVolumeSlider.addEventListener('input', () => {
-    initAudio();
-    setSfxVolume(Number(sfxVolumeSlider.value) / 100);
-    previewSfxVolume();
-  });
+  sfxVolumeSlider.addEventListener('input', handleSfxSliderInput);
+  sfxVolumeSlider.addEventListener('change', handleSfxSliderInput);
 }
 
 victoryClose.addEventListener('click', () => {
@@ -4299,7 +4463,21 @@ victoryClose.addEventListener('click', () => {
   state.betweenLevels = false;
   setMenuView('home');
   updateUpgradeVisibility();
+  if (typeof startMenuChillMusic === 'function') startMenuChillMusic();
 });
+
+if (victoryTryHardcore) {
+  victoryTryHardcore.addEventListener('click', () => {
+    victoryEl.classList.add('hidden');
+    startSelectedLevel(10);
+  });
+}
+if (victoryTrySurvival) {
+  victoryTrySurvival.addEventListener('click', () => {
+    victoryEl.classList.add('hidden');
+    startSelectedLevel(11);
+  });
+}
 
 resetProgressButton.addEventListener('click', () => {
   if (startScreen.classList.contains('hidden')) return;
@@ -4325,6 +4503,7 @@ gameoverMenu.addEventListener('click', () => {
   gameoverEl.classList.add('hidden');
   gameoverRetry.classList.add('hidden');
   updateUpgradeVisibility();
+  if (typeof startMenuChillMusic === 'function') startMenuChillMusic();
 });
 
 gameoverRetry.addEventListener('click', () => {
@@ -4334,6 +4513,7 @@ gameoverRetry.addEventListener('click', () => {
   rebuildShields();
   state.runStartMoney = state.money;
   updateHud();
+  if (typeof stopMenuChillMusic === 'function') stopMenuChillMusic();
   startScreen.classList.add('hidden');
   state.betweenLevels = false;
   updateUpgradeVisibility();
@@ -4350,6 +4530,7 @@ if (resultRetry) {
     rebuildShields();
     state.runStartMoney = state.money;
     updateHud();
+    if (typeof stopMenuChillMusic === 'function') stopMenuChillMusic();
     startScreen.classList.add('hidden');
     state.betweenLevels = false;
     updateUpgradeVisibility();
@@ -4369,14 +4550,14 @@ if (resultNext) {
 if (resultHardcore) {
   resultHardcore.addEventListener('click', () => {
     hideResultScreen();
-    startSelectedLevel(4);
+    startSelectedLevel(10);
   });
 }
 
 if (resultSurvival) {
   resultSurvival.addEventListener('click', () => {
     hideResultScreen();
-    startSelectedLevel(5);
+    startSelectedLevel(11);
   });
 }
 
@@ -4388,6 +4569,7 @@ if (resultMenu) {
     state.betweenLevels = false;
     setMenuView('home');
     updateUpgradeVisibility();
+    if (typeof startMenuChillMusic === 'function') startMenuChillMusic();
   });
 }
 
@@ -4470,6 +4652,7 @@ pauseConfirmYes.addEventListener('click', () => {
     startScreen.classList.remove('hidden');
     setMenuView('home');
     updateUpgradeVisibility();
+    if (typeof startMenuChillMusic === 'function') startMenuChillMusic();
   } else {
     state.money = state.runStartMoney;
     localStorage.setItem('money', String(state.money));
@@ -4479,6 +4662,7 @@ pauseConfirmYes.addEventListener('click', () => {
     state.betweenLevels = false;
     setMenuView('home');
     updateUpgradeVisibility();
+    if (typeof startMenuChillMusic === 'function') startMenuChillMusic();
   }
 });
 
@@ -4626,7 +4810,7 @@ levelButtons.forEach(button => {
     if (Number.isNaN(level)) return;
     
     if (isNormal && level > maxNormalLevels) return;
-    if (level !== 5 && !isNormal && level > state.unlockedLevel) return;
+    if (level !== 10 && level !== 11 && !isNormal && level > state.unlockedLevel) return;
     state.selectedLevel = level;
     updateLevelButtons();
   });
@@ -4769,6 +4953,18 @@ document.addEventListener('keydown', (e) => {
     toggleSfxMute();
   }
 
+  // V key: show victory screen (from menu, to preview "Modo extremo desbloqueado")
+  if (e.key === 'v' || e.key === 'V') {
+    e.preventDefault();
+    if (startScreen && !startScreen.classList.contains('hidden')) {
+      if (typeof stopMenuChillMusic === 'function') stopMenuChillMusic();
+      startScreen.classList.add('hidden');
+      victoryEl.classList.remove('hidden');
+      if (hardcoreUnlocked) hardcoreUnlocked.classList.remove('hidden');
+      triggerConfetti();
+    }
+  }
+
   // B key: start/cycle boss test mode
   if (e.key === 'b' || e.key === 'B') {
     e.preventDefault();
@@ -4792,6 +4988,16 @@ document.addEventListener('keydown', (e) => {
     const right = boss.parts.find(p => p.id === 'front-right');
     if (right && right.hp > 0) { right.hp = 0; updateBossBar(); }
   }
+  // N key: cheat - complete current level (for testing)
+  if ((e.key === 'n' || e.key === 'N') && !state.bossTestMode) {
+    e.preventDefault();
+    if (state.running && !state.survivalLevel && !state.hardcoreLevel) {
+      missiles.length = 0;
+      twinGroups.clear();
+      completeLevel();
+    }
+  }
+
   // 3 key: reduce boss HP by 5 (boss test only)
   if (e.key === '3' && state.bossTestMode && boss.active) {
     boss.hp = Math.max(0, boss.hp - 5);
@@ -4811,7 +5017,7 @@ skillButtons.forEach(button => {
   });
 });
 
-const savedTheme = localStorage.getItem('theme') || 'default';
+const savedTheme = localStorage.getItem('theme') || 'neon';
 applyTheme(savedTheme);
 loadAudioSettings();
 loadProgress();
@@ -4823,6 +5029,20 @@ applyLanguage();
 updateUpgradeVisibility();
 updateDebugButtonsVisibility();
 setMenuView('home');
+
+if (typeof startMenuChillMusic === 'function' && startScreen && !startScreen.classList.contains('hidden')) {
+  startMenuChillMusic();
+}
+
+setInterval(function () {
+  if (!startScreen || startScreen.classList.contains('hidden')) return;
+  if (!menuHomePanel || menuHomePanel.classList.contains('hidden')) return;
+  menuCoreDemoStep = (menuCoreDemoStep + 1) % 16;
+  drawMenuCore();
+}, 200);
+if (startScreen && !startScreen.classList.contains('hidden') && menuHomePanel && !menuHomePanel.classList.contains('hidden')) {
+  drawMenuCore();
+}
 
 requestAnimationFrame(render);
 
@@ -5110,8 +5330,10 @@ function updateDebugButtonsVisibility() {
 
 function loadProgress() {
   const unlocked = Number(localStorage.getItem('unlockedLevel')) || 1;
-  state.unlockedLevel = Math.min(Math.max(1, unlocked), levels.length);
-  state.selectedLevel = Math.min(state.selectedLevel, state.unlockedLevel);
+  state.unlockedLevel = Math.min(Math.max(1, unlocked), maxNormalLevels);
+  if (state.selectedLevel <= maxNormalLevels) {
+    state.selectedLevel = Math.min(state.selectedLevel, state.unlockedLevel);
+  }
   const money = Number(localStorage.getItem('money')) || 0;
   state.money = Math.max(0, money);
   const storedUpgrades = Number(localStorage.getItem('shieldUpgrades')) || 0;

@@ -2,6 +2,8 @@ Assets origin for future references, all copyright free:
 
 Musics:
 
+Menu (chill, low volume):
+    https://pixabay.com/music/video-games-gamer-menu-431351/
 Forge background music:
     https://pixabay.com/music/dubstep-the-art-of-synths-149325/
 Neon background Music:

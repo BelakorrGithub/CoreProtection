@@ -58,7 +58,7 @@ body {
   --utility-bg: rgba(20, 16, 12, 0.8);
   --utility-border: rgba(255, 200, 120, 0.6);
   --utility-text: #ffd8a3;
-  --menu-bg: radial-gradient(circle at 50% 40%, rgba(20, 30, 60, 0.8), rgba(5, 7, 13, 0.95));
+  --menu-bg: radial-gradient(circle at 50% 40%, rgba(20, 30, 60, 0.98), rgba(5, 7, 13, 1));
   --title-color: #9cd3ff;
   --title-shadow: var(--text-outline), 0 0 20px rgba(80, 160, 255, 0.6);
   --overlay-bg: rgba(5, 7, 13, 0.7);
@@ -105,7 +105,7 @@ body[data-theme="retro"] {
   --utility-bg: rgba(20, 16, 12, 0.9);
   --utility-border: rgba(255, 200, 120, 0.7);
   --utility-text: #ffd8a3;
-  --menu-bg: radial-gradient(circle at 50% 40%, rgba(12, 18, 28, 0.95), rgba(4, 6, 10, 0.98));
+  --menu-bg: radial-gradient(circle at 50% 40%, rgba(12, 18, 28, 0.98), rgba(4, 6, 10, 1));
   --title-color: #9cd3ff;
   --title-shadow: var(--text-outline);
   --overlay-bg: rgba(5, 7, 13, 0.85);
@@ -149,7 +149,7 @@ body[data-theme="neon"] {
   --utility-bg: rgba(30, 20, 12, 0.85);
   --utility-border: rgba(255, 200, 120, 0.75);
   --utility-text: #ffd8a3;
-  --menu-bg: radial-gradient(circle at 50% 35%, rgba(10, 18, 36, 0.95), rgba(2, 2, 10, 0.98));
+  --menu-bg: radial-gradient(circle at 50% 35%, rgba(10, 18, 36, 0.98), rgba(2, 2, 10, 1));
   --title-color: #7ef2ff;
   --title-shadow: 0 0 24px rgba(80, 240, 255, 0.9);
   --overlay-bg: rgba(3, 6, 18, 0.75);
@@ -193,7 +193,7 @@ body[data-theme="forge"] {
   --utility-bg: rgba(30, 20, 12, 0.85);
   --utility-border: rgba(255, 200, 120, 0.7);
   --utility-text: #ffd8a3;
-  --menu-bg: radial-gradient(circle at 45% 35%, rgba(80, 35, 18, 0.95), rgba(10, 8, 6, 0.98));
+  --menu-bg: radial-gradient(circle at 45% 35%, rgba(80, 35, 18, 0.98), rgba(10, 8, 6, 1));
   --title-color: #ffb35b;
   --title-shadow: 0 0 24px rgba(255, 140, 80, 0.85);
   --overlay-bg: rgba(12, 8, 6, 0.8);
@@ -580,8 +580,8 @@ body[data-theme="forge"] .boss-fill {
   position: absolute;
   inset: 0;
   display: grid;
+  gap: 14px;
   place-items: center;
-  gap: 10px;
   background: var(--menu-bg);
   z-index: 5;
   text-align: center;
@@ -592,19 +592,45 @@ body[data-theme="forge"] .boss-fill {
   display: none;
 }
 
-#victory .title {
-  font-size: clamp(24px, 5vw, 44px);
+#victory.victory-panel {
+  align-content: center;
+}
+
+#victory .victory-title {
+  font-size: clamp(20px, 4vw, 36px);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--title-color);
   text-shadow: var(--title-shadow);
 }
 
-#victory .subtitle {
+#victory .victory-subtitle {
   font-size: clamp(12px, 2.2vw, 16px);
   letter-spacing: 0.08em;
   color: var(--text-main);
   text-shadow: var(--hud-shadow);
+  margin-top: -6px;
+}
+
+#victory #hardcore-unlocked {
+  margin-top: 2px;
+}
+
+#victory .victory-actions,
+#victory #victory-mode-select {
+  display: grid;
+  gap: 10px;
+  width: min(92vw, 520px);
+  margin-top: 4px;
+}
+
+#victory .victory-actions .level-button,
+#victory #victory-mode-select .level-button {
+  width: 100%;
+}
+
+#victory-close.victory-back {
+  cursor: pointer;
 }
 
 #countdown {
@@ -638,8 +664,9 @@ body[data-theme="forge"] .boss-fill {
 
 #menu-home-panel {
   display: grid;
-  gap: 18px;
-  place-items: center;
+  gap: 0;
+  align-content: center;
+  justify-items: center;
   min-height: 60vh;
 }
 
@@ -657,19 +684,96 @@ body[data-theme="forge"] .boss-fill {
   font-family: var(--font-title);
 }
 
-#menu-main-actions {
-  display: grid;
-  grid-auto-flow: column;
-  gap: 12px;
+body[data-theme="retro"] #start-screen .title {
+  line-height: 32px;
 }
 
-#menu-main-actions button,
+.menu-title-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  margin-bottom: 32px;
+}
+
+.menu-title-line1,
+.menu-title-line2 {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+}
+
+.menu-title-line1 .title-core-wrap,
+.menu-title-line2 .title-core-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  line-height: 0;
+  margin: 0 -0.12em;
+}
+
+#title-core-canvas,
+#title-core-canvas-2,
+#title-core-canvas-3 {
+  display: block;
+  width: 56px;
+  height: 32px;
+  image-rendering: auto;
+}
+
+.menu-title-line2 {
+  margin-top: 0.35em;
+}
+
+#menu-main-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  width: min(92vw, 320px);
+}
+
+#menu-main-actions button {
+  width: 100%;
+  transition: filter 0.15s ease, transform 0.15s ease;
+}
+
+#menu-main-actions button:not(#menu-play):hover,
+#menu-main-actions button:not(#menu-play):focus-visible {
+  filter: brightness(1.08);
+}
+
+#menu-main-actions button:hover,
+#menu-main-actions button:focus-visible {
+  transform: scale(1.01);
+}
+
+#menu-play {
+  padding: 10px 20px;
+  font-size: 14px;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: var(--accent);
+  color: var(--space-3, #020308);
+  font-weight: 600;
+}
+
+#menu-play:hover,
+#menu-play:focus-visible {
+  filter: brightness(1.12);
+}
+
+#menu-main-actions button:not(#menu-play),
 #upgrades-back,
 #play-back,
 #normal-back,
 #hardcore-back,
 #survival-back,
-#options-back {
+#options-back,
+#victory-close.victory-back {
   border: 1px solid var(--button-border);
   background: var(--button-bg);
   color: var(--button-text);
@@ -693,7 +797,8 @@ body[data-theme="forge"] .boss-fill {
 #menu-play-panel #play-back,
 #menu-normal-panel #normal-back,
 #menu-hardcore-panel #hardcore-back,
-#menu-survival-panel #survival-back {
+#menu-survival-panel #survival-back,
+#victory #victory-close {
   order: 99;
   margin-top: 12px;
 }
@@ -1013,7 +1118,11 @@ body[data-theme="forge"] .boss-fill {
 }
 
 #confirm-reset-yes,
-#confirm-reset-no {
+#confirm-reset-no,
+#pause-confirm-yes,
+#pause-confirm-no,
+#hardcore-confirm-yes,
+#hardcore-confirm-no {
   border: 1px solid var(--button-border);
   background: var(--button-bg);
   color: var(--button-text);
@@ -1408,20 +1517,14 @@ body[data-theme="forge"] .boss-fill {
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' fill='none'><circle cx='32' cy='32' r='22' stroke='%23ffd26a' stroke-width='4'/><circle cx='32' cy='32' r='14' fill='%23ffd26a' opacity='0.7'/></svg>");
 }
 
-#victory button {
-  border: 1px solid var(--button-border);
-  background: var(--button-bg);
-  color: var(--button-text);
-  padding: 10px 22px;
-  font-size: 14px;
-  letter-spacing: 0.08em;
-  cursor: pointer;
+#victory #victory-close {
   box-shadow: var(--button-shadow);
 }
 
 @media (max-width: 720px) {
   body[data-theme="retro"] #start-screen .title {
     font-size: 28px;
+    line-height: 32px;
   }
 
   #hud {
@@ -1429,8 +1532,7 @@ body[data-theme="forge"] .boss-fill {
   }
 
   #menu-main-actions {
-    grid-auto-flow: row;
-    width: min(86vw, 300px);
+    width: min(92vw, 320px);
   }
 
   #normal-levels {
@@ -1470,6 +1572,7 @@ body[data-theme="forge"] .boss-fill {
 
   body[data-theme="retro"] #start-screen .title {
     font-size: 22px;
+    line-height: 32px;
   }
 
   #hud {
