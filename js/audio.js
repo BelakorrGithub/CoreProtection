@@ -147,7 +147,12 @@ function startMenuChillMusic() {
   var gain = (typeof menuChillGain !== 'undefined' && Number.isFinite(menuChillGain)) ? menuChillGain : 0.45;
   menuChillMusic.volume = Math.min(1, gain * musicVolume);
   menuChillMusic.currentTime = 0;
-  void menuChillMusic.play().catch(function() {});
+  var p = menuChillMusic.play();
+  if (p !== undefined && typeof p.then === 'function') {
+    p.then(function() {}).catch(function() {
+      if (typeof scheduleMenuMusicRetry === 'function') scheduleMenuMusicRetry();
+    });
+  }
 }
 
 function stopMenuChillMusic() {

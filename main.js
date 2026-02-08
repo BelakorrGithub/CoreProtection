@@ -859,18 +859,12 @@ function initBoss(options = {}) {
   updateBossBar();
 }
 
-function initAudio() {
+function createAudioContextIfNeeded() {
   if (audioCtx) {
-    // Si el contexto existe pero está suspendido, resumirlo
     if (audioCtx.state === 'suspended') {
-      audioCtx.resume().catch(() => {
-        // Si falla, continuar de todas formas
-      });
+      audioCtx.resume().catch(function() {});
     }
-    // Cargar buffers de audio si aún no están cargados
-    if (!audioBuffersLoaded) {
-      loadAudioBuffers();
-    }
+    if (!audioBuffersLoaded) loadAudioBuffers();
     return;
   }
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -884,17 +878,20 @@ function initAudio() {
   }
   ensureThemeMusic();
   applySfxVolume();
-  
-  // En móviles, el AudioContext puede iniciarse suspendido
-  // Intentar resumirlo inmediatamente si es posible
   if (audioCtx.state === 'suspended') {
-    audioCtx.resume().catch(() => {
-      // Si falla (por ejemplo, por política de autoplay), se resumirá en la primera interacción
-    });
+    audioCtx.resume().catch(function() {});
   }
-  
-  // Cargar buffers de audio para reducir latencia en móviles
   loadAudioBuffers();
+}
+
+function initAudio() {
+  if (!audioCtx) return;
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume().catch(function() {});
+  }
+  if (!audioBuffersLoaded) {
+    loadAudioBuffers();
+  }
 }
 
 function setMusicMode(mode) {
@@ -4190,8 +4187,7 @@ canvas.addEventListener('pointerdown', e => {
       loadAudioBuffers();
     }
   } else {
-    // Si no hay AudioContext, inicializarlo inmediatamente
-    initAudio();
+    if (typeof createAudioContextIfNeeded === 'function') createAudioContextIfNeeded();
   }
   
   const x = e.clientX;
@@ -5057,19 +5053,28 @@ function drawTapToPlayOverlay() {
   ctx.fillText(typeof t === 'function' ? t('tapToBegin') : 'Tap anywhere to begin', w / 2, h / 2 + fontSize * 0.6);
 }
 
-function onTapToPlayDismiss(e) {
+function onTapToPlayPointerDown(e) {
   if (!tapToPlayOverlay || tapToPlayOverlay.classList.contains('hidden')) return;
   if (e) {
     e.preventDefault();
     e.stopPropagation();
     e.stopImmediatePropagation();
   }
-  if (typeof initAudio === 'function') initAudio();
+}
+
+function onTapToPlayClick(e) {
+  if (!tapToPlayOverlay || tapToPlayOverlay.classList.contains('hidden')) return;
+  if (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+  }
+  if (typeof createAudioContextIfNeeded === 'function') createAudioContextIfNeeded();
+  if (typeof startMenuChillMusic === 'function') startMenuChillMusic();
   tapToPlayOverlay.classList.add('hidden');
   if (startScreen) startScreen.classList.remove('hidden');
-  if (typeof startMenuChillMusic === 'function') startMenuChillMusic();
-  tapToPlayOverlay.removeEventListener('pointerdown', onTapToPlayDismiss);
-  tapToPlayOverlay.removeEventListener('click', onTapToPlayDismiss);
+  tapToPlayOverlay.removeEventListener('pointerdown', onTapToPlayPointerDown, true);
+  tapToPlayOverlay.removeEventListener('click', onTapToPlayClick, true);
   if (menuHomePanel && !menuHomePanel.classList.contains('hidden')) drawMenuCore();
   var swallowNext = function(ev) {
     ev.preventDefault();
@@ -5088,10 +5093,21 @@ function onTapToPlayDismiss(e) {
   }, 400);
 }
 
+function scheduleMenuMusicRetry() {
+  function once() {
+    document.removeEventListener('click', once, true);
+    if (typeof startMenuChillMusic === 'function') startMenuChillMusic();
+  }
+  document.addEventListener('click', once, true);
+  setTimeout(function() {
+    document.removeEventListener('click', once, true);
+  }, 3000);
+}
+
 if (tapToPlayOverlay && tapToPlayCanvas) {
   if (typeof ensureMenuChillMusic === 'function') ensureMenuChillMusic();
-  tapToPlayOverlay.addEventListener('pointerdown', onTapToPlayDismiss, true);
-  tapToPlayOverlay.addEventListener('click', onTapToPlayDismiss, true);
+  tapToPlayOverlay.addEventListener('pointerdown', onTapToPlayPointerDown, true);
+  tapToPlayOverlay.addEventListener('click', onTapToPlayClick, true);
   window.addEventListener('resize', drawTapToPlayOverlay);
   drawTapToPlayOverlay();
 }
