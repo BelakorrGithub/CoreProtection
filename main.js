@@ -5057,19 +5057,41 @@ function drawTapToPlayOverlay() {
   ctx.fillText(typeof t === 'function' ? t('tapToBegin') : 'Tap anywhere to begin', w / 2, h / 2 + fontSize * 0.6);
 }
 
-function onTapToPlayDismiss() {
+function onTapToPlayDismiss(e) {
   if (!tapToPlayOverlay || tapToPlayOverlay.classList.contains('hidden')) return;
+  if (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+  }
+  if (typeof initAudio === 'function') initAudio();
   tapToPlayOverlay.classList.add('hidden');
   if (startScreen) startScreen.classList.remove('hidden');
   if (typeof startMenuChillMusic === 'function') startMenuChillMusic();
   tapToPlayOverlay.removeEventListener('pointerdown', onTapToPlayDismiss);
   tapToPlayOverlay.removeEventListener('click', onTapToPlayDismiss);
   if (menuHomePanel && !menuHomePanel.classList.contains('hidden')) drawMenuCore();
+  var swallowNext = function(ev) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    document.removeEventListener('pointerdown', swallowNext, true);
+    document.removeEventListener('pointerup', swallowNext, true);
+    document.removeEventListener('click', swallowNext, true);
+  };
+  document.addEventListener('pointerdown', swallowNext, true);
+  document.addEventListener('pointerup', swallowNext, true);
+  document.addEventListener('click', swallowNext, true);
+  setTimeout(function() {
+    document.removeEventListener('pointerdown', swallowNext, true);
+    document.removeEventListener('pointerup', swallowNext, true);
+    document.removeEventListener('click', swallowNext, true);
+  }, 400);
 }
 
 if (tapToPlayOverlay && tapToPlayCanvas) {
-  tapToPlayOverlay.addEventListener('pointerdown', onTapToPlayDismiss);
-  tapToPlayOverlay.addEventListener('click', onTapToPlayDismiss);
+  if (typeof ensureMenuChillMusic === 'function') ensureMenuChillMusic();
+  tapToPlayOverlay.addEventListener('pointerdown', onTapToPlayDismiss, true);
+  tapToPlayOverlay.addEventListener('click', onTapToPlayDismiss, true);
   window.addEventListener('resize', drawTapToPlayOverlay);
   drawTapToPlayOverlay();
 }
