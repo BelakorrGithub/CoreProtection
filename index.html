@@ -13,6 +13,9 @@
   <meta name="twitter:card" content="summary_large_image" />
 </head>
 <body>
+  <div id="tap-to-play-overlay" aria-label="Tap anywhere to begin">
+    <canvas id="tap-to-play-canvas"></canvas>
+  </div>
   <canvas id="game"></canvas>
   <div id="hud">
     <div id="level">Level 1</div>
@@ -127,7 +130,7 @@
       <button id="victory-try-survival" class="level-button survival mode-button">Infinite Mode</button>
     </div>
   </div>
-  <div id="start-screen">
+  <div id="start-screen" class="hidden">
     <div id="menu-home-panel">
       <div class="menu-title-block">
         <div class="menu-title-line1 title">

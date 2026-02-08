@@ -16,6 +16,7 @@ var i18n = {
 
     // Menu
     gameTitle: 'Core Protection',
+    tapToBegin: 'Toca en cualquier lugar para comenzar',
     play: 'Jugar',
     upgrades: 'Mejoras',
     options: 'Opciones',
@@ -131,6 +132,7 @@ var i18n = {
     meteorViewer: 'Meteor Viewer',
 
     gameTitle: 'Core Protection',
+    tapToBegin: 'Tap anywhere to begin',
     play: 'Play',
     upgrades: 'Upgrades',
     options: 'Options',
@@ -239,6 +241,7 @@ var i18n = {
     meteorViewer: 'Visionneur de Météores',
 
     gameTitle: 'Core Protection',
+    tapToBegin: 'Touchez n\'importe où pour commencer',
     play: 'Jouer',
     upgrades: 'Améliorations',
     options: 'Options',

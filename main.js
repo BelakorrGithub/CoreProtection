@@ -5031,7 +5031,47 @@ updateDebugButtonsVisibility();
 setMenuView('home');
 
 if (typeof startMenuChillMusic === 'function' && startScreen && !startScreen.classList.contains('hidden')) {
-  startMenuChillMusic();
+  if (!tapToPlayOverlay || tapToPlayOverlay.classList.contains('hidden')) {
+    startMenuChillMusic();
+  }
+}
+
+function drawTapToPlayOverlay() {
+  if (!tapToPlayCanvas || !tapToPlayOverlay || tapToPlayOverlay.classList.contains('hidden')) return;
+  var w = tapToPlayCanvas.width = tapToPlayCanvas.offsetWidth || window.innerWidth;
+  var h = tapToPlayCanvas.height = tapToPlayCanvas.offsetHeight || window.innerHeight;
+  var ctx = tapToPlayCanvas.getContext('2d');
+  if (!ctx) return;
+  ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--menu-bg').trim() || '#0a0e1a';
+  ctx.fillRect(0, 0, w, h);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  var titleColor = getComputedStyle(document.body).getPropertyValue('--title-color').trim() || '#e0f0ff';
+  ctx.fillStyle = titleColor;
+  var fontSize = Math.min(48, w / 12);
+  ctx.font = '600 ' + fontSize + 'px var(--font-title), sans-serif';
+  ctx.fillText(typeof t === 'function' ? t('gameTitle').toUpperCase() : 'CORE PROTECTION', w / 2, h / 2 - fontSize);
+  var hintFont = Math.min(20, w / 24);
+  ctx.font = hintFont + 'px var(--font-main), sans-serif';
+  ctx.fillStyle = 'rgba(200, 220, 255, 0.85)';
+  ctx.fillText(typeof t === 'function' ? t('tapToBegin') : 'Tap anywhere to begin', w / 2, h / 2 + fontSize * 0.6);
+}
+
+function onTapToPlayDismiss() {
+  if (!tapToPlayOverlay || tapToPlayOverlay.classList.contains('hidden')) return;
+  tapToPlayOverlay.classList.add('hidden');
+  if (startScreen) startScreen.classList.remove('hidden');
+  if (typeof startMenuChillMusic === 'function') startMenuChillMusic();
+  tapToPlayOverlay.removeEventListener('pointerdown', onTapToPlayDismiss);
+  tapToPlayOverlay.removeEventListener('click', onTapToPlayDismiss);
+  if (menuHomePanel && !menuHomePanel.classList.contains('hidden')) drawMenuCore();
+}
+
+if (tapToPlayOverlay && tapToPlayCanvas) {
+  tapToPlayOverlay.addEventListener('pointerdown', onTapToPlayDismiss);
+  tapToPlayOverlay.addEventListener('click', onTapToPlayDismiss);
+  window.addEventListener('resize', drawTapToPlayOverlay);
+  drawTapToPlayOverlay();
 }
 
 setInterval(function () {
