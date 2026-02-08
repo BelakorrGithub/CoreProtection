@@ -79,7 +79,8 @@ var boss = {
   driftSpeed: 0,
   driftDir: 1,
   settled: false,
-  parts: []
+  parts: [],
+  hitInvulnTimer: 0
 };
 
 var stars = [];

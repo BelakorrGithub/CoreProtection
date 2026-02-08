@@ -576,6 +576,33 @@ body[data-theme="forge"] .boss-fill {
   z-index: 3;
 }
 
+#death-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.65);
+  z-index: 5;
+  pointer-events: auto;
+}
+
+#death-overlay.hidden {
+  display: none;
+}
+
+.death-overlay-text {
+  font-size: clamp(36px, 8vw, 64px);
+  font-weight: bold;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gameover-color);
+  text-shadow: var(--text-outline), 0 0 20px rgba(20, 40, 80, 0.9), 0 0 32px rgba(255, 240, 200, 0.5);
+  text-align: center;
+  padding: 20px;
+  font-family: var(--font-title);
+}
+
 #victory {
   position: absolute;
   inset: 0;
@@ -1245,33 +1272,38 @@ body[data-theme="retro"] #start-screen .title {
 }
 
 #survival-records .records-list li {
-  display: flex;
+  display: grid;
+  grid-template-columns: 2.5em 1fr;
   align-items: center;
-  justify-content: center;
+  justify-items: start;
   position: relative;
-  text-align: center;
-  gap: 6px;
   counter-increment: record-counter;
+  gap: 6px;
 }
 
 #survival-records .records-list li::before {
   content: counter(record-counter) '.';
-  margin-right: 4px;
-  flex-shrink: 0;
+  grid-column: 1;
+  justify-self: start;
 }
 
 /* Hide the number for top 3 entries that have medals */
 #survival-records .records-list li.has-medal::before {
   content: '';
-  margin-right: 0;
 }
 
 #survival-records .records-list li .record-medal {
   font-size: 16px;
   line-height: 1;
-  flex-shrink: 0;
-  order: -1;
-  margin-right: 0;
+  grid-column: 1;
+  justify-self: start;
+}
+
+#survival-records .records-list li .record-time {
+  grid-column: 2;
+  justify-self: end;
+  min-width: 3.5em;
+  text-align: right;
 }
 
 .level-button.final {
@@ -1410,6 +1442,16 @@ body[data-theme="retro"] #start-screen .title {
   background: var(--skill-unlocked-bg);
   color: var(--skill-unlocked-text);
   box-shadow: 0 0 12px rgba(80, 160, 255, 0.35);
+}
+
+.skill.locked-by-level .icon {
+  width: 22px;
+  height: 22px;
+  opacity: 0.9;
+}
+
+.skill.locked-by-level .label {
+  display: none;
 }
 
 .skill .status {
@@ -1734,6 +1776,118 @@ body[data-theme="retro"] #start-screen .title {
   justify-content: center;
   gap: 12px;
   margin-top: 4px;
+}
+
+.result-shield-tip {
+  text-align: center;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+  background: rgba(80, 160, 255, 0.12);
+  border: 1px solid rgba(120, 220, 255, 0.4);
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin: 4px 0;
+  max-width: min(92vw, 480px);
+}
+
+.result-shield-tip.hidden {
+  display: none;
+}
+
+.row-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  grid-column: 1 / -1;
+}
+
+.help-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid var(--panel-border);
+  background: var(--panel-bg);
+  color: var(--text-main);
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.help-btn:hover,
+.help-btn:focus-visible {
+  background: rgba(120, 220, 255, 0.2);
+  border-color: var(--accent);
+}
+
+.help-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.help-modal.hidden {
+  display: none;
+}
+
+.help-modal-card {
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  padding: 20px;
+  max-width: 420px;
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.help-modal-title {
+  font-size: 18px;
+  letter-spacing: 0.08em;
+  color: var(--title-color);
+  margin-bottom: 14px;
+  font-family: var(--font-title);
+}
+
+.help-modal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.help-modal-item {
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.help-modal-item strong {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--accent);
+}
+
+.help-modal-close {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--button-border);
+  background: var(--button-bg);
+  color: var(--button-text);
+  font-size: 14px;
+  cursor: pointer;
+  font-family: var(--font-main);
 }
 
 .result-actions button {

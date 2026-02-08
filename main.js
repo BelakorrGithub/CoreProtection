@@ -57,11 +57,14 @@ meteorSprite.onload = () => {
   spriteCtx.drawImage(meteorSprite, 0, 0);
   
   let imageData;
+  var isFileProtocol = typeof location !== 'undefined' && location.protocol === 'file:';
+  if (isFileProtocol) {
+    meteorSpriteData.hitBounds = null;
+    return;
+  }
   try {
     imageData = spriteCtx.getImageData(0, 0, canvas.width, canvas.height);
   } catch (e) {
-    // Si falla por CORS, usar solo hitboxes manuales en lugar de calcular desde la imagen
-    console.warn('Cannot read image data due to CORS, using manual hitboxes only');
     meteorSpriteData.hitBounds = null;
     return;
   }
@@ -170,6 +173,18 @@ let slowLevel = 0;
 let aegisLevel = 0;
 let godsFingerUnlocked = false; // Solo desbloqueado/no desbloqueado, sin niveles
 let godsFingerPurchased = false; // Indica si ya se pagó por God's Finger
+var deathResultDelayTimer = null;
+var skillIconMap = { nova: 'explosion', regen: 'plus', slow: 'hourglass', aegis: 'aegis' };
+var skillRequiredLevel = { nova: 2, regen: 3, slow: 4, aegis: 5 };
+var upgradeIconMap = { shield: 'shield', nova: 'explosion', regen: 'plus', slow: 'hourglass', aegis: 'aegis', godsFinger: 'explosion' };
+
+function setUpgradeButtonLockedByLevel(button, label, status, requiredLevel) {
+  button.classList.add('locked-by-level');
+  var iconSpan = button.querySelector('.icon');
+  if (iconSpan) iconSpan.className = 'icon icon-lock';
+  if (label) label.textContent = '';
+  if (status) status.textContent = typeof t === 'function' ? t('completeLevel', requiredLevel) : 'Complete level ' + requiredLevel;
+}
 
 function resize() {
   width = window.innerWidth;
@@ -832,6 +847,7 @@ function initBoss(options = {}) {
   boss.entry = entry;
   boss.deathTimer = 0;
   boss.bodyFlash = 0;
+  boss.hitInvulnTimer = 0;
   boss.driftSpeed = options.driftSpeed || 40;
   boss.driftDir = 1;
   boss.settled = false;
@@ -937,6 +953,9 @@ function setMusicSlow(isSlow) {
     bgMusic.playbackRate = musicSlowFactor;
   }
   updateMusicGain();
+  if (!isSlow && typeof restartProceduralMusic === 'function') {
+    restartProceduralMusic();
+  }
 }
 
 function stopMusic() {
@@ -1379,6 +1398,7 @@ function resetGame() {
   state.slowTimer = 0;
   state.aegisTimer = 0;
   state.survivalTime = 0;
+  if (typeof setMusicSlow === 'function') setMusicSlow(false);
   core.alive = true;
   Object.keys(skillState).forEach(skill => {
     skillState[skill] = 0;
@@ -1415,6 +1435,7 @@ function resetGame() {
   boss.hp = 0;
   boss.bodyFlash = 0;
   boss.deathTimer = 0;
+  boss.hitInvulnTimer = 0;
   boss.settled = false;
   boss.driftDir = 1;
   boss.parts = [];
@@ -1429,6 +1450,11 @@ function resetGame() {
   gameoverMenu.classList.add('hidden');
   gameoverRetry.classList.add('hidden');
   hideResultScreen();
+  if (deathResultDelayTimer) {
+    clearTimeout(deathResultDelayTimer);
+    deathResultDelayTimer = null;
+  }
+  if (deathOverlay) deathOverlay.classList.add('hidden');
   waveMessageEl.classList.add('hidden');
   pauseOverlay.classList.add('hidden');
   pauseButton.disabled = false;
@@ -1509,8 +1535,8 @@ function startWave(showMessage = true) {
 function getBossConfig(level) {
   if (level === 3) {
     return {
-      entry: 'left',
-      bossHp: 20,
+      entry: 'top',
+      bossHp: 32,
       driftSpeed: 30,
       launchers: [
         { id: 'front-left', x: 0.01, y: 0.02, w: 0.31, h: 0.56, hp: 6, type: 'standard', rate: 3.4 },
@@ -1520,8 +1546,8 @@ function getBossConfig(level) {
   }
   if (level === 6) {
     return {
-      entry: 'right',
-      bossHp: 30,
+      entry: 'top',
+      bossHp: 45,
       driftSpeed: 50,
       launchers: [
         { id: 'front-left', x: 0.01, y: 0.02, w: 0.31, h: 0.56, hp: 8, type: 'standard', rate: 2.9 },
@@ -1532,7 +1558,7 @@ function getBossConfig(level) {
   if (level === 9) {
     return {
       entry: 'top',
-      bossHp: 40,
+      bossHp: 55,
       driftSpeed: 70,
       launchers: [
         { id: 'front-left', x: 0.01, y: 0.02, w: 0.31, h: 0.56, hp: 10, type: 'standard', rate: 2.2 },
@@ -1610,6 +1636,8 @@ function completeLevel() {
     return;
   }
   if (state.level === 9 && !state.hardcoreLevel && !state.survivalLevel) {
+    state.unlockedLevel = 10;
+    localStorage.setItem('unlockedLevel', '10');
     stopMusic();
     playSfx('victory');
     triggerConfetti();
@@ -1623,9 +1651,11 @@ function completeLevel() {
   showWaveMessage(t('levelComplete'), 2.2);
   playSfx('success');
   if (state.level >= state.unlockedLevel && state.level < maxNormalLevels) {
+    var prevUnlocked = state.unlockedLevel;
     state.unlockedLevel = state.level + 1;
     localStorage.setItem('unlockedLevel', String(state.unlockedLevel));
     state.selectedLevel = state.unlockedLevel;
+    state.justUnlockedAbility = (state.unlockedLevel === 2 ? 'nova' : state.unlockedLevel === 3 ? 'regen' : state.unlockedLevel === 4 ? 'slow' : state.unlockedLevel === 5 ? 'aegis' : null);
     updateLevelButtons();
   }
   stopMusic();
@@ -2464,6 +2494,9 @@ function updateBoss(dt) {
       if (boss.y <= minY) { boss.y = minY; boss.driftDir = 1; }
     }
   }
+  if (boss.hitInvulnTimer > 0) {
+    boss.hitInvulnTimer = Math.max(0, boss.hitInvulnTimer - dt);
+  }
   boss.parts.forEach(part => {
     if (part.hp <= 0) return;
     part.cooldown += dt;
@@ -2606,6 +2639,7 @@ function drawBoss() {
 
 function hitBossAt(x, y) {
   if (!boss.active || boss.hp <= 0) return false;
+  if (boss.hitInvulnTimer > 0) return false;
   // Transform screen point to ship-normalized space
   const ship = screenToShip(x, y);
 
@@ -2616,6 +2650,7 @@ function hitBossAt(x, y) {
     if (ship.x >= part.x && ship.x <= part.x + part.w &&
         ship.y >= part.y && ship.y <= part.y + part.h) {
       // Launcher hit: half damage to general HP + full damage to launcher HP
+      boss.hitInvulnTimer = 0.18;
       part.hp -= 1;
       boss.hp = Math.max(0, boss.hp - 0.5);
       part.flash = 0.6;
@@ -2634,6 +2669,7 @@ function hitBossAt(x, y) {
 
   // Priority 2: Check body (polygon hitbox) - full damage to boss HP
   if (pointInPolygon(ship.x, ship.y, bossHitboxPoly)) {
+    boss.hitInvulnTimer = 0.18;
     boss.hp = Math.max(0, boss.hp - 1);
     boss.bodyFlash = 0.5;
     playSfx('hitsoft');
@@ -4074,12 +4110,26 @@ function handleCoreHit(customMessage = null) {
   } else {
     message = customMessage || t('gameOver');
   }
+  state.slowTimer = 0;
+  if (typeof setMusicSlow === 'function') setMusicSlow(false);
   stopMusic();
   if (waveTimeout) {
     clearTimeout(waveTimeout);
     waveTimeout = null;
   }
-  showResultScreen('defeat', message);
+  if (deathResultDelayTimer) {
+    clearTimeout(deathResultDelayTimer);
+    deathResultDelayTimer = null;
+  }
+  if (deathOverlay) {
+    deathOverlay.classList.remove('hidden');
+    if (deathOverlayText) deathOverlayText.textContent = typeof t === 'function' ? t('gameOver') : 'Game Over';
+  }
+  deathResultDelayTimer = setTimeout(function () {
+    deathResultDelayTimer = null;
+    if (deathOverlay) deathOverlay.classList.add('hidden');
+    showResultScreen('defeat', message);
+  }, 1400);
 }
 
 function awardMoney(amount) {
@@ -4128,7 +4178,6 @@ function renderSurvivalRecords(records = null) {
   data.forEach((value, index) => {
     const item = document.createElement('li');
     if (index < 3) {
-      // For top 3, use medal instead of number
       item.classList.add('has-medal');
       const medal = document.createElement('span');
       medal.className = 'record-medal';
@@ -4136,7 +4185,10 @@ function renderSurvivalRecords(records = null) {
       medal.setAttribute('aria-label', medalLabels[index]);
       item.appendChild(medal);
     }
-    item.appendChild(document.createTextNode(`${value.toFixed(1)}s`));
+    const timeSpan = document.createElement('span');
+    timeSpan.className = 'record-time';
+    timeSpan.textContent = value.toFixed(1) + 's';
+    item.appendChild(timeSpan);
     list.appendChild(item);
   });
 }
@@ -4395,6 +4447,54 @@ if (upgradesBack) {
   upgradesBack.addEventListener('click', () => {
     setMenuView('home');
   });
+}
+
+var helpModal = document.getElementById('help-modal');
+var helpModalTitle = document.getElementById('help-modal-title');
+var helpModalList = document.getElementById('help-modal-list');
+var helpModalClose = document.getElementById('help-modal-close');
+var upgradesHelpBtn = document.getElementById('upgrades-help-btn');
+var resultHelpBtn = document.getElementById('result-help-btn');
+
+function openHelpModal() {
+  if (!helpModalList || !helpModalTitle) return;
+  helpModalTitle.textContent = typeof t === 'function' ? t('helpTitle') : 'Upgrades & Abilities';
+  var items = [];
+  items.push({ name: t('shieldLevel', 1), descKey: 'helpShieldDesc', minLevel: 1 });
+  if (state.unlockedLevel >= 2) items.push({ name: t('unlockNova'), descKey: 'helpNovaDesc', minLevel: 2 });
+  if (state.unlockedLevel >= 3) items.push({ name: t('unlockRegen'), descKey: 'helpRegenDesc', minLevel: 3 });
+  if (state.unlockedLevel >= 4) items.push({ name: t('unlockSlow'), descKey: 'helpSlowDesc', minLevel: 4 });
+  if (state.unlockedLevel >= 5) items.push({ name: t('unlockAegis'), descKey: 'helpAegisDesc', minLevel: 5 });
+  if (state.unlockedLevel >= 10) items.push({ name: t('unlockGodsFinger'), descKey: 'helpGodsFingerDesc', minLevel: 10 });
+  helpModalList.innerHTML = '';
+  items.forEach(function (item) {
+    var el = document.createElement('div');
+    el.className = 'help-modal-item';
+    el.innerHTML = '<strong>' + item.name + '</strong>' + (typeof t === 'function' ? t(item.descKey) : item.descKey);
+    helpModalList.appendChild(el);
+  });
+  if (helpModal) helpModal.classList.remove('hidden');
+}
+
+function closeHelpModal() {
+  if (helpModal) helpModal.classList.add('hidden');
+}
+
+if (helpModalClose) {
+  helpModalClose.addEventListener('click', closeHelpModal);
+}
+if (helpModal) {
+  helpModal.addEventListener('click', function (e) {
+    if (e.target === helpModal) closeHelpModal();
+  });
+}
+if (upgradesHelpBtn) {
+  upgradesHelpBtn.addEventListener('click', openHelpModal);
+  upgradesHelpBtn.setAttribute('aria-label', typeof t === 'function' ? t('help') : 'Help');
+}
+if (resultHelpBtn) {
+  resultHelpBtn.addEventListener('click', openHelpModal);
+  resultHelpBtn.setAttribute('aria-label', typeof t === 'function' ? t('help') : 'Help');
 }
 
 if (playBack) {
@@ -4837,6 +4937,10 @@ upgradeButtons.forEach(button => {
       return;
     }
     if (upgrade === 'nova') {
+      if (state.unlockedLevel < 2) {
+        showLevelLockedToast();
+        return;
+      }
       if (novaLevel >= 3) return;
       const nextLevel = novaLevel + 1;
       const cost = upgradeCosts.nova[nextLevel];
@@ -4852,6 +4956,10 @@ upgradeButtons.forEach(button => {
       return;
     }
     if (upgrade === 'regen') {
+      if (state.unlockedLevel < 3) {
+        showLevelLockedToast();
+        return;
+      }
       if (regenLevel >= 3) return;
       const nextLevel = regenLevel + 1;
       const cost = upgradeCosts.regen[nextLevel];
@@ -4867,6 +4975,10 @@ upgradeButtons.forEach(button => {
       return;
     }
     if (upgrade === 'slow') {
+      if (state.unlockedLevel < 4) {
+        showLevelLockedToast();
+        return;
+      }
       if (slowLevel >= 3) return;
       const nextLevel = slowLevel + 1;
       const cost = upgradeCosts.slow[nextLevel];
@@ -4882,6 +4994,10 @@ upgradeButtons.forEach(button => {
       return;
     }
     if (upgrade === 'aegis') {
+      if (state.unlockedLevel < 5) {
+        showLevelLockedToast();
+        return;
+      }
       if (aegisLevel >= 3) return;
       const nextLevel = aegisLevel + 1;
       const cost = upgradeCosts.aegis[nextLevel];
@@ -4897,18 +5013,23 @@ upgradeButtons.forEach(button => {
       return;
     }
     if (upgrade === 'godsFinger') {
-      // Toggle: si está desbloqueado, desbloquearlo; si no, desbloquearlo
+      // Toggle: si está desbloqueado, desbloquearlo; si no, activar (requiere haber comprado y cumplir requisitos)
       if (godsFingerUnlocked) {
-        // Desbloquear (no devolver dinero, pero se mantiene la compra)
         godsFingerUnlocked = false;
         localStorage.setItem('godsFingerUnlocked', 'false');
         updateUpgrades();
         updateSkillLocks();
         return;
       }
-      // Bloquear: requiere pago solo si no se ha comprado antes
+      // Requiere: modo normal completado + todas las demás habilidades desbloqueadas
+      const allAbilitiesUnlocked = novaLevel > 0 && regenLevel > 0 && slowLevel > 0 && aegisLevel > 0;
+      const normalModeCompleted = state.unlockedLevel >= 10;
+      if (!normalModeCompleted || !allAbilitiesUnlocked) {
+        showLevelLockedToast();
+        return;
+      }
       if (!godsFingerPurchased) {
-        const cost = upgradeCosts.godsFinger[1]; // Solo hay un costo
+        const cost = upgradeCosts.godsFinger[1];
         if (state.money < cost) {
           showMoneyToast();
           return;
@@ -4917,7 +5038,6 @@ upgradeButtons.forEach(button => {
         localStorage.setItem('godsFingerPurchased', 'true');
         awardMoney(-cost);
       }
-      // Si ya se pagó, activar sin costo
       godsFingerUnlocked = true;
       localStorage.setItem('godsFingerUnlocked', 'true');
       updateUpgrades();
@@ -5184,11 +5304,19 @@ function updateLevelButtons() {
 function updateUpgrades() {
   upgradeButtons.forEach(button => {
     const upgrade = button.dataset.upgrade;
+    if (!upgrade) return;
     const status = button.querySelector('.status');
     const label = button.querySelector('.label');
+    const iconSpan = button.querySelector('.icon');
     let cost = null;
     let owned = false;
     let unaffordable = false;
+    let lockedByLevel = false;
+
+    button.classList.remove('locked-by-level');
+    if (iconSpan && upgradeIconMap[upgrade]) {
+      iconSpan.className = 'icon icon-' + upgradeIconMap[upgrade];
+    }
 
     if (upgrade === 'shield') {
       if (shieldUpgrades >= maxLayers) {
@@ -5210,74 +5338,82 @@ function updateUpgrades() {
         }
       }
     } else if (upgrade === 'nova') {
+      lockedByLevel = state.unlockedLevel < 2;
       owned = novaLevel >= 3;
       const nextLevel = Math.min(3, novaLevel + 1);
       cost = upgradeCosts.nova[nextLevel];
-      if (label) {
-        label.textContent = novaLevel === 0 ? t('unlockNova') : t('novaLevel', nextLevel);
-      }
-      if (status) {
-        const cooldown = skillCooldownLevels[nextLevel - 1];
-        status.textContent = novaLevel >= 3 ? t('max') : t('cooldownS', cooldown);
+      if (lockedByLevel) {
+        setUpgradeButtonLockedByLevel(button, label, status, 2);
+      } else {
+        if (label) label.textContent = novaLevel === 0 ? t('unlockNova') : t('novaLevel', nextLevel);
+        if (status) status.textContent = novaLevel >= 3 ? t('max') : t('cooldownS', skillCooldownLevels[nextLevel - 1]);
       }
     } else if (upgrade === 'regen') {
+      lockedByLevel = state.unlockedLevel < 3;
       owned = regenLevel >= 3;
       const nextLevel = Math.min(3, regenLevel + 1);
       cost = upgradeCosts.regen[nextLevel];
-      if (label) {
-        label.textContent = regenLevel === 0 ? t('unlockRegen') : t('regenLevel', nextLevel);
-      }
-      if (status) {
-        const cooldown = skillCooldownLevels[nextLevel - 1];
-        status.textContent = regenLevel >= 3 ? t('max') : t('cooldownS', cooldown);
+      if (lockedByLevel) {
+        setUpgradeButtonLockedByLevel(button, label, status, 3);
+      } else {
+        if (label) label.textContent = regenLevel === 0 ? t('unlockRegen') : t('regenLevel', nextLevel);
+        if (status) status.textContent = regenLevel >= 3 ? t('max') : t('cooldownS', skillCooldownLevels[nextLevel - 1]);
       }
     } else if (upgrade === 'slow') {
+      lockedByLevel = state.unlockedLevel < 4;
       owned = slowLevel >= 3;
       const nextLevel = Math.min(3, slowLevel + 1);
       cost = upgradeCosts.slow[nextLevel];
-      if (label) {
-        label.textContent = slowLevel === 0 ? t('unlockSlow') : t('slowLevel', nextLevel);
-      }
-      if (status) {
-        const cooldown = skillCooldownLevels[nextLevel - 1];
-        status.textContent = slowLevel >= 3 ? t('max') : t('cooldownS', cooldown);
+      if (lockedByLevel) {
+        setUpgradeButtonLockedByLevel(button, label, status, 4);
+      } else {
+        if (label) label.textContent = slowLevel === 0 ? t('unlockSlow') : t('slowLevel', nextLevel);
+        if (status) status.textContent = slowLevel >= 3 ? t('max') : t('cooldownS', skillCooldownLevels[nextLevel - 1]);
       }
     } else if (upgrade === 'aegis') {
+      lockedByLevel = state.unlockedLevel < 5;
       owned = aegisLevel >= 3;
       const nextLevel = Math.min(3, aegisLevel + 1);
       cost = upgradeCosts.aegis[nextLevel];
-      if (label) {
-        label.textContent = aegisLevel === 0 ? t('unlockAegis') : t('aegisLevel', nextLevel);
-      }
-      if (status) {
-        const cooldown = skillCooldownLevels[nextLevel - 1];
-        status.textContent = aegisLevel >= 3 ? t('max') : t('cooldownS', cooldown);
+      if (lockedByLevel) {
+        setUpgradeButtonLockedByLevel(button, label, status, 5);
+      } else {
+        if (label) label.textContent = aegisLevel === 0 ? t('unlockAegis') : t('aegisLevel', nextLevel);
+        if (status) status.textContent = aegisLevel >= 3 ? t('max') : t('cooldownS', skillCooldownLevels[nextLevel - 1]);
       }
     } else if (upgrade === 'godsFinger') {
-      owned = false; // Nunca se marca como "owned" porque se puede desbloquear
-      // Solo mostrar costo si no se ha comprado antes
+      owned = false;
+      const allAbilitiesUnlocked = novaLevel > 0 && regenLevel > 0 && slowLevel > 0 && aegisLevel > 0;
+      const normalModeCompleted = state.unlockedLevel >= 10;
+      lockedByLevel = !normalModeCompleted || !allAbilitiesUnlocked;
       cost = (godsFingerUnlocked || godsFingerPurchased) ? null : upgradeCosts.godsFinger[1];
-      if (label) {
-        if (godsFingerUnlocked) {
-          label.textContent = t('disableGodsFinger');
-        } else if (godsFingerPurchased) {
-          label.textContent = t('enableGodsFinger');
-        } else {
-          label.textContent = t('unlockGodsFinger');
+      if (lockedByLevel) {
+        setUpgradeButtonLockedByLevel(button, label, status, 10);
+      } else {
+        if (label) {
+          if (godsFingerUnlocked) label.textContent = t('disableGodsFinger');
+          else if (godsFingerPurchased) label.textContent = t('enableGodsFinger');
+          else label.textContent = t('unlockGodsFinger');
         }
-      }
-      if (status) {
-        if (godsFingerUnlocked) {
-          status.textContent = t('clickToDisable');
-        } else if (godsFingerPurchased) {
-          status.textContent = t('clickToEnable');
-        } else {
-          status.textContent = t('permanentUpgrade');
+        if (status) {
+          if (godsFingerUnlocked) status.textContent = t('clickToDisable');
+          else if (godsFingerPurchased) status.textContent = t('clickToEnable');
+          else status.textContent = t('permanentUpgrade');
         }
       }
     }
 
     if (owned) {
+      button.disabled = true;
+      button.classList.add('locked');
+      const costEl = button.querySelector('.cost');
+      if (costEl) {
+        costEl.remove();
+      }
+      return;
+    }
+
+    if (lockedByLevel) {
       button.disabled = true;
       button.classList.add('locked');
       const costEl = button.querySelector('.cost');
@@ -5314,35 +5450,53 @@ function updateUpgrades() {
 function updateSkillLocks() {
   skillButtons.forEach(button => {
     const skill = button.dataset.skill;
+    if (!skill) return;
     let unlocked = false;
+    let lockedByLevel = false;
     const hardcoreLocked = state.hardcoreLevel && startScreen.classList.contains('hidden');
     if (hardcoreLocked) {
       button.disabled = true;
       button.classList.remove('unlocked');
       button.classList.add('locked');
+      button.classList.remove('locked-by-level');
       const status = button.querySelector('.status');
-      if (status) {
-        status.textContent = t('locked');
-      }
+      if (status) status.textContent = t('locked');
+      var iconSpan = button.querySelector('.icon');
+      if (iconSpan && skillIconMap[skill]) iconSpan.className = 'icon icon-' + skillIconMap[skill];
+      var label = button.querySelector('.label');
+      if (label) label.textContent = skill.charAt(0).toUpperCase() + skill.slice(1);
       return;
     }
     if (skill === 'nova') {
-      unlocked = novaLevel > 0;
+      lockedByLevel = state.unlockedLevel < 2;
+      unlocked = novaLevel > 0 && state.unlockedLevel >= 2;
     } else if (skill === 'regen') {
-      unlocked = regenLevel > 0;
+      lockedByLevel = state.unlockedLevel < 3;
+      unlocked = regenLevel > 0 && state.unlockedLevel >= 3;
     } else if (skill === 'slow') {
-      unlocked = slowLevel > 0;
+      lockedByLevel = state.unlockedLevel < 4;
+      unlocked = slowLevel > 0 && state.unlockedLevel >= 4;
     } else if (skill === 'aegis') {
-      unlocked = aegisLevel > 0;
+      lockedByLevel = state.unlockedLevel < 5;
+      unlocked = aegisLevel > 0 && state.unlockedLevel >= 5;
     } else if (skill === 'godsFinger') {
       unlocked = godsFingerUnlocked;
     }
     button.disabled = !unlocked;
     button.classList.toggle('unlocked', unlocked);
     button.classList.toggle('locked', !unlocked);
-    const status = button.querySelector('.status');
-    if (status) {
-      status.textContent = unlocked ? '' : t('locked');
+    button.classList.toggle('locked-by-level', lockedByLevel);
+    var iconSpan = button.querySelector('.icon');
+    var label = button.querySelector('.label');
+    var status = button.querySelector('.status');
+    if (lockedByLevel && skillRequiredLevel[skill]) {
+      if (iconSpan) iconSpan.className = 'icon icon-lock';
+      if (label) label.textContent = '';
+      if (status) status.textContent = typeof t === 'function' ? t('completeLevel', skillRequiredLevel[skill]) : 'Level ' + skillRequiredLevel[skill];
+    } else {
+      if (iconSpan && skillIconMap[skill]) iconSpan.className = 'icon icon-' + skillIconMap[skill];
+      if (label) label.textContent = skill === 'nova' ? 'Nova' : skill === 'regen' ? 'Regen' : skill === 'slow' ? 'Slow' : skill === 'aegis' ? 'Aegis' : (skill || '');
+      if (status) status.textContent = unlocked ? '' : t('locked');
     }
   });
 }
@@ -5362,10 +5516,10 @@ function updateResultCredits() {
 
 function showResultScreen(type, message) {
   if (!resultScreen) return;
-  // Hide the old gameover elements
   gameoverEl.classList.add('hidden');
   gameoverMenu.classList.add('hidden');
   gameoverRetry.classList.add('hidden');
+  if (deathOverlay) deathOverlay.classList.add('hidden');
 
   // Set title text and style
   if (resultTitle) {
@@ -5389,6 +5543,31 @@ function showResultScreen(type, message) {
 
   updateResultCredits();
   updateUpgrades();
+
+  var shieldTipEl = document.getElementById('result-shield-tip');
+  if (shieldTipEl) {
+    var seen = localStorage.getItem('hasSeenShieldUpgradeTip');
+    var alreadyUpgradedShield = shieldUpgrades > 0;
+    if (!seen && !alreadyUpgradedShield) {
+      shieldTipEl.classList.remove('hidden');
+      shieldTipEl.textContent = typeof t === 'function' ? t('shieldUpgradeTip') : 'You can upgrade your shield to level 1 in Upgrades!';
+      localStorage.setItem('hasSeenShieldUpgradeTip', '1');
+    } else {
+      shieldTipEl.classList.add('hidden');
+      if (alreadyUpgradedShield) localStorage.setItem('hasSeenShieldUpgradeTip', '1');
+    }
+  }
+
+  if (state.justUnlockedAbility) {
+    var target = document.querySelector('#result-upgrades button[data-upgrade="' + state.justUnlockedAbility + '"]');
+    if (target) {
+      target.classList.remove('ready-flash');
+      target.offsetHeight;
+      target.classList.add('ready-flash');
+    }
+    state.justUnlockedAbility = null;
+  }
+
   resultScreen.classList.remove('hidden');
 }
 
@@ -5408,7 +5587,7 @@ function updateDebugButtonsVisibility() {
 
 function loadProgress() {
   const unlocked = Number(localStorage.getItem('unlockedLevel')) || 1;
-  state.unlockedLevel = Math.min(Math.max(1, unlocked), maxNormalLevels);
+  state.unlockedLevel = Math.min(Math.max(1, unlocked), maxNormalLevels + 1);
   if (state.selectedLevel <= maxNormalLevels) {
     state.selectedLevel = Math.min(state.selectedLevel, state.unlockedLevel);
   }
@@ -5502,6 +5681,15 @@ function setMenuView(view) {
   menuOptionsPanel.classList.toggle('hidden', !showOptions);
   if (menuHomePanel) {
     menuHomePanel.classList.toggle('hidden', view !== 'home');
+  }
+  if (hardcoreModeToggle) {
+    hardcoreModeToggle.classList.toggle('hidden', state.unlockedLevel <= maxNormalLevels);
+  }
+  if (view === 'normal') {
+    if (state.selectedLevel > maxNormalLevels) {
+      state.selectedLevel = Math.min(state.unlockedLevel, maxNormalLevels) || 1;
+      updateLevelButtons();
+    }
   }
   updateUpgradeVisibility();
   updateDebugButtonsVisibility();

@@ -74,13 +74,20 @@
   <div id="gameover" class="hidden">Game Over</div>
   <button id="gameover-menu" class="hidden">Return to Menu</button>
   <button id="gameover-retry" class="hidden">Retry Level</button>
+  <div id="death-overlay" class="hidden" aria-live="polite">
+    <div id="death-overlay-text" class="death-overlay-text">Game Over</div>
+  </div>
   <div id="result-screen" class="hidden">
     <div class="result-header">
       <div class="result-title" id="result-title">Game Over</div>
       <div class="result-credits" id="result-credits"><span class="icon icon-coin" aria-hidden="true"></span><span class="label">Credits: 0</span></div>
     </div>
+    <div id="result-shield-tip" class="result-shield-tip hidden" aria-live="polite"></div>
     <div class="result-upgrades action-row" id="result-upgrades">
-      <div class="row-title">Upgrades</div>
+      <div class="row-title-row">
+        <span class="row-title">Upgrades</span>
+        <button type="button" id="result-help-btn" class="help-btn" aria-label="Help">?</button>
+      </div>
       <button class="skill upgrade" data-upgrade="shield">
         <span class="icon icon-shield" aria-hidden="true"></span>
         <span class="label">Shield level 1</span>
@@ -207,7 +214,10 @@
     <div id="menu-upgrades-panel" class="hidden">
       <div id="menu-credits"><span class="icon icon-coin" aria-hidden="true"></span><span class="label">Credits: 0</span></div>
       <div id="menu-upgrades" class="action-row">
-        <div class="row-title">Upgrades</div>
+        <div class="row-title-row">
+          <span class="row-title">Upgrades</span>
+          <button type="button" id="upgrades-help-btn" class="help-btn" aria-label="Help">?</button>
+        </div>
         <button class="skill upgrade" data-upgrade="shield">
           <span class="icon icon-shield" aria-hidden="true"></span>
           <span class="label">Shield level 1</span>
@@ -320,6 +330,13 @@
         <button id="hardcore-confirm-yes">Play Hardcore</button>
         <button id="hardcore-confirm-no">Cancel</button>
       </div>
+    </div>
+  </div>
+  <div id="help-modal" class="hidden help-modal">
+    <div class="help-modal-card">
+      <div class="help-modal-title" id="help-modal-title">Upgrades & Abilities</div>
+      <div class="help-modal-list" id="help-modal-list"></div>
+      <button type="button" id="help-modal-close" class="help-modal-close">OK</button>
     </div>
   </div>
   <div id="actions">

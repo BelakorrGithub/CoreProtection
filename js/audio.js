@@ -45,6 +45,9 @@ var audioBuffersLoaded = false;
 
 async function loadAudioBuffers() {
   if (!audioCtx || audioBuffersLoaded) return;
+  if (typeof location !== 'undefined' && location.protocol === 'file:') {
+    return;
+  }
   try {
     var destroyResponse = await fetch('sound/destroy.wav');
     var destroyArrayBuffer = await destroyResponse.arrayBuffer();
