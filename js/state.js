@@ -25,6 +25,7 @@ var state = {
   finalLevel: false,
   hardcoreLevel: false,
   survivalLevel: false,
+  bossRushLevel: false,
   bossLevel: false,
   bossPhase: false,
   paused: false,
@@ -56,6 +57,7 @@ var layout = {
 };
 
 var missiles = [];
+var blackHoles = [];
 var twinGroups = new Map();
 let twinCounter = 0;
 var explosions = [];

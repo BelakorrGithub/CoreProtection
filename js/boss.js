@@ -1,23 +1,45 @@
 // Boss images and hitbox helpers - requires: config, dom, state
+// Level 3 -> spaceship1, Level 6 -> spaceship2, Level 9 -> spaceship3
 
-var bossImage = new Image();
-bossImage.src = 'img/spaceship.png';
-var bossImageLeftDestroyed = new Image();
-bossImageLeftDestroyed.src = 'img/spaceship_left_destroyed.png';
-var bossImageRightDestroyed = new Image();
-bossImageRightDestroyed.src = 'img/spaceship_right_destroyed.png';
-var bossImageBothDestroyed = new Image();
-bossImageBothDestroyed.src = 'img/spaceship_both_destroyed.png';
+var bossImageSets = [
+  { normal: 'img/spaceship1.png', left: 'img/spaceship1_left_destroyed.png', right: 'img/spaceship1_right_destroyed.png', both: 'img/spaceship1_both_destroyed.png' },
+  { normal: 'img/spaceship2.png', left: 'img/spaceship2_left_destroyed.png', right: 'img/spaceship2_right_destroyed.png', both: 'img/spaceship2_both_destroyed.png' },
+  { normal: 'img/spaceship3.png', left: 'img/spaceship3_left_destroyed.png', right: 'img/spaceship3_right_destroyed.png', both: 'img/spaceship3_both_destroyed.png' }
+];
+
+var bossImages = bossImageSets.map(function(set) {
+  return {
+    normal: (function() { var i = new Image(); i.src = set.normal; return i; })(),
+    leftDestroyed: (function() { var i = new Image(); i.src = set.left; return i; })(),
+    rightDestroyed: (function() { var i = new Image(); i.src = set.right; return i; })(),
+    bothDestroyed: (function() { var i = new Image(); i.src = set.both; return i; })()
+  };
+});
+
+// Legacy single reference for code that uses bossImage (fallback to set 0)
+var bossImage = bossImages[0].normal;
+var bossImageLeftDestroyed = bossImages[0].leftDestroyed;
+var bossImageRightDestroyed = bossImages[0].rightDestroyed;
+var bossImageBothDestroyed = bossImages[0].bothDestroyed;
+
+function getBossImageSetIndex() {
+  var level = (typeof state !== 'undefined' && state.level) ? state.level : 3;
+  if (level === 3) return 0;
+  if (level === 6) return 1;
+  if (level === 9) return 2;
+  return 0;
+}
 
 function getBossCurrentImage() {
+  var set = bossImages[getBossImageSetIndex()];
   var left = boss.parts.find(function(p) { return p.id === 'front-left'; });
   var right = boss.parts.find(function(p) { return p.id === 'front-right'; });
   var leftDead = left && left.hp <= 0;
   var rightDead = right && right.hp <= 0;
-  if (leftDead && rightDead) return bossImageBothDestroyed;
-  if (leftDead) return bossImageLeftDestroyed;
-  if (rightDead) return bossImageRightDestroyed;
-  return bossImage;
+  if (leftDead && rightDead) return set.bothDestroyed;
+  if (leftDead) return set.leftDestroyed;
+  if (rightDead) return set.rightDestroyed;
+  return set.normal;
 }
 
 var bossHitboxPoly = [
@@ -75,6 +97,10 @@ function screenToShip(sx, sy) {
     y: (localY + imgH / 2) / imgH
   };
 }
+
+// Black hole projectile (level 9 boss special) - image for drawing
+var blackHoleImage = new Image();
+blackHoleImage.src = 'img/black_hole.png';
 
 function pointInPolygon(px, py, poly) {
   var inside = false;

@@ -822,6 +822,7 @@ body[data-theme="retro"] #start-screen .title {
 #normal-back,
 #hardcore-back,
 #survival-back,
+#boss-back,
 #options-back,
 #victory-close.victory-back {
   border: 1px solid var(--button-border);
@@ -837,6 +838,7 @@ body[data-theme="retro"] #start-screen .title {
 #menu-normal-panel,
 #menu-hardcore-panel,
 #menu-survival-panel,
+#menu-boss-panel,
 #menu-upgrades-panel,
 #menu-options-panel {
   display: grid;
@@ -848,6 +850,7 @@ body[data-theme="retro"] #start-screen .title {
 #menu-normal-panel #normal-back,
 #menu-hardcore-panel #hardcore-back,
 #menu-survival-panel #survival-back,
+#menu-boss-panel #boss-back,
 #victory #victory-close {
   order: 99;
   margin-top: 12px;
@@ -857,6 +860,7 @@ body[data-theme="retro"] #start-screen .title {
 #menu-normal-panel.hidden,
 #menu-hardcore-panel.hidden,
 #menu-survival-panel.hidden,
+#menu-boss-panel.hidden,
 #menu-upgrades-panel.hidden,
 #menu-options-panel.hidden {
   display: none;
@@ -1079,7 +1083,8 @@ body[data-theme="retro"] #start-screen .title {
 #start-button,
 #normal-start,
 #hardcore-start,
-#survival-start {
+#survival-start,
+#boss-start {
   border: 1px solid var(--start-border);
   background: var(--start-bg);
   color: var(--text-main);
@@ -1157,7 +1162,8 @@ body[data-theme="retro"] #start-screen .title {
 }
 
 #menu-hardcore-panel .confirm-text,
-#menu-survival-panel .modes-description {
+#menu-survival-panel .modes-description,
+#menu-boss-panel .modes-description {
   max-width: 280px;
 }
 
@@ -1711,6 +1717,23 @@ body[data-theme="retro"] #start-screen .title {
   height: 16px;
   accent-color: var(--accent-strong);
 }
+
+.debug-boss-sub {
+  grid-template-columns: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+.debug-boss-sub input[type="number"] {
+  width: 52px;
+  min-width: 52px;
+}
+#debug-boss-hitbox-section .debug-row button {
+  padding: 6px 10px;
+  font-size: 11px;
+}
+
 /* Result screen (shown after death or level complete) */
 #result-screen {
   position: absolute;

@@ -229,7 +229,7 @@ function updateLayout() {
   if (boss.active) {
     const baseSize = Math.min(width, height) * 0.42;
     boss.width = baseSize;
-    boss.height = baseSize * 0.72;
+    boss.height = baseSize; /* cuadrado: las imágenes son 1:1, evitar estiramiento horizontal */
     if (boss.entry === 'left') {
       boss.targetX = 20 * layout.scale;
       boss.targetY = layout.y - boss.height / 2;
@@ -817,7 +817,7 @@ function buildBossParts(launchers) {
   const parts = [];
   if (!launchers) return parts;
   launchers.forEach((launcher, index) => {
-    parts.push({
+    const part = {
       id: launcher.id || `launcher-${index}`,
       x: launcher.x,
       y: launcher.y,
@@ -828,7 +828,13 @@ function buildBossParts(launchers) {
       flash: 0,
       cooldown: 0,
       rate: launcher.rate || 3
-    });
+    };
+    // Hitbox opcional (más pequeño/más abajo); si no se define, se usa el rect completo
+    if (launcher.hitboxX != null) part.hitboxX = launcher.hitboxX;
+    if (launcher.hitboxY != null) part.hitboxY = launcher.hitboxY;
+    if (launcher.hitboxW != null) part.hitboxW = launcher.hitboxW;
+    if (launcher.hitboxH != null) part.hitboxH = launcher.hitboxH;
+    parts.push(part);
   });
   return parts;
 }
@@ -852,7 +858,7 @@ function initBoss(options = {}) {
   boss.driftDir = 1;
   boss.settled = false;
   boss.width = baseSize;
-  boss.height = baseSize * 0.72;
+  boss.height = baseSize; /* cuadrado: preservar aspecto 1:1 de las imágenes */
   if (entry === 'left') {
     boss.x = -boss.width - 40;
     boss.y = layout.y - boss.height / 2;
@@ -872,6 +878,8 @@ function initBoss(options = {}) {
   boss.parts = buildBossParts(launchers);
   boss.hp = bossHp;
   boss.maxHp = bossHp;
+  boss.blackHoleCooldown = 0;
+  boss.blackHoleFirstLaunched = false;
   updateBossBar();
 }
 
@@ -1387,6 +1395,7 @@ function resetGame() {
   state.finalLevel = false;
   state.hardcoreLevel = false;
   state.survivalLevel = false;
+  state.bossRushLevel = false;
   state.bossLevel = false;
   state.bossPhase = false;
   state.paused = false;
@@ -1422,10 +1431,15 @@ function resetGame() {
     clearTimeout(waveMessageTimer);
     waveMessageTimer = null;
   }
+  if (advanceBossRushTimer) {
+    clearTimeout(advanceBossRushTimer);
+    advanceBossRushTimer = null;
+  }
   shieldLayers.forEach(layer => {
     layer.hp = layer.max;
   });
   missiles.length = 0;
+  blackHoles.length = 0;
   twinGroups.clear();
   confetti.length = 0;
   cashFloaters.length = 0;
@@ -1509,9 +1523,11 @@ function applyLevelConfig(level) {
   state.finalLevel = false;
   state.hardcoreLevel = state.level === 10;
   state.survivalLevel = state.level === 11;
+  state.bossRushLevel = state.level === 12;
   state.bossLevel = state.level === 3 || state.level === 6 || state.level === 9;
   state.bossPhase = false;
-  state.wavesTotal = state.bossLevel ? 3 : state.hardcoreLevel ? 5 : 3;
+  if (state.bossRushLevel) state.bossPhase = true;
+  state.wavesTotal = state.bossLevel ? 3 : state.bossRushLevel ? 3 : state.hardcoreLevel ? 5 : 3;
   state.wave = 1;
   state.spawnInterval = config.spawnInterval;
   state.survivalTime = 0;
@@ -1539,8 +1555,8 @@ function getBossConfig(level) {
       bossHp: 32,
       driftSpeed: 30,
       launchers: [
-        { id: 'front-left', x: 0.01, y: 0.02, w: 0.31, h: 0.56, hp: 6, type: 'standard', rate: 3.4 },
-        { id: 'front-right', x: 0.68, y: 0.02, w: 0.31, h: 0.56, hp: 6, type: 'standard', rate: 3.4 }
+        { id: 'front-left', x: 0.11, y: 0.35, w: 0.21, h: 0.26, hp: 6, type: 'standard', rate: 3.4 },
+        { id: 'front-right', x: 0.68, y: 0.35, w: 0.21, h: 0.26, hp: 6, type: 'standard', rate: 3.4 }
       ]
     };
   }
@@ -1550,8 +1566,8 @@ function getBossConfig(level) {
       bossHp: 45,
       driftSpeed: 50,
       launchers: [
-        { id: 'front-left', x: 0.01, y: 0.02, w: 0.31, h: 0.56, hp: 8, type: 'standard', rate: 2.9 },
-        { id: 'front-right', x: 0.68, y: 0.02, w: 0.31, h: 0.56, hp: 8, type: 'standard', rate: 2.9 }
+        { id: 'front-left', x: 0.07, y: 0.09, w: 0.26, h: 0.44, hp: 8, type: 'standard', rate: 2.9 },
+        { id: 'front-right', x: 0.67, y: 0.09, w: 0.26, h: 0.44, hp: 8, type: 'standard', rate: 2.9 }
       ]
     };
   }
@@ -1561,8 +1577,8 @@ function getBossConfig(level) {
       bossHp: 55,
       driftSpeed: 70,
       launchers: [
-        { id: 'front-left', x: 0.01, y: 0.02, w: 0.31, h: 0.56, hp: 10, type: 'standard', rate: 2.2 },
-        { id: 'front-right', x: 0.68, y: 0.02, w: 0.31, h: 0.56, hp: 10, type: 'standard', rate: 2.2 }
+        { id: 'front-left', x: 0.08, y: 0.27, w: 0.18, h: 0.2, hp: 10, type: 'standard', rate: 2.2 },
+        { id: 'front-right', x: 0.735, y: 0.27, w: 0.18, h: 0.2, hp: 10, type: 'standard', rate: 2.2 }
       ]
     };
   }
@@ -1574,11 +1590,16 @@ function startBossLevel(showMessage = true) {
   state.betweenLevels = false;
   state.bossPhase = true;
   state.bossSpawnTimer = 0;
+  if (state.bossRushLevel) {
+    state.wave = 1;
+    if (state.level === 12) state.level = 3;
+  }
   initBoss(getBossConfig(state.level));
   updateHud();
   updateUpgradeVisibility();
   if (showMessage) {
-    showWaveMessage(t('bossIncoming'), 1.6);
+    const msg = state.bossRushLevel ? (state.level === 3 ? t('bossIncoming') : (state.level === 6 ? t('bossRushBoss2') : t('bossRushBoss3'))) : t('bossIncoming');
+    showWaveMessage(msg, 1.6);
   }
 }
 
@@ -1610,8 +1631,74 @@ function startBossTest(entry) {
   showWaveMessage('BOSS TEST (' + entry.toUpperCase() + ') - INVINCIBLE', 2.0);
 }
 
+// Debug: ciclo Boss 1 / 2 / 3 / off (solo en modo debug)
+window._bossTestLevelCycle = 0;
+const _bossTestLevels = [0, 3, 6, 9];
+
+function startBossTestWithLevel(level) {
+  if (!state.debugMode || !state.running) startDebugMode();
+  const config = getBossConfig(level);
+  if (!config) return;
+  state.level = level;
+  state.bossLevel = true;
+  state.bossTestMode = true;
+  state.bossPhase = true;
+  state.bossSpawnTimer = 0;
+  boss.deathTimer = 0;
+  initBoss({ ...config, entry: 'top' });
+  if (bossBar) bossBar.classList.remove('hidden');
+  updateBossBar();
+  fillDebugBossInputs();
+  showWaveMessage('Boss ' + (level === 3 ? 1 : level === 6 ? 2 : 3) + ' (nivel ' + level + ')', 1.5);
+}
+
+function exitBossTest() {
+  state.bossTestMode = false;
+  state.bossPhase = false;
+  boss.active = false;
+  blackHoles.length = 0;
+  if (bossBar) bossBar.classList.add('hidden');
+  showWaveMessage('Boss off', 1);
+}
+
+function fillDebugBossInputs() {
+  if (!boss.active || !boss.parts || boss.parts.length < 2) return;
+  const left = boss.parts[0];
+  const right = boss.parts[1];
+  const set = (el, v) => { if (el) el.value = v != null ? String(v) : ''; };
+  set(debugBossL0X, left.x); set(debugBossL0Y, left.y); set(debugBossL0W, left.w); set(debugBossL0H, left.h);
+  set(debugBossL0Hx, left.hitboxX); set(debugBossL0Hy, left.hitboxY); set(debugBossL0Hw, left.hitboxW); set(debugBossL0Hh, left.hitboxH);
+  set(debugBossL1X, right.x); set(debugBossL1Y, right.y); set(debugBossL1W, right.w); set(debugBossL1H, right.h);
+  set(debugBossL1Hx, right.hitboxX); set(debugBossL1Hy, right.hitboxY); set(debugBossL1Hw, right.hitboxW); set(debugBossL1Hh, right.hitboxH);
+}
+
+function applyDebugBossInputsToBoss() {
+  if (!boss.active || !boss.parts || boss.parts.length < 2) return;
+  const num = (el) => { const v = el && el.value.trim(); return v === '' ? null : parseFloat(v); };
+  const left = boss.parts[0];
+  const right = boss.parts[1];
+  left.x = num(debugBossL0X) ?? left.x;
+  left.y = num(debugBossL0Y) ?? left.y;
+  left.w = num(debugBossL0W) ?? left.w;
+  left.h = num(debugBossL0H) ?? left.h;
+  const lhx = num(debugBossL0Hx);
+  if (lhx != null) left.hitboxX = lhx; else delete left.hitboxX;
+  if (num(debugBossL0Hy) != null) left.hitboxY = num(debugBossL0Hy); else delete left.hitboxY;
+  if (num(debugBossL0Hw) != null) left.hitboxW = num(debugBossL0Hw); else delete left.hitboxW;
+  if (num(debugBossL0Hh) != null) left.hitboxH = num(debugBossL0Hh); else delete left.hitboxH;
+  right.x = num(debugBossL1X) ?? right.x;
+  right.y = num(debugBossL1Y) ?? right.y;
+  right.w = num(debugBossL1W) ?? right.w;
+  right.h = num(debugBossL1H) ?? right.h;
+  const rhx = num(debugBossL1Hx);
+  if (rhx != null) right.hitboxX = rhx; else delete right.hitboxX;
+  if (num(debugBossL1Hy) != null) right.hitboxY = num(debugBossL1Hy); else delete right.hitboxY;
+  if (num(debugBossL1Hw) != null) right.hitboxW = num(debugBossL1Hw); else delete right.hitboxW;
+  if (num(debugBossL1Hh) != null) right.hitboxH = num(debugBossL1Hh); else delete right.hitboxH;
+}
+
 // Keyboard shortcut: B key cycles boss test (top → left → right → off)
-// Only works from the menu screen
+// Only works from the menu screen. En modo debug: ciclo Boss 1 / 2 / 3 / off
 window._bossTestCycle = 0;
 const _bossTestEntries = ['top', 'left', 'right'];
 
@@ -1635,7 +1722,7 @@ function completeLevel() {
     showWaveMessage('BOSS DEFEATED! Press B for next entry', 2.5);
     return;
   }
-  if (state.level === 9 && !state.hardcoreLevel && !state.survivalLevel) {
+  if (state.level === 9 && !state.hardcoreLevel && !state.survivalLevel && !state.bossRushLevel) {
     state.unlockedLevel = 10;
     localStorage.setItem('unlockedLevel', '10');
     stopMusic();
@@ -1799,6 +1886,66 @@ function spawnMissile() {
 
 function spawnMissileFrom(x, y, type) {
   missiles.push(buildMissile(x, y, type));
+}
+
+var blackHoleSpeed = 50;
+var blackHoleSpawnInterval = 4.5;
+var BOSS_HIT_INVULN_DISABLED = true; /* true = desactivar anti-spam para testear; poner false para producción */
+var blackHoleRadius = 52;
+var blackHoleHp = 18;
+// Hitbox = círculo equivalente al área negra central (sin el aura). Proporción respecto al radio visual.
+var BLACK_HOLE_HITBOX_SCALE = 0.5;
+
+function spawnBlackHole() {
+  const normX = (debugBlackHoleSpawnX && Number(debugBlackHoleSpawnX.value) === Number(debugBlackHoleSpawnX.value))
+    ? parseFloat(debugBlackHoleSpawnX.value) : 0.5;
+  const normY = (debugBlackHoleSpawnY && Number(debugBlackHoleSpawnY.value) === Number(debugBlackHoleSpawnY.value))
+    ? parseFloat(debugBlackHoleSpawnY.value) : 0.7;
+  const spawnPos = shipToScreen(normX, normY);
+  const cx = spawnPos.x;
+  const cy = spawnPos.y;
+  const target = center();
+  const dx = target.x - cx;
+  const dy = target.y - cy;
+  const dist = Math.hypot(dx, dy) || 1;
+  const baseSize = Math.min(width, height) * 0.42;
+  const r = baseSize * 0.22;
+  blackHoles.push({
+    x: cx,
+    y: cy,
+    vx: (dx / dist) * blackHoleSpeed,
+    vy: (dy / dist) * blackHoleSpeed,
+    hp: blackHoleHp,
+    maxHp: blackHoleHp,
+    r: r,
+    hitboxR: r * BLACK_HOLE_HITBOX_SCALE
+  });
+}
+
+function updateBlackHoles(dt) {
+  const target = center();
+  const speedFactor = state.slowTimer > 0 ? 0.5 : 1;
+  for (let i = blackHoles.length - 1; i >= 0; i -= 1) {
+    const bh = blackHoles[i];
+    bh.x += bh.vx * dt * speedFactor;
+    bh.y += bh.vy * dt * speedFactor;
+    const distToCore = Math.hypot(bh.x - target.x, bh.y - target.y);
+    if (distToCore <= core.radius + bh.hitboxR) {
+      handleCoreHit();
+      return;
+    }
+    for (let s = shieldLayers.length - 1; s >= 0; s -= 1) {
+      const layer = shieldLayers[s];
+      if (layer.hp <= 0) continue;
+      const shieldR = layer.radius; // already in screen pixels
+      if (distToCore <= shieldR + bh.hitboxR) {
+        layer.hp = 0;
+      }
+    }
+    if (bh.hp <= 0) {
+      blackHoles.splice(i, 1);
+    }
+  }
 }
 
 function spawnDebugMeteors() {
@@ -2026,6 +2173,7 @@ function update(dt) {
     // Process respawn queue
     for (let i = debugRespawnQueue.length - 1; i >= 0; i -= 1) {
       const respawn = debugRespawnQueue[i];
+      if (!respawn || typeof respawn.timer !== 'number') continue;
       respawn.timer -= dt;
       if (respawn.timer <= 0) {
         // Handle twin pair respawn
@@ -2066,13 +2214,20 @@ function update(dt) {
         }
       }
     }
+    if (state.bossPhase) {
+      updateBoss(dt);
+      updateBlackHoles(dt);
+    }
   } else if (state.bossPhase) {
-    state.bossSpawnTimer += dt;
-    if (state.bossSpawnTimer >= 2.6) {
-      state.bossSpawnTimer = 0;
-      spawnMissile();
+    if (!state.bossRushLevel) {
+      state.bossSpawnTimer += dt;
+      if (state.bossSpawnTimer >= 2.6) {
+        state.bossSpawnTimer = 0;
+        spawnMissile();
+      }
     }
     updateBoss(dt);
+    updateBlackHoles(dt);
   } else if (state.survivalLevel) {
     state.spawnTimer += dt;
     const interval = getSurvivalSpawnInterval(state.survivalTime);
@@ -2161,6 +2316,26 @@ function update(dt) {
       m.x += m.vx * dt * speedFactor;
       m.y += m.vy * dt * speedFactor;
     }
+
+    // Missile vs black hole (level 9 boss): damage black hole, remove missile
+    let hitBlackHole = false;
+    const meteorCenter = getMeteorHitboxCenter(m);
+    const meteorR = m.r || 12;
+    for (let j = blackHoles.length - 1; j >= 0; j -= 1) {
+      const bh = blackHoles[j];
+      const d = Math.hypot(meteorCenter.x - bh.x, meteorCenter.y - bh.y);
+      if (d <= meteorR + bh.hitboxR) {
+        bh.hp -= 1;
+        if (m.type === 'twin') removeTwinGroup(m.twinId);
+        else { scheduleDebugRespawn(m); missiles.splice(i, 1); }
+        playSfx(bh.hp <= 0 ? 'boom' : 'hitsoft');
+        triggerExplosion(bh.x, bh.y, bh.hp <= 0 ? '#2a0a2a' : '#4a2a4a', bh.hp <= 0 ? 50 : 28, 0.3, 8);
+        if (bh.hp <= 0) blackHoles.splice(j, 1);
+        hitBlackHole = true;
+        break;
+      }
+    }
+    if (hitBlackHole) continue;
 
     const dx = m.x - target.x;
     const dy = m.y - target.y;
@@ -2511,12 +2686,27 @@ function updateBoss(dt) {
     boss.bodyFlash = Math.max(0, boss.bodyFlash - dt * 2.5);
   }
 
+  // Level 9: launch black hole from bottom of ship (where the hole is) toward core; first one as soon as boss settles
+  if (state.level === 9 && boss.settled && boss.hp > 0) {
+    if (!boss.blackHoleFirstLaunched) {
+      boss.blackHoleFirstLaunched = true;
+      spawnBlackHole();
+      boss.blackHoleCooldown = 0;
+    }
+    boss.blackHoleCooldown = (boss.blackHoleCooldown || 0) + dt;
+    if (boss.blackHoleCooldown >= blackHoleSpawnInterval) {
+      boss.blackHoleCooldown = 0;
+      spawnBlackHole();
+    }
+  }
+
   // Boss dies when general HP reaches 0 (with death animation delay)
-  if (boss.hp <= 0) {
+    if (boss.hp <= 0) {
     if (!boss.deathTimer) {
       boss.deathTimer = 2.0; // Show destroyed state before boss dies
       boss.deathExplosionTimer = 0;
       missiles.length = 0;
+      blackHoles.length = 0;
       twinGroups.clear();
       // Force all launchers destroyed for the "both destroyed" image
       boss.parts.forEach(p => { if (p.hp > 0) p.hp = 0; });
@@ -2551,12 +2741,47 @@ function updateBoss(dt) {
       shockwave = 1;
       playSfx('success');
       updateBossBar();
-      completeLevel();
+      if (state.bossRushLevel) {
+        advanceBossRush();
+      } else {
+        completeLevel();
+      }
       return;
     }
   }
   updateBossBar();
 }
+
+function advanceBossRush() {
+  if (state.level === 9) {
+    state.running = false;
+    stopMusic();
+    playSfx('victory');
+    triggerConfetti();
+    setTimeout(() => {
+      showResultScreen('victory', t('bossRushComplete'));
+    }, 1800);
+    return;
+  }
+  const nextLevel = state.level === 3 ? 6 : 9;
+  const bossNum = nextLevel === 6 ? 2 : 3;
+  state.level = nextLevel;
+  state.wave = 1;
+  setMusicIntensity(state.level);
+  updateHud();
+  showWaveMessage(typeof t === 'function' ? t('bossRushBossNum', bossNum) : 'Boss ' + bossNum + '!', 2.0);
+  advanceBossRushTimer = setTimeout(() => {
+    advanceBossRushTimer = null;
+    initBoss(getBossConfig(state.level));
+    state.bossPhase = true;
+    state.bossSpawnTimer = 0;
+    updateBossBar();
+    updateHud();
+    showWaveMessage(t('bossIncoming'), 1.2);
+  }, 2400);
+}
+
+var advanceBossRushTimer = null;
 
 function drawBoss() {
   if (!boss.active) return;
@@ -2620,13 +2845,17 @@ function drawBoss() {
     drawBossHitboxPath(imgW, imgH);
     ctx.stroke();
 
-    // Draw part rectangles in debug
+    // Draw part rectangles in debug (hitbox si existe, sino el rect completo)
     boss.parts.forEach(part => {
       if (part.hp <= 0) return;
-      const px = part.x * imgW - imgW / 2;
-      const py = part.y * imgH - imgH / 2;
-      const pw = part.w * imgW;
-      const ph = part.h * imgH;
+      const hx = part.hitboxX != null ? part.hitboxX : part.x;
+      const hy = part.hitboxY != null ? part.hitboxY : part.y;
+      const hw = part.hitboxW != null ? part.hitboxW : part.w;
+      const hh = part.hitboxH != null ? part.hitboxH : part.h;
+      const px = hx * imgW - imgW / 2;
+      const py = hy * imgH - imgH / 2;
+      const pw = hw * imgW;
+      const ph = hh * imgH;
       ctx.fillStyle = 'rgba(255,180,70,0.3)';
       ctx.fillRect(px, py, pw, ph);
       ctx.strokeStyle = 'rgba(255,255,255,0.4)';
@@ -2639,7 +2868,7 @@ function drawBoss() {
 
 function hitBossAt(x, y) {
   if (!boss.active || boss.hp <= 0) return false;
-  if (boss.hitInvulnTimer > 0) return false;
+  if (!BOSS_HIT_INVULN_DISABLED && boss.hitInvulnTimer > 0) return false;
   // Transform screen point to ship-normalized space
   const ship = screenToShip(x, y);
 
@@ -2647,10 +2876,14 @@ function hitBossAt(x, y) {
   for (let i = boss.parts.length - 1; i >= 0; i -= 1) {
     const part = boss.parts[i];
     if (part.hp <= 0) continue;
-    if (ship.x >= part.x && ship.x <= part.x + part.w &&
-        ship.y >= part.y && ship.y <= part.y + part.h) {
+    const hx = part.hitboxX != null ? part.hitboxX : part.x;
+    const hy = part.hitboxY != null ? part.hitboxY : part.y;
+    const hw = part.hitboxW != null ? part.hitboxW : part.w;
+    const hh = part.hitboxH != null ? part.hitboxH : part.h;
+    if (ship.x >= hx && ship.x <= hx + hw &&
+        ship.y >= hy && ship.y <= hy + hh) {
       // Launcher hit: half damage to general HP + full damage to launcher HP
-      boss.hitInvulnTimer = 0.18;
+      if (!BOSS_HIT_INVULN_DISABLED) boss.hitInvulnTimer = 0.18;
       part.hp -= 1;
       boss.hp = Math.max(0, boss.hp - 0.5);
       part.flash = 0.6;
@@ -2669,7 +2902,7 @@ function hitBossAt(x, y) {
 
   // Priority 2: Check body (polygon hitbox) - full damage to boss HP
   if (pointInPolygon(ship.x, ship.y, bossHitboxPoly)) {
-    boss.hitInvulnTimer = 0.18;
+    if (!BOSS_HIT_INVULN_DISABLED) boss.hitInvulnTimer = 0.18;
     boss.hp = Math.max(0, boss.hp - 1);
     boss.bodyFlash = 0.5;
     playSfx('hitsoft');
@@ -3318,6 +3551,23 @@ function drawMeteor(m) {
   ctx.restore();
 }
 
+function drawBlackHoles() {
+  for (const bh of blackHoles) {
+    const size = bh.r * 2;
+    if (typeof blackHoleImage !== 'undefined' && blackHoleImage.complete && blackHoleImage.naturalWidth > 0) {
+      ctx.drawImage(blackHoleImage, bh.x - bh.r, bh.y - bh.r, size, size);
+    } else {
+      ctx.fillStyle = 'rgba(20, 5, 30, 0.95)';
+      ctx.beginPath();
+      ctx.arc(bh.x, bh.y, bh.r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#4a2a6a';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+  }
+}
+
 function drawMissiles() {
   for (const m of missiles) {
     if (m.type === 'twin' && m.twinPart === 0) {
@@ -3662,6 +3912,7 @@ function render(timestamp) {
   drawBackground();
   drawCore();
   drawBoss();
+  drawBlackHoles();
   drawMissiles();
   drawExplosions();
   drawScreenEffects();
@@ -3687,6 +3938,8 @@ function startCountdown(resetSkills = true) {
     showWaveMessage(t('hardcoreModeMsg'), 2.2);
   } else if (state.survivalLevel) {
     showWaveMessage(t('survivalModeMsg'), 2.2);
+  } else if (state.bossRushLevel) {
+    showWaveMessage(t('bossRushBossNum', 1), 2.2);
   } else if (state.bossPhase) {
     showWaveMessage(t('bossIncoming'), 2.2);
   } else {
@@ -3706,7 +3959,7 @@ function startCountdown(resetSkills = true) {
       setMusicMode('game');
       if (state.survivalLevel) {
         startSurvival();
-      } else if (state.bossPhase) {
+      } else if (state.bossPhase || state.bossRushLevel) {
         startBossLevel();
       } else {
         startWave(false);
@@ -3726,6 +3979,9 @@ function updateHud() {
   } else if (state.survivalLevel) {
     hudLevel.textContent = t('survival');
     hudWave.textContent = '';
+  } else if (state.bossRushLevel) {
+    hudLevel.textContent = t('bossMode');
+    hudWave.textContent = state.level === 3 ? t('bossRushBossNum', 1) : state.level === 6 ? t('bossRushBossNum', 2) : t('bossRushBossNum', 3);
   } else if (state.hardcoreLevel) {
     hudLevel.textContent = t('hardcore');
     hudWave.textContent = state.bossPhase ? t('boss') : t('waveOf', state.wave, state.wavesTotal);
@@ -3761,13 +4017,20 @@ function updateBossBar() {
   bossBar.classList.remove('hidden');
 }
 
-function showAdminToast() {
-  adminToast.classList.remove('hidden');
+var ADMIN_TOAST_DEFAULT_TEXT = 'You are not an admin';
+function showAdminToast(message) {
+  if (adminToast) {
+    adminToast.textContent = message !== undefined ? message : ADMIN_TOAST_DEFAULT_TEXT;
+    adminToast.classList.remove('hidden');
+  }
   if (adminToastTimer) {
     clearTimeout(adminToastTimer);
   }
   adminToastTimer = setTimeout(() => {
-    adminToast.classList.add('hidden');
+    if (adminToast) {
+      adminToast.textContent = ADMIN_TOAST_DEFAULT_TEXT;
+      adminToast.classList.add('hidden');
+    }
   }, 1200);
 }
 
@@ -3821,11 +4084,15 @@ const GODS_FINGER_RADIUS = 96; // Radio de ataque de God's Finger (reducido 20% 
 function getBossPointInCircle(cx, cy, radius) {
   if (!boss.active || boss.hp <= 0) return null;
   const r2 = radius * radius;
-  // Partes (lanzadores): centro de cada parte en pantalla
+  // Partes (lanzadores): centro de la hitbox (o de la parte) en pantalla
   for (let i = 0; i < boss.parts.length; i += 1) {
     const part = boss.parts[i];
     if (part.hp <= 0) continue;
-    const pt = shipToScreen(part.x + part.w * 0.5, part.y + part.h * 0.5);
+    const hx = part.hitboxX != null ? part.hitboxX : part.x;
+    const hy = part.hitboxY != null ? part.hitboxY : part.y;
+    const hw = part.hitboxW != null ? part.hitboxW : part.w;
+    const hh = part.hitboxH != null ? part.hitboxH : part.h;
+    const pt = shipToScreen(hx + hw * 0.5, hy + hh * 0.5);
     const dx = pt.x - cx;
     const dy = pt.y - cy;
     if (dx * dx + dy * dy <= r2) return pt;
@@ -3955,6 +4222,18 @@ function activateGodsFinger(x, y) {
     }
   }
 
+  // Tap on black hole (level 9): damage it
+  for (let j = blackHoles.length - 1; j >= 0; j -= 1) {
+    const bh = blackHoles[j];
+    const d = Math.hypot(x - bh.x, y - bh.y);
+    if (d <= radius + bh.hitboxR) {
+      bh.hp -= 1;
+      playSfx(bh.hp <= 0 ? 'boom' : 'hitsoft');
+      triggerExplosion(bh.x, bh.y, bh.hp <= 0 ? '#2a0a2a' : '#4a2a4a', bh.hp <= 0 ? 50 : 28, 0.3, 8);
+      if (bh.hp <= 0) blackHoles.splice(j, 1);
+      return;
+    }
+  }
   // Si el área del Dedo de Dios toca al boss, aplicar un golpe normal (como un tap)
   if (boss.active && boss.hp > 0) {
     const bossPoint = getBossPointInCircle(x, y, radius);
@@ -4092,8 +4371,8 @@ function segmentIntersectsSquare(ax, ay, bx, by, cx, cy, half) {
 
 function handleCoreHit(customMessage = null) {
   if (!core.alive) return;
-  // Boss test mode: invincible
-  if (state.bossTestMode) return;
+  // Boss test mode o debug mode: invencible
+  if (state.bossTestMode || state.debugMode) return;
   const target = center();
   core.alive = false;
   state.running = false;
@@ -4256,6 +4535,18 @@ canvas.addEventListener('pointerdown', e => {
     return;
   }
   
+  // Normal tap: check black hole first (level 9 boss)
+  for (let j = blackHoles.length - 1; j >= 0; j -= 1) {
+    const bh = blackHoles[j];
+    const d = Math.hypot(x - bh.x, y - bh.y);
+    if (d <= bh.hitboxR) {
+      bh.hp -= 1;
+      playSfx(bh.hp <= 0 ? 'boom' : 'hitsoft');
+      triggerExplosion(x, y, bh.hp <= 0 ? '#2a0a2a' : '#4a2a4a', bh.hp <= 0 ? 50 : 28, 0.3, 8);
+      if (bh.hp <= 0) blackHoles.splice(j, 1);
+      return;
+    }
+  }
   for (let i = missiles.length - 1; i >= 0; i -= 1) {
     const m = missiles[i];
     if (isPointOnMeteor(m, x, y)) {
@@ -4318,6 +4609,13 @@ skillButtons.forEach(button => {
       missiles.length = 0;
       playSfx('nova');
       triggerNovaEffect();
+      // Nova damages black holes (level 9)
+      for (let j = blackHoles.length - 1; j >= 0; j -= 1) {
+        const bh = blackHoles[j];
+        bh.hp -= 1;
+        triggerExplosion(bh.x, bh.y, bh.hp <= 0 ? '#2a0a2a' : '#4a2a4a', bh.hp <= 0 ? 50 : 28, 0.3, 8);
+        if (bh.hp <= 0) blackHoles.splice(j, 1);
+      }
       // Si el boss está en pantalla, la Nova le hace un golpe a cada parte (puede rematarlo)
       if (state.bossPhase && boss.active && boss.hp > 0) {
         boss.parts.forEach(part => {
@@ -4403,6 +4701,12 @@ if (survivalStartButton) {
   });
 }
 
+if (bossStartButton) {
+  bossStartButton.addEventListener('click', () => {
+    startSelectedLevel(12);
+  });
+}
+
 startScreen.addEventListener('pointerdown', () => {
   initAudio();
 });
@@ -4428,6 +4732,12 @@ if (hardcoreModeToggle) {
 if (survivalModeToggle) {
   survivalModeToggle.addEventListener('click', () => {
     setMenuView('survival');
+  });
+}
+
+if (bossModeToggle) {
+  bossModeToggle.addEventListener('click', () => {
+    setMenuView('boss');
   });
 }
 
@@ -4517,6 +4827,12 @@ if (hardcoreBack) {
 
 if (survivalBack) {
   survivalBack.addEventListener('click', () => {
+    setMenuView('play');
+  });
+}
+
+if (bossBack) {
+  bossBack.addEventListener('click', () => {
     setMenuView('play');
   });
 }
@@ -4878,6 +5194,35 @@ if (debugModeButton) {
   });
 }
 
+// Boss hitbox debug: botones Boss 1/2/3, inputs en vivo, Copiar config
+const debugBossInputs = [debugBossL0X, debugBossL0Y, debugBossL0W, debugBossL0H, debugBossL0Hx, debugBossL0Hy, debugBossL0Hw, debugBossL0Hh, debugBossL1X, debugBossL1Y, debugBossL1W, debugBossL1H, debugBossL1Hx, debugBossL1Hy, debugBossL1Hw, debugBossL1Hh];
+debugBossInputs.forEach(function (el) {
+  if (el) el.addEventListener('input', applyDebugBossInputsToBoss);
+});
+if (debugBoss1Btn) debugBoss1Btn.addEventListener('click', () => startBossTestWithLevel(3));
+if (debugBoss2Btn) debugBoss2Btn.addEventListener('click', () => startBossTestWithLevel(6));
+if (debugBoss3Btn) debugBoss3Btn.addEventListener('click', () => startBossTestWithLevel(9));
+if (debugBossCopyBtn) {
+  debugBossCopyBtn.addEventListener('click', () => {
+    if (!boss.active || !boss.parts || boss.parts.length < 2) {
+      showAdminToast('Primero spawnea un boss (Boss 1 / 2 / 3)');
+      return;
+    }
+    applyDebugBossInputsToBoss();
+    const launchers = boss.parts.map(function (p) {
+      const o = { id: p.id, x: p.x, y: p.y, w: p.w, h: p.h, hp: p.hp, type: p.type, rate: p.rate };
+      if (p.hitboxX != null) { o.hitboxX = p.hitboxX; o.hitboxY = p.hitboxY; o.hitboxW = p.hitboxW; o.hitboxH = p.hitboxH; }
+      return o;
+    });
+    const text = 'launchers: ' + JSON.stringify(launchers, null, 2);
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { showAdminToast('Config copiada'); }).catch(function () { showAdminToast('Error al copiar'); });
+    } else {
+      showAdminToast('Clipboard no disponible');
+    }
+  });
+}
+
 styleButtons.forEach(button => {
   button.addEventListener('click', () => {
     const style = button.dataset.style;
@@ -4906,7 +5251,7 @@ levelButtons.forEach(button => {
     if (Number.isNaN(level)) return;
     
     if (isNormal && level > maxNormalLevels) return;
-    if (level !== 10 && level !== 11 && !isNormal && level > state.unlockedLevel) return;
+    if (!SHOW_DEBUG_BUTTONS && level !== 10 && level !== 11 && level !== 12 && !isNormal && level > state.unlockedLevel) return;
     state.selectedLevel = level;
     updateLevelButtons();
   });
@@ -4937,7 +5282,7 @@ upgradeButtons.forEach(button => {
       return;
     }
     if (upgrade === 'nova') {
-      if (state.unlockedLevel < 2) {
+      if (!SHOW_DEBUG_BUTTONS && state.unlockedLevel < 2) {
         showLevelLockedToast();
         return;
       }
@@ -4956,7 +5301,7 @@ upgradeButtons.forEach(button => {
       return;
     }
     if (upgrade === 'regen') {
-      if (state.unlockedLevel < 3) {
+      if (!SHOW_DEBUG_BUTTONS && state.unlockedLevel < 3) {
         showLevelLockedToast();
         return;
       }
@@ -4975,7 +5320,7 @@ upgradeButtons.forEach(button => {
       return;
     }
     if (upgrade === 'slow') {
-      if (state.unlockedLevel < 4) {
+      if (!SHOW_DEBUG_BUTTONS && state.unlockedLevel < 4) {
         showLevelLockedToast();
         return;
       }
@@ -4994,7 +5339,7 @@ upgradeButtons.forEach(button => {
       return;
     }
     if (upgrade === 'aegis') {
-      if (state.unlockedLevel < 5) {
+      if (!SHOW_DEBUG_BUTTONS && state.unlockedLevel < 5) {
         showLevelLockedToast();
         return;
       }
@@ -5024,7 +5369,7 @@ upgradeButtons.forEach(button => {
       // Requiere: modo normal completado + todas las demás habilidades desbloqueadas
       const allAbilitiesUnlocked = novaLevel > 0 && regenLevel > 0 && slowLevel > 0 && aegisLevel > 0;
       const normalModeCompleted = state.unlockedLevel >= 10;
-      if (!normalModeCompleted || !allAbilitiesUnlocked) {
+      if (!SHOW_DEBUG_BUTTONS && (!normalModeCompleted || !allAbilitiesUnlocked)) {
         showLevelLockedToast();
         return;
       }
@@ -5081,11 +5426,14 @@ document.addEventListener('keydown', (e) => {
     }
   }
 
-  // B key: start/cycle boss test mode
+  // B key: start/cycle boss test mode. En modo debug: ciclo Boss 1 → 2 → 3 → off
   if (e.key === 'b' || e.key === 'B') {
     e.preventDefault();
-    if (state.bossTestMode) {
-      // Cycle to next entry direction
+    if (state.debugMode) {
+      window._bossTestLevelCycle = (window._bossTestLevelCycle + 1) % _bossTestLevels.length;
+      const level = _bossTestLevels[window._bossTestLevelCycle];
+      if (level === 0) exitBossTest(); else startBossTestWithLevel(level);
+    } else if (state.bossTestMode) {
       window._bossTestCycle = (window._bossTestCycle + 1) % _bossTestEntries.length;
       startBossTest(_bossTestEntries[window._bossTestCycle]);
     } else {
@@ -5288,12 +5636,12 @@ function updateLevelButtons() {
     const isSurvival = button.classList.contains('survival');
     const isHardcore = button.classList.contains('hardcore');
     if (isNormal) {
-      const normalUnlocked = Math.min(state.unlockedLevel, maxNormalLevels);
+      const normalUnlocked = SHOW_DEBUG_BUTTONS ? maxNormalLevels : Math.min(state.unlockedLevel, maxNormalLevels);
       button.disabled = level > normalUnlocked;
     } else if (isSurvival || isHardcore) {
       button.disabled = false;
     } else {
-      button.disabled = level > state.unlockedLevel;
+      button.disabled = SHOW_DEBUG_BUTTONS ? false : (level > state.unlockedLevel);
     }
     const canMatchLevel = !(isNormal && level > maxNormalLevels);
     button.classList.toggle('active', canMatchLevel && level === state.selectedLevel);
@@ -5338,7 +5686,7 @@ function updateUpgrades() {
         }
       }
     } else if (upgrade === 'nova') {
-      lockedByLevel = state.unlockedLevel < 2;
+      lockedByLevel = !SHOW_DEBUG_BUTTONS && state.unlockedLevel < 2;
       owned = novaLevel >= 3;
       const nextLevel = Math.min(3, novaLevel + 1);
       cost = upgradeCosts.nova[nextLevel];
@@ -5349,7 +5697,7 @@ function updateUpgrades() {
         if (status) status.textContent = novaLevel >= 3 ? t('max') : t('cooldownS', skillCooldownLevels[nextLevel - 1]);
       }
     } else if (upgrade === 'regen') {
-      lockedByLevel = state.unlockedLevel < 3;
+      lockedByLevel = !SHOW_DEBUG_BUTTONS && state.unlockedLevel < 3;
       owned = regenLevel >= 3;
       const nextLevel = Math.min(3, regenLevel + 1);
       cost = upgradeCosts.regen[nextLevel];
@@ -5360,7 +5708,7 @@ function updateUpgrades() {
         if (status) status.textContent = regenLevel >= 3 ? t('max') : t('cooldownS', skillCooldownLevels[nextLevel - 1]);
       }
     } else if (upgrade === 'slow') {
-      lockedByLevel = state.unlockedLevel < 4;
+      lockedByLevel = !SHOW_DEBUG_BUTTONS && state.unlockedLevel < 4;
       owned = slowLevel >= 3;
       const nextLevel = Math.min(3, slowLevel + 1);
       cost = upgradeCosts.slow[nextLevel];
@@ -5371,7 +5719,7 @@ function updateUpgrades() {
         if (status) status.textContent = slowLevel >= 3 ? t('max') : t('cooldownS', skillCooldownLevels[nextLevel - 1]);
       }
     } else if (upgrade === 'aegis') {
-      lockedByLevel = state.unlockedLevel < 5;
+      lockedByLevel = !SHOW_DEBUG_BUTTONS && state.unlockedLevel < 5;
       owned = aegisLevel >= 3;
       const nextLevel = Math.min(3, aegisLevel + 1);
       cost = upgradeCosts.aegis[nextLevel];
@@ -5385,7 +5733,7 @@ function updateUpgrades() {
       owned = false;
       const allAbilitiesUnlocked = novaLevel > 0 && regenLevel > 0 && slowLevel > 0 && aegisLevel > 0;
       const normalModeCompleted = state.unlockedLevel >= 10;
-      lockedByLevel = !normalModeCompleted || !allAbilitiesUnlocked;
+      lockedByLevel = !SHOW_DEBUG_BUTTONS && (!normalModeCompleted || !allAbilitiesUnlocked);
       cost = (godsFingerUnlocked || godsFingerPurchased) ? null : upgradeCosts.godsFinger[1];
       if (lockedByLevel) {
         setUpgradeButtonLockedByLevel(button, label, status, 10);
@@ -5468,17 +5816,17 @@ function updateSkillLocks() {
       return;
     }
     if (skill === 'nova') {
-      lockedByLevel = state.unlockedLevel < 2;
-      unlocked = novaLevel > 0 && state.unlockedLevel >= 2;
+      lockedByLevel = !SHOW_DEBUG_BUTTONS && state.unlockedLevel < 2;
+      unlocked = SHOW_DEBUG_BUTTONS || (novaLevel > 0 && state.unlockedLevel >= 2);
     } else if (skill === 'regen') {
-      lockedByLevel = state.unlockedLevel < 3;
-      unlocked = regenLevel > 0 && state.unlockedLevel >= 3;
+      lockedByLevel = !SHOW_DEBUG_BUTTONS && state.unlockedLevel < 3;
+      unlocked = SHOW_DEBUG_BUTTONS || (regenLevel > 0 && state.unlockedLevel >= 3);
     } else if (skill === 'slow') {
-      lockedByLevel = state.unlockedLevel < 4;
-      unlocked = slowLevel > 0 && state.unlockedLevel >= 4;
+      lockedByLevel = !SHOW_DEBUG_BUTTONS && state.unlockedLevel < 4;
+      unlocked = SHOW_DEBUG_BUTTONS || (slowLevel > 0 && state.unlockedLevel >= 4);
     } else if (skill === 'aegis') {
-      lockedByLevel = state.unlockedLevel < 5;
-      unlocked = aegisLevel > 0 && state.unlockedLevel >= 5;
+      lockedByLevel = !SHOW_DEBUG_BUTTONS && state.unlockedLevel < 5;
+      unlocked = SHOW_DEBUG_BUTTONS || (aegisLevel > 0 && state.unlockedLevel >= 5);
     } else if (skill === 'godsFinger') {
       unlocked = godsFingerUnlocked;
     }
@@ -5530,14 +5878,14 @@ function showResultScreen(type, message) {
 
   // Configure action buttons based on context
   const isVictory = type === 'victory';
-  const hasNextNormal = isVictory && state.level < maxNormalLevels;
-  const finishedAllNormal = isVictory && state.level >= maxNormalLevels;
+  const hasNextNormal = isVictory && state.level < maxNormalLevels && !state.bossRushLevel;
+  const finishedAllNormal = isVictory && state.level >= maxNormalLevels && !state.bossRushLevel;
 
   // Retry: show on defeat, hide on victory
   if (resultRetry) resultRetry.classList.toggle('hidden', isVictory);
   // Next Level: show only when there's a next normal level
   if (resultNext) resultNext.classList.toggle('hidden', !hasNextNormal);
-  // Hardcore & Survival: show when finished all normal levels
+  // Hardcore & Survival: show when finished all normal levels (not after Boss Mode)
   if (resultHardcore) resultHardcore.classList.toggle('hidden', !finishedAllNormal);
   if (resultSurvival) resultSurvival.classList.toggle('hidden', !finishedAllNormal);
 
@@ -5663,6 +6011,7 @@ function setMenuView(view) {
   const showNormal = view === 'normal';
   const showHardcore = view === 'hardcore';
   const showSurvival = view === 'survival';
+  const showBoss = view === 'boss';
   const showUpgrades = view === 'upgrades';
   const showOptions = view === 'options';
   if (menuPlayPanel) {
@@ -5677,13 +6026,16 @@ function setMenuView(view) {
   if (menuSurvivalPanel) {
     menuSurvivalPanel.classList.toggle('hidden', !showSurvival);
   }
+  if (menuBossPanel) {
+    menuBossPanel.classList.toggle('hidden', !showBoss);
+  }
   menuUpgradesPanel.classList.toggle('hidden', !showUpgrades);
   menuOptionsPanel.classList.toggle('hidden', !showOptions);
   if (menuHomePanel) {
     menuHomePanel.classList.toggle('hidden', view !== 'home');
   }
   if (hardcoreModeToggle) {
-    hardcoreModeToggle.classList.toggle('hidden', state.unlockedLevel <= maxNormalLevels);
+    hardcoreModeToggle.classList.toggle('hidden', !SHOW_DEBUG_BUTTONS && state.unlockedLevel <= maxNormalLevels);
   }
   if (view === 'normal') {
     if (state.selectedLevel > maxNormalLevels) {

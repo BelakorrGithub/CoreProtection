@@ -53,6 +53,23 @@
         <input type="checkbox" id="debug-show-variables">
       </div>
     </div>
+    <div class="debug-title">Boss hitbox (B = ciclo Boss 1/2/3)</div>
+    <div id="debug-boss-hitbox-section" class="debug-controls">
+      <div class="debug-row">
+        <button type="button" id="debug-boss-1">Boss 1</button>
+        <button type="button" id="debug-boss-2">Boss 2</button>
+        <button type="button" id="debug-boss-3">Boss 3</button>
+        <button type="button" id="debug-boss-copy">Copiar config</button>
+      </div>
+      <div class="debug-row debug-boss-sub">Izq: x <input type="number" id="debug-boss-l0-x" step="0.01" placeholder="x"> y <input type="number" id="debug-boss-l0-y" step="0.01" placeholder="y"> w <input type="number" id="debug-boss-l0-w" step="0.01" placeholder="w"> h <input type="number" id="debug-boss-l0-h" step="0.01" placeholder="h"></div>
+      <div class="debug-row debug-boss-sub">Hitbox izq: x <input type="number" id="debug-boss-l0-hx" step="0.01" placeholder="vacío=rect"> y <input type="number" id="debug-boss-l0-hy" step="0.01"> w <input type="number" id="debug-boss-l0-hw" step="0.01"> h <input type="number" id="debug-boss-l0-hh" step="0.01"></div>
+      <div class="debug-row debug-boss-sub">Der: x <input type="number" id="debug-boss-l1-x" step="0.01" placeholder="x"> y <input type="number" id="debug-boss-l1-y" step="0.01" placeholder="y"> w <input type="number" id="debug-boss-l1-w" step="0.01" placeholder="w"> h <input type="number" id="debug-boss-l1-h" step="0.01" placeholder="h"></div>
+      <div class="debug-row debug-boss-sub">Hitbox der: x <input type="number" id="debug-boss-l1-hx" step="0.01" placeholder="vacío=rect"> y <input type="number" id="debug-boss-l1-hy" step="0.01"> w <input type="number" id="debug-boss-l1-hw" step="0.01"> h <input type="number" id="debug-boss-l1-hh" step="0.01"></div>
+    </div>
+    <div class="debug-title">Agujero negro spawn (coords. barco 0–1)</div>
+    <div class="debug-controls">
+      <div class="debug-row debug-boss-sub">x <input type="number" id="debug-blackhole-spawn-x" step="0.01" value="0.5" min="0" max="1"> y <input type="number" id="debug-blackhole-spawn-y" step="0.01" value="0.7" min="0" max="1"></div>
+    </div>
   </div>
   <div id="pause-overlay" class="hidden">
     <div class="pause-title">Paused</div>
@@ -177,6 +194,7 @@
         <button id="normal-mode-toggle" class="level-button mode-button">Normal Mode</button>
         <button id="hardcore-mode-toggle" class="level-button hardcore mode-button" data-level="10">Hardcore Mode</button>
         <button id="survival-mode-toggle" class="level-button survival mode-button" data-level="11">Survival Mode</button>
+        <button id="boss-mode-toggle" class="level-button mode-button" data-level="12">Boss Mode</button>
       </div>
     </div>
     <div id="menu-normal-panel" class="hidden">
@@ -210,6 +228,12 @@
         <ol class="records-list"></ol>
       </div>
       <button id="survival-start">Start</button>
+    </div>
+    <div id="menu-boss-panel" class="hidden">
+      <button id="boss-back"><span aria-hidden="true">&lt;</span> Back to Modes</button>
+      <div class="modes-title">Boss Mode</div>
+      <div class="modes-description">Fight all three bosses in order: Boss 1 → Boss 2 → Boss 3.</div>
+      <button id="boss-start">Start</button>
     </div>
     <div id="menu-upgrades-panel" class="hidden">
       <div id="menu-credits"><span class="icon icon-coin" aria-hidden="true"></span><span class="label">Credits: 0</span></div>

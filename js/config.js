@@ -1,5 +1,5 @@
 // Debug buttons visibility - set to true to show admin debug buttons
-var SHOW_DEBUG_BUTTONS = false;
+var SHOW_DEBUG_BUTTONS = true;
 
 var levels = [
   { level: 1, spawnInterval: 1.4, music: { gain: 0.18, tempo: 240 } },
@@ -12,7 +12,8 @@ var levels = [
   { level: 8, spawnInterval: 0.5, music: { gain: 0.36, tempo: 98 } },
   { level: 9, spawnInterval: 0.42, music: { gain: 0.4, tempo: 85 } },
   { level: 10, spawnInterval: 0.4, music: { gain: 0.4, tempo: 90 } },
-  { level: 11, spawnInterval: 1.2, music: { gain: 0.3, tempo: 140 } }
+  { level: 11, spawnInterval: 1.2, music: { gain: 0.3, tempo: 140 } },
+  { level: 12, spawnInterval: 0.42, music: { gain: 0.4, tempo: 85 } } // Boss Mode (reuse level 9 music)
 ];
 
 var baseCoreRadius = 28;

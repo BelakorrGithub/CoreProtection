@@ -62,10 +62,14 @@ var i18n = {
 
     // Game messages
     bossIncoming: 'Jefe Entrante',
+    bossRushBossNum: n => `¡Jefe ${n}!`,
+    bossRushComplete: '¡Felicidades!',
     levelComplete: 'Nivel Completado',
     gameOver: 'Fin del Juego',
     hardcoreModeMsg: 'Modo Extremo',
     survivalModeMsg: 'Modo Supervivencia',
+    bossMode: 'Modo Jefes',
+    bossModeDesc: '¡Lucha contra todos los jefes!',
     survivalTime: t => `Supervivencia: ${t}`,
     survivalNewRecord: t => `Supervivencia: ${t} — ¡Nuevo Récord!`,
     godsFingerDeath: 'La ira de Dios está fuera de control...\n¡Te has matado a ti mismo!',
@@ -115,7 +119,7 @@ var i18n = {
     helpTitle: 'Mejoras y habilidades',
     helpShieldDesc: 'Más capas de escudo alrededor del núcleo. Máx. 3.',
     helpNovaDesc: 'Explosión que destruye todos los meteoritos en pantalla.',
-    helpRegenDesc: 'Regenera una capa de escudo perdida.',
+    helpRegenDesc: 'Restaura todas las capas de escudo al máximo. Subir nivel reduce el enfriamiento (Nivel 2: 20s, Nivel 3: 10s).',
     helpSlowDesc: 'Ralentiza el tiempo unos segundos.',
     helpAegisDesc: 'Invencibilidad temporal.',
     helpGodsFingerDesc: 'Toca para destruir meteoritos al instante. Sin enfriamiento.',
@@ -185,10 +189,14 @@ var i18n = {
     pauseLoseCredits: 'You will lose all credits earned this run.',
 
     bossIncoming: 'Boss Incoming',
+    bossRushBossNum: n => `Boss ${n}!`,
+    bossRushComplete: 'Congratulations!',
     levelComplete: 'Level Complete',
     gameOver: 'Game Over',
     hardcoreModeMsg: 'Hardcore Mode',
     survivalModeMsg: 'Survival Mode',
+    bossMode: 'Boss Mode',
+    bossModeDesc: 'Fight all the bosses!',
     survivalTime: t => `Survival: ${t}`,
     survivalNewRecord: t => `Survival: ${t} — New Record!`,
     godsFingerDeath: 'The wrath of God is out of control...\nYou killed yourself!',
@@ -236,7 +244,7 @@ var i18n = {
     helpTitle: 'Upgrades & Abilities',
     helpShieldDesc: 'Extra shield layers around the core. Max 3.',
     helpNovaDesc: 'Blast that destroys all meteors on screen.',
-    helpRegenDesc: 'Restores one lost shield layer.',
+    helpRegenDesc: 'Restores all shield layers to full. Leveling up reduces cooldown (Level 2: 20s, Level 3: 10s).',
     helpSlowDesc: 'Slows time for a few seconds.',
     helpAegisDesc: 'Brief invincibility.',
     helpGodsFingerDesc: 'Tap to destroy meteors instantly. No cooldown.',
@@ -304,10 +312,14 @@ var i18n = {
     pauseLoseCredits: 'Vous perdrez tous les crédits gagnés durant cette partie.',
 
     bossIncoming: 'Boss en Approche',
+    bossRushBossNum: n => `Boss ${n} !`,
+    bossRushComplete: 'Félicitations !',
     levelComplete: 'Niveau Terminé',
     gameOver: 'Fin de Partie',
     hardcoreModeMsg: 'Mode Extrême',
     survivalModeMsg: 'Mode Survie',
+    bossMode: 'Mode Boss',
+    bossModeDesc: 'Affrontez tous les boss !',
     survivalTime: t => `Survie : ${t}`,
     survivalNewRecord: t => `Survie : ${t} — Nouveau Record !`,
     godsFingerDeath: 'La colère de Dieu est hors de contrôle...\nVous vous êtes tué !',
@@ -355,7 +367,7 @@ var i18n = {
     helpTitle: 'Améliorations et compétences',
     helpShieldDesc: 'Couches de bouclier supplémentaires. Max 3.',
     helpNovaDesc: 'Explosion qui détruit tous les météores à l\'écran.',
-    helpRegenDesc: 'Restaure une couche de bouclier perdue.',
+    helpRegenDesc: 'Restaure toutes les couches de bouclier au maximum. Monter de niveau réduit le temps de recharge (Niveau 2 : 20s, Niveau 3 : 10s).',
     helpSlowDesc: 'Ralentit le temps pendant quelques secondes.',
     helpAegisDesc: 'Invincibilité brève.',
     helpGodsFingerDesc: 'Touchez pour détruire les météores instantanément. Sans recharge.',
@@ -390,10 +402,11 @@ var LANG_TEXT = [
   ['#hardcore-unlocked', 'hardcoreUnlocked'], ['#victory .victory-title', 'congratulations'], ['#victory .victory-subtitle', 'completedAll'], ['#victory-try-hardcore', 'tryExtremeMode'], ['#victory-try-survival', 'infiniteMode'],
   ['#menu-play', 'play'], ['#menu-upgrades-button', 'upgrades'], ['#menu-options-button', 'options'],
   ['#debug-mode-button .label', 'debugMode'], ['#debug-mode-button .status', 'admin'], ['#menu-play-panel .modes-title', 'modes'],
-  ['#normal-mode-toggle', 'normalMode'], ['#hardcore-mode-toggle', 'hardcoreMode'], ['#survival-mode-toggle', 'survivalMode'],
+  ['#normal-mode-toggle', 'normalMode'], ['#hardcore-mode-toggle', 'hardcoreMode'], ['#survival-mode-toggle', 'survivalMode'], ['#boss-mode-toggle', 'bossMode'],
   ['#menu-normal-panel .modes-title', 'normalLevels'], ['#normal-start', 'start'], ['#menu-hardcore-panel .modes-title', 'hardcoreMode'],
   ['#menu-hardcore-panel .confirm-text', 'hardcoreDesc'], ['#hardcore-start', 'start'], ['#menu-survival-panel .modes-title', 'survivalMode'],
   ['#menu-survival-panel .modes-description', 'survivalDesc'], ['#survival-records .records-title', 'highScores'], ['#survival-start', 'start'],
+  ['#menu-boss-panel .modes-title', 'bossMode'], ['#menu-boss-panel .modes-description', 'bossModeDesc'], ['#boss-start', 'start'],
   ['#menu-upgrades .row-title', 'upgrades'], ['#admin-credits .label', 'adminCreditsLabel'], ['#admin-credits .status', 'admin'],
   ['.options-title', 'options'], ['label[for="music-volume"]', 'music'], ['label[for="sfx-volume"]', 'sounds'], ['.styles-title', 'styles'],
   ['#reset-progress', 'resetProgress'], ['.language-title', 'language'], ['#confirm-reset .confirm-title', 'resetTitle'],
@@ -401,7 +414,7 @@ var LANG_TEXT = [
   ['#hardcore-confirm .confirm-title', 'hardcoreConfirmTitle'], ['#hardcore-confirm .confirm-text', 'hardcoreDesc'], ['#hardcore-confirm-yes', 'hardcoreConfirmPlay'], ['#hardcore-confirm-no', 'cancel'],
   ['#gameover-menu', 'returnToMenu'], ['#gameover-retry', 'retryLevel'], ['#skills .row-title', 'abilities'], ['#pause-button .label', 'pause'], ['#debug-skip .label', 'debug']
 ];
-var LANG_BACK = [['#play-back', 'backToMenu'], ['#normal-back', 'backToModes'], ['#hardcore-back', 'backToModes'], ['#survival-back', 'backToModes'], ['#upgrades-back', 'backToMenu'], ['#options-back', 'backToMenu'], ['#victory-close', 'returnToMainMenu']];
+var LANG_BACK = [['#play-back', 'backToMenu'], ['#normal-back', 'backToModes'], ['#hardcore-back', 'backToModes'], ['#survival-back', 'backToModes'], ['#boss-back', 'backToModes'], ['#upgrades-back', 'backToMenu'], ['#options-back', 'backToMenu'], ['#victory-close', 'returnToMainMenu']];
 var LANG_BACK_HTML = '<span aria-hidden="true">&lt;</span> ';
 
 function applyLanguage() {
