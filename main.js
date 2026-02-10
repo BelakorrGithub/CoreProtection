@@ -880,6 +880,7 @@ function initBoss(options = {}) {
   boss.maxHp = bossHp;
   boss.blackHoleCooldown = 0;
   boss.blackHoleFirstLaunched = false;
+  boss.blackHoleNextSpawnTimer = null;
   updateBossBar();
 }
 
@@ -1888,9 +1889,8 @@ function spawnMissileFrom(x, y, type) {
   missiles.push(buildMissile(x, y, type));
 }
 
-var blackHoleSpeed = 50;
-var blackHoleSpawnInterval = 4.5;
-var BOSS_HIT_INVULN_DISABLED = true; /* true = desactivar anti-spam para testear; poner false para producción */
+var blackHoleSpeed = 26;
+var BOSS_HIT_INVULN_DISABLED = false;
 var blackHoleRadius = 52;
 var blackHoleHp = 18;
 // Hitbox = círculo equivalente al área negra central (sin el aura). Proporción respecto al radio visual.
@@ -1944,6 +1944,7 @@ function updateBlackHoles(dt) {
     }
     if (bh.hp <= 0) {
       blackHoles.splice(i, 1);
+      if (state.level === 9 && boss.active && boss.hp > 0) boss.blackHoleNextSpawnTimer = 3;
     }
   }
 }
@@ -2686,17 +2687,18 @@ function updateBoss(dt) {
     boss.bodyFlash = Math.max(0, boss.bodyFlash - dt * 2.5);
   }
 
-  // Level 9: launch black hole from bottom of ship (where the hole is) toward core; first one as soon as boss settles
+  // Level 9: first black hole 3s after boss settles; then one every 3s after the previous is killed
   if (state.level === 9 && boss.settled && boss.hp > 0) {
     if (!boss.blackHoleFirstLaunched) {
       boss.blackHoleFirstLaunched = true;
-      spawnBlackHole();
-      boss.blackHoleCooldown = 0;
+      boss.blackHoleNextSpawnTimer = 3;
     }
-    boss.blackHoleCooldown = (boss.blackHoleCooldown || 0) + dt;
-    if (boss.blackHoleCooldown >= blackHoleSpawnInterval) {
-      boss.blackHoleCooldown = 0;
-      spawnBlackHole();
+    if (boss.blackHoleNextSpawnTimer != null) {
+      boss.blackHoleNextSpawnTimer -= dt;
+      if (boss.blackHoleNextSpawnTimer <= 0) {
+        boss.blackHoleNextSpawnTimer = null;
+        spawnBlackHole();
+      }
     }
   }
 
@@ -4083,8 +4085,15 @@ const GODS_FINGER_RADIUS = 96; // Radio de ataque de God's Finger (reducido 20% 
 // Devuelve un punto en pantalla sobre el boss que esté dentro del círculo (cx, cy, radius), o null
 function getBossPointInCircle(cx, cy, radius) {
   if (!boss.active || boss.hp <= 0) return null;
-  const r2 = radius * radius;
-  // Partes (lanzadores): centro de la hitbox (o de la parte) en pantalla
+  if (isGodsFingerCircleHittingBoss(cx, cy, radius)) return { x: cx, y: cy };
+  return null;
+}
+
+// True si el círculo (cx, cy, radius) intersecta cualquier hitbox del boss (launchers o cuerpo)
+function isGodsFingerCircleHittingBoss(cx, cy, radius) {
+  if (!boss.active || boss.hp <= 0) return false;
+
+  // Partes (lanzadores): hitbox en pantalla como AABB
   for (let i = 0; i < boss.parts.length; i += 1) {
     const part = boss.parts[i];
     if (part.hp <= 0) continue;
@@ -4092,25 +4101,31 @@ function getBossPointInCircle(cx, cy, radius) {
     const hy = part.hitboxY != null ? part.hitboxY : part.y;
     const hw = part.hitboxW != null ? part.hitboxW : part.w;
     const hh = part.hitboxH != null ? part.hitboxH : part.h;
-    const pt = shipToScreen(hx + hw * 0.5, hy + hh * 0.5);
-    const dx = pt.x - cx;
-    const dy = pt.y - cy;
-    if (dx * dx + dy * dy <= r2) return pt;
+    const corners = [
+      shipToScreen(hx, hy),
+      shipToScreen(hx + hw, hy),
+      shipToScreen(hx + hw, hy + hh),
+      shipToScreen(hx, hy + hh)
+    ];
+    const minX = Math.min(corners[0].x, corners[1].x, corners[2].x, corners[3].x);
+    const minY = Math.min(corners[0].y, corners[1].y, corners[2].y, corners[3].y);
+    const maxX = Math.max(corners[0].x, corners[1].x, corners[2].x, corners[3].x);
+    const maxY = Math.max(corners[0].y, corners[1].y, corners[2].y, corners[3].y);
+    const aabb = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+    if (isCircleIntersectingRect(cx, cy, aabb, radius)) return true;
   }
-  // Cuerpo: centroide del polígono en espacio barco, luego a pantalla
-  let sx = 0;
-  let sy = 0;
-  for (let j = 0; j < bossHitboxPoly.length; j += 1) {
-    sx += bossHitboxPoly[j].x;
-    sy += bossHitboxPoly[j].y;
+
+  // Cuerpo: polígono en pantalla; círculo lo toca si centro dentro o distancia a alguna arista <= radius
+  const screenPoly = bossHitboxPoly.map(function (p) { return shipToScreen(p.x, p.y); });
+  if (pointInPolygon(cx, cy, screenPoly)) return true;
+  for (let j = 0, k = screenPoly.length - 1; j < screenPoly.length; k = j++) {
+    const ax = screenPoly[k].x;
+    const ay = screenPoly[k].y;
+    const bx = screenPoly[j].x;
+    const by = screenPoly[j].y;
+    if (distancePointToSegment(cx, cy, ax, ay, bx, by) <= radius) return true;
   }
-  sx /= bossHitboxPoly.length;
-  sy /= bossHitboxPoly.length;
-  const bodyPt = shipToScreen(sx, sy);
-  const dx = bodyPt.x - cx;
-  const dy = bodyPt.y - cy;
-  if (dx * dx + dy * dy <= r2) return bodyPt;
-  return null;
+  return false;
 }
 
 function drawGodsFingerRadius() {
@@ -4234,12 +4249,9 @@ function activateGodsFinger(x, y) {
       return;
     }
   }
-  // Si el área del Dedo de Dios toca al boss, aplicar un golpe normal (como un tap)
-  if (boss.active && boss.hp > 0) {
-    const bossPoint = getBossPointInCircle(x, y, radius);
-    if (bossPoint) {
-      hitBossAt(bossPoint.x, bossPoint.y);
-    }
+  // Si cualquier parte del área del Dedo de Dios toca el hitbox del boss, aplicar daño
+  if (boss.active && boss.hp > 0 && isGodsFingerCircleHittingBoss(x, y, radius)) {
+    hitBossAt(x, y);
   }
   
   // Encontrar todos los meteoritos en el radio (si los hay)
@@ -5133,8 +5145,7 @@ debugSkip.addEventListener('pointercancel', () => {
 
 if (adminCreditsButton) {
   adminCreditsButton.addEventListener('pointerdown', () => {
-    if (!startScreen || startScreen.classList.contains('hidden')) return;
-    if (menuUpgradesPanel && menuUpgradesPanel.classList.contains('hidden')) return;
+    if (!state.debugMode || !debugPanel || debugPanel.classList.contains('hidden')) return;
     adminCreditsTriggered = false;
     clearAdminCreditsHold();
     adminCreditsTimer = setTimeout(() => {
@@ -5145,7 +5156,7 @@ if (adminCreditsButton) {
   });
 
   adminCreditsButton.addEventListener('pointerup', () => {
-    if (!startScreen || startScreen.classList.contains('hidden')) return;
+    if (!state.debugMode || !debugPanel || debugPanel.classList.contains('hidden')) return;
     clearAdminCreditsHold();
     if (!adminCreditsTriggered) {
       showAdminToast();
@@ -5153,18 +5164,16 @@ if (adminCreditsButton) {
   });
 
   adminCreditsButton.addEventListener('pointerleave', () => {
-    if (!startScreen || startScreen.classList.contains('hidden')) return;
     clearAdminCreditsHold();
   });
 
   adminCreditsButton.addEventListener('pointercancel', () => {
-    if (!startScreen || startScreen.classList.contains('hidden')) return;
     clearAdminCreditsHold();
   });
 }
 
-if (debugModeButton) {
-  debugModeButton.addEventListener('pointerdown', () => {
+if (menuOptionsButton) {
+  menuOptionsButton.addEventListener('pointerdown', () => {
     if (!startScreen || startScreen.classList.contains('hidden')) return;
     if (menuHomePanel && menuHomePanel.classList.contains('hidden')) return;
     debugModeTriggered = false;
@@ -5175,20 +5184,18 @@ if (debugModeButton) {
     }, 1000);
   });
 
-  debugModeButton.addEventListener('pointerup', () => {
+  menuOptionsButton.addEventListener('pointerup', () => {
     if (!startScreen || startScreen.classList.contains('hidden')) return;
     clearDebugModeHold();
-    if (!debugModeTriggered) {
-      showAdminToast();
-    }
+    if (!debugModeTriggered) setMenuView('options');
   });
 
-  debugModeButton.addEventListener('pointerleave', () => {
+  menuOptionsButton.addEventListener('pointerleave', () => {
     if (!startScreen || startScreen.classList.contains('hidden')) return;
     clearDebugModeHold();
   });
 
-  debugModeButton.addEventListener('pointercancel', () => {
+  menuOptionsButton.addEventListener('pointercancel', () => {
     if (!startScreen || startScreen.classList.contains('hidden')) return;
     clearDebugModeHold();
   });
@@ -5924,13 +5931,7 @@ function hideResultScreen() {
 }
 
 function updateDebugButtonsVisibility() {
-  const show = !!SHOW_DEBUG_BUTTONS;
-  [adminCreditsButton, debugModeButton].forEach(btn => {
-    if (btn) {
-      btn.classList.toggle('hidden', !show);
-      btn.style.display = show ? '' : 'none';
-    }
-  });
+  // +1k credits is inside debug panel; no separate visibility toggle
 }
 
 function loadProgress() {
